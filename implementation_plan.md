@@ -1,45 +1,61 @@
-# Plan de Implementación: Despliegue Serverless de Python en Vercel
+# Plan de Implementación: Despliegue de la UI Completa en Vercel (Front-end Estático + API Serverless)
 
-Dado que has conectado el repositorio a **Vercel**, configuraremos el proyecto para que el microservicio de analítica de Python (FastAPI, Pandas) se despliegue automáticamente en la nube como funciones serverless cada vez que realices un `git push`.
+Dado que **Vercel** es una plataforma orientada a frontend y microservicios serverless (y no puede ejecutar instancias persistentes de Java/Spring Boot), convertiremos la interfaz del lavadero en una **Single-Page Application (SPA)** estática. 
+
+La página se servirá directamente por Vercel en la raíz (`/`) y llamará asíncronamente a los endpoints de la base de datos Supabase a través del microservicio de Python (FastAPI) mapeado en `/api/`.
 
 ---
 
-## 1. Arquitectura de Despliegue en Vercel
+## 1. Arquitectura de Despliegue del Sistema en Vercel
 
 ```mermaid
 graph TD
-    User[Usuario / Navegador] -->|1. Abre Dashboard| JavaApp[Backend Java Local]
-    JavaApp -->|2. Datos de Calificaciones y Clientes| Supabase[(Supabase PostgreSQL)]
-    JavaApp -->|3. Analítica /segmentacion y /nps| VercelAPI[Vercel Serverless Python]
-    VercelAPI -->|4. Consulta SQL y Pandas| Supabase
+    User[Navegador del Usuario] -->|1. Carga https://lavadero.vercel.app| VercelStatic[Vercel Static Hosting]
+    VercelStatic -->|Retorna index.html| User
+    User -->|2. Carga datos y envía formularios: fetch /api/*| VercelAPI[Vercel Serverless Python]
+    VercelAPI -->|3. Querys SQL y CRUD con SQLAlchemy| Supabase[(Supabase PostgreSQL)]
 ```
 
-### A. Ejecución de FastAPI en Vercel
-Vercel requiere un archivo de entrada dentro de una carpeta `api/` en la raíz (ej. `api/index.py`) que exponga la instancia de ASGI `app`.
-Dado que la carpeta contenedora tiene un guion en su nombre (`automation-python`), no se puede importar directamente usando sintaxis estándar de Python. Para solucionarlo de forma elegante, añadiremos la ruta al `sys.path` del entorno de ejecución de Vercel.
+### A. Frontend Cliente (index.html en la Raíz)
+Reescribiremos la plantilla `dashboard.html` como un archivo estático `index.html` en la raíz de tu repositorio:
+* Reemplazaremos las directivas del motor Thymeleaf de Java (`th:text`, `th:each`, `th:if`) por renderizado en el cliente usando JavaScript nativo (`fetch()` y plantillas dinámicas `innerHTML`).
+* Al cargar la página, se llamará a `/api/dashboard-data` para recibir y renderizar toda la información comercial al instante.
 
-### B. Configuración de Enrutamiento (`vercel.json`)
-Crearemos el archivo `vercel.json` en la raíz del proyecto para definir que todas las llamadas HTTP dirigidas a `/api/` sean procesadas por la función serverless de Python.
+### B. Mapeo de APIs en Python FastAPI
+Extenderemos el backend de Python en `automation-python/api/main.py` para añadir soporte a las operaciones del dashboard, conectando directo a Supabase:
+* `GET /api/dashboard-data`: Obtiene todos los turnos, productos, servicios, empleados, estado de caja, NPS y alertas.
+* `POST /api/caja/abrir` y `POST /api/caja/cerrar`: Control de caja diaria.
+* `POST /api/turnos/agendar` y `POST /api/turnos/{id}/estado`: Gestión de la agenda de lavados.
+* `POST /api/pos/venta` y `POST /api/pos/productos/{id}/reabastecer`: Punto de venta e insumos.
+* `POST /api/empleados/nuevo` y `POST /api/empleados/{id}/estado`: Administración del personal.
 
 ---
 
 ## Proposed Changes
 
-### [Componente: Orquestación Vercel]
-*Configuraciones para compilar y desplegar en la nube.*
+### [Componente: Servidor de Analítica y APIs (Python)]
+*Ampliación del backend FastAPI para soportar las operaciones del POS, caja y turnos.*
 
-#### [NEW] [vercel.json](file:///c:/Lavadero/vercel.json)
-- Archivo de enrutamiento y definición de builds para el runtime `@vercel/python`.
+#### [MODIFY] [main.py](file:///c:/Lavadero/automation-python/api/main.py)
+- Agregar endpoints REST en FastAPI para responder a todas las acciones de la interfaz (caja, ventas, empleados, turnos, feedback).
+- Implementar el consolidador de datos `/api/dashboard-data` consultando Supabase.
 
-#### [NEW] [requirements.txt](file:///c:/Lavadero/requirements.txt)
-- Copiar las dependencias de Python a la raíz para que el build-step de Vercel instale FastAPI, Pandas y SQLAlchemy de manera automática.
+---
 
-#### [NEW] [index.py](file:///c:/Lavadero/api/index.py)
-- Script de entrada que carga e inicializa la aplicación FastAPI agregando la ruta al módulo de analíticas.
+### [Componente: Frontend de Vercel (HTML/JS)]
+*Construcción de la interfaz SPA.*
+
+#### [NEW] [index.html](file:///c:/Lavadero/index.html)
+- Reemplazo de Thymeleaf por llamadas AJAX síncronas/asíncronas al API serverless de Vercel.
+- Renderizado de componentes UI en caliente (Timeline de Turnos, POS de Productos, Equipo de Trabajo, Alertas de Stock, widget NPS).
+
+#### [MODIFY] [vercel.json](file:///c:/Lavadero/vercel.json)
+- Configurar `rewrites` para que Vercel sirva el archivo `index.html` estático en el frontend y dirija las peticiones `/api/*` al motor serverless Python.
 
 ---
 
 ## 2. Plan de Verificación y Lanzamiento
 
-1. **Commit y Push:** Subir los cambios a GitHub para que Vercel inicie el build automático.
-2. **Validación:** Probar que la URL asignada por Vercel responda correctamente al hacer GET a `https://[tu-proyecto].vercel.app/api/nps`.
+1. **Prueba en Local:** Ejecutar localmente FastAPI y cargar `index.html` para validar que responda y renderice las tarjetas correctamente.
+2. **Push a GitHub:** Ejecutar `git push` para desplegar las actualizaciones en Vercel.
+3. **Verificación en Producción:** Abrir la URL pública de Vercel en el navegador y probar el flujo completo (registrar lavado, cobro POS, valoración NPS, alternar empleados).

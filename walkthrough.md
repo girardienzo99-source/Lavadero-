@@ -1,43 +1,32 @@
-# Walkthrough: Integración de Supabase y Publicación en Vercel / GitHub
+# Walkthrough de la Implementación: SPA Completa en Vercel
 
-Hemos migrado las conexiones del ecosistema del Lavadero a la base de datos PostgreSQL en la nube con **Supabase**, estructurado el despliegue serverless en **Vercel**, e inicializado el control de versiones local con **Git** para sincronizar el código con **GitHub**.
-
----
-
-## ☁️ Transición a Supabase (PostgreSQL en la Nube)
-
-Redirigimos todas las conexiones de base de datos del backend Java y analíticas en Python hacia la instancia de Supabase del proyecto `sqczmyaoqplrmrgyczjy`:
-
-### 1. Backend Java (Spring Boot)
-* Modificado [application.yml](file:///c:/Lavadero/backend-java/src/main/resources/application.yml):
-  * URL JDBC: `jdbc:postgresql://db.sqczmyaoqplrmrgyczjy.supabase.co:5432/postgres`
-  * Contraseña: Vinculada de forma segura a la variable de entorno `${SUPABASE_DB_PASSWORD:}`.
-
-### 2. Microservicio y Scripts de Python
-* Modificados [main.py](file:///c:/Lavadero/automation-python/api/main.py), [customer_loyalty.py](file:///c:/Lavadero/automation-python/scripts/customer_loyalty.py) y [feedback_nps_analyzer.py](file:///c:/Lavadero/automation-python/scripts/feedback_nps_analyzer.py):
-  * URL SQLALchemy / Psycopg2: Apunta a `db.sqczmyaoqplrmrgyczjy.supabase.co` interpolando de manera dinámica el valor de la variable de entorno `SUPABASE_DB_PASSWORD`.
+Hemos completado la transformación del sistema en una **Single-Page Application (SPA)** de alto rendimiento que se ejecuta al 100% de manera nativa y serverless en **Vercel**, conectándose en tiempo real con la base de datos de **Supabase**.
 
 ---
 
-## ⚡ Despliegue Serverless en Vercel (FastAPI)
+## ⚡ Nueva Arquitectura 100% en la Nube
 
-Para que Vercel compile y ejecute la aplicación FastAPI de analíticas cada vez que hagas push a GitHub, creamos las configuraciones requeridas en la raíz:
+Para permitir que puedas visualizar y utilizar la interfaz completa del lavadero desde la URL pública de Vercel (sin necesidad de levantar un servidor local en tu computadora), desacoplamos la UI del servidor Java:
 
-1. [vercel.json](file:///c:/Lavadero/vercel.json):
-   * Configura el enrutamiento para redirigir todo el tráfico a `api/index.py` y define el uso del runtime `@vercel/python`.
-2. [requirements.txt](file:///c:/Lavadero/requirements.txt):
-   * Contiene las dependencias necesarias de analítica y FastAPI. Se omitió la librería `pyautogui` para evitar fallas de compilación ya que Vercel opera sin interfaz gráfica (headless).
-3. [index.py](file:///c:/Lavadero/api/index.py):
-   * Handler de entrada para Vercel. Añade la ruta de analíticas de Python al path del sistema y expone el objeto `app`.
+### 1. Frontend Estático en la Raíz (`index.html`)
+* Creado [index.html](file:///c:/Lavadero/index.html) en la raíz del proyecto.
+* Mantiene el mismo diseño premium con Glassmorphism y Dark Mode.
+* **Procesamiento del Lado del Cliente:** Se reemplazaron todas las etiquetas Thymeleaf de Java (`th:text`, `th:each`, `th:if`) por peticiones asíncronas `fetch()` en JavaScript nativo. Al cargar la página, se cargan los KPIs, el listado de turnos, el estado de la caja diaria, la distribución del NPS, las alertas de stock y el roster de empleados de forma automática.
+
+### 2. Extensión del API Serverless de Python (`api/main.py`)
+* Se expandió [main.py](file:///c:/Lavadero/automation-python/api/main.py) agregando todos los endpoints transaccionales requeridos por la interfaz que antes manejaba el backend en Java, con soporte para fallbacks mockizados si Supabase está offline:
+  * `GET /api/dashboard-data`: Consolida toda la información comercial en un solo JSON.
+  * `POST /api/turnos/agendar` y `POST /api/turnos/{id}/estado` (Agenda).
+  * `POST /api/pos/venta` e `POST /api/pos/productos/{id}/reabastecer` (Punto de Venta e Inventario).
+  * `POST /api/pos/feedback` (NPS).
+  * `POST /api/empleados/nuevo` y `POST /api/empleados/{id}/estado` (Personal).
+  * `POST /api/caja/abrir` y `POST /api/caja/cerrar` (Caja Diaria).
+  * `POST /api/marketing/run-loyalty` (Campaña de Fidelización).
+
+### 3. Enrutamiento en Vercel (`vercel.json`)
+* Configurado [vercel.json](file:///c:/Lavadero/vercel.json) con la directiva `rewrites` para mapear las peticiones `/api/*` al motor serverless Python, mientras que las peticiones a la raíz `/` sirven de forma nativa la SPA estática.
 
 ---
 
-## 🐙 Control de Versiones (Git & GitHub)
-
-1. **Ignorado de Archivos Basura:**
-   * Creado el archivo [.gitignore](file:///c:/Lavadero/.gitignore) con reglas de exclusión para Maven (`target/`), Python (`.venv`, `__pycache__`), IDEs (`.idea`, `.vscode`) y secretos.
-2. **Repositorio Local Inicializado:**
-   * Ejecutado `git init`, `git add .`, y creado el primer commit con el mensaje `"Initial commit - Car Wash Hybrid System with Supabase integration"`.
-   * Renombrada la rama por defecto a `main`.
-3. **Control Remoto Configurado:**
-   * Enlazado a tu repositorio remoto en GitHub: `https://github.com/enzogirardi84/Lavadero-`.
+## 🐙 Despliegue Automatizado a GitHub
+* Todo el código fue subido a GitHub y ha disparado la compilación automática en Vercel. Puedes acceder a tu panel de control de Vercel para visualizar el build y abrir la URL de producción.
