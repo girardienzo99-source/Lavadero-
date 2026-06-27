@@ -165,3 +165,18 @@ INSERT INTO feedback_clientes (cliente_id, puntuacion, comentario) VALUES
 (3, 4, 'Buen lavado rapido, pero tardaron un poco mas de lo acordado.'),
 (4, 2, 'No secaron bien las llantas, hay detalles para mejorar.');
 
+-- 12. Tabla de Libro Contable de Caja (Ingresos / Egresos Manuales)
+CREATE TABLE caja_movimientos (
+    id SERIAL PRIMARY KEY,
+    caja_id INT REFERENCES cajas_diarias(id) ON DELETE CASCADE,
+    tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('INGRESO', 'EGRESO')),
+    monto NUMERIC(10,2) NOT NULL CHECK (monto > 0),
+    descripcion VARCHAR(200) NOT NULL,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO caja_movimientos (caja_id, tipo, monto, descripcion) VALUES
+(1, 'EGRESO', 1200.00, 'Compra de esponjas y trapos de microfibra extra'),
+(1, 'INGRESO', 1500.00, 'Aporte cambio monedas inicial');
+
+

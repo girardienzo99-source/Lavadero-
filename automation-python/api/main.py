@@ -58,6 +58,14 @@ def get_dashboard_data():
         vehiculos = execute_query("SELECT * FROM vehiculos ORDER BY patente;", fetch_all=True)
         caja_activa = execute_query("SELECT * FROM cajas_diarias WHERE estado = 'ABIERTA' ORDER BY id DESC LIMIT 1;", fetch_one=True)
         
+        caja_movimientos = []
+        if caja_activa:
+            caja_movimientos = execute_query(
+                "SELECT id, tipo, monto, descripcion, TO_CHAR(fecha, 'HH24:MI') as hora FROM caja_movimientos WHERE caja_id = :id ORDER BY id DESC;",
+                {"id": caja_activa["id"]},
+                fetch_all=True
+            )
+        
         # NPS Metrics
         nps_data = get_nps_metrics()
         
@@ -74,6 +82,7 @@ def get_dashboard_data():
             "clientes": clientes,
             "vehiculos": vehiculos,
             "caja": caja_activa,
+            "cajaMovimientos": caja_movimientos,
             "nps": nps_data,
             "productosBajoStock": bajo_stock
         }
@@ -455,8 +464,69 @@ def get_mock_dashboard_data(err_msg: str):
         },
         "productosBajoStock": [
             {"id": 1, "nombre": "Silicona Interior Aromatizada", "stock": 2, "stock_minimo": 5, "precio_venta": 600.0}
+        ],
+        "cajaMovimientos": [
+            {"id": 1, "tipo": "EGRESO", "monto": 1200.0, "descripcion": "Compra de esponjas y trapos de microfibra extra", "hora": "09:30"},
+            {"id": 2, "tipo": "INGRESO", "monto": 1500.0, "descripcion": "Aporte cambio monedas inicial", "hora": "08:15"}
         ]
     }
+
+@app.post("/api/clientes/nuevo")
+def new_client(nombre: str, telefono: str = None, email: str = None):
+    try:
+        res = execute_query(
+            "INSERT INTO clientes (nombre, telefono, email, fecha_registro, clasificacion) VALUES (:n, :t, :e, NOW(), 'OCASIONAL') RETURNING id;",
+            {"n": nombre, "t": telefono, "e": email},
+            fetch_one=True
+        )
+        return {"status": "success", "id": res["id"] if res else 999, "nombre": nombre}
+    except Exception as e:
+        print(f"[CRM-WARNING] DB Error ({e}). Usando simulación.")
+        return {"status": "success", "id": random.randint(10, 100), "nombre": nombre, "simulated": True}
+
+@app.post("/api/vehiculos/nuevo")
+def new_vehicle(clienteId: int, patente: str, marca: str, modelo: str, color: str = None, anio: int = None):
+    try:
+        res = execute_query(
+            "INSERT INTO vehiculos (cliente_id, patente, marca, modelo, color, anio) VALUES (:c, :p, :m, :mo, :co, :a) RETURNING id;",
+            {"c": clienteId, "p": patente, "m": marca, "mo": modelo, "co": color, "a": anio},
+            fetch_one=True
+        )
+        return {"status": "success", "id": res["id"] if res else 999, "patente": patente}
+    except Exception as e:
+        print(f"[CRM-WARNING] DB Error ({e}). Usando simulación.")
+        return {"status": "success", "id": random.randint(10, 100), "patente": patente, "simulated": True}
+
+@app.post("/api/caja/movimiento")
+def new_cash_movement(tipo: str, monto: float, descripcion: str):
+    if tipo not in ["INGRESO", "EGRESO"]:
+        return {"status": "error", "message": "Tipo de movimiento no válido."}
+    if monto <= 0:
+        return {"status": "error", "message": "El monto debe ser mayor que cero."}
+        
+    try:
+        caja = execute_query("SELECT id FROM cajas_diarias WHERE estado = 'ABIERTA' ORDER BY id DESC LIMIT 1;", fetch_one=True)
+        if not caja:
+            return {"status": "error", "message": "Operación denegada. La caja diaria está cerrada."}
+            
+        caja_id = caja["id"]
+        
+        # Insertar movimiento
+        execute_query(
+            "INSERT INTO caja_movimientos (caja_id, tipo, monto, descripcion) VALUES (:c, :t, :m, :d);",
+            {"c": caja_id, "t": tipo, "m": monto, "d": descripcion}
+        )
+        
+        # Actualizar saldo_actual de la caja
+        if tipo == "INGRESO":
+            execute_query("UPDATE cajas_diarias SET saldo_actual = saldo_actual + :m WHERE id = :id;", {"m": monto, "id": caja_id})
+        else:
+            execute_query("UPDATE cajas_diarias SET saldo_actual = saldo_actual - :m WHERE id = :id;", {"m": monto, "id": caja_id})
+            
+        return {"status": "success", "message": "Movimiento de caja registrado correctamente."}
+    except Exception as e:
+        print(f"[CAJA-WARNING] DB Error ({e}). Usando simulación.")
+        return {"status": "success", "message": "Movimiento registrado (modo simulación).", "simulated": True}
 
 @app.post("/api/auth/login")
 def login(payload: dict):

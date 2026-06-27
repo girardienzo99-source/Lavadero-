@@ -420,6 +420,56 @@
         <div class="glass-card">
             <h2 class="card-title">📅 Agenda y Turnos <span>Hoy</span></h2>
             
+            <!-- CRM: Alta Rápida de Cliente & Auto -->
+            <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-card); border-radius: 12px; padding: 0.9rem; margin-bottom: 0.8rem; display: flex; flex-direction: column; gap: 0.8rem;">
+                <h3 style="font-size: 0.85rem; color: var(--text-primary); display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight:700;" onclick="toggleFormCRM()">
+                    <span>👤+ Registrar Nuevo Cliente & Auto</span>
+                    <span id="crm-chevron" style="font-size: 0.75rem; color: var(--accent); font-weight:600;">[+] Expandir</span>
+                </h3>
+                
+                <form id="form-crm" style="display: none; flex-direction: column; gap: 0.6rem; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 0.8rem;">
+                    <!-- Datos Cliente -->
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="crm-cli-nombre" style="font-size: 0.75rem;">Nombre y Apellido</label>
+                            <input type="text" id="crm-cli-nombre" placeholder="Ej. Emilio Sanz" required style="padding: 0.4rem; font-size: 0.8rem;">
+                        </div>
+                        <div class="form-group">
+                            <label for="crm-cli-tel" style="font-size: 0.75rem;">Teléfono</label>
+                            <input type="text" id="crm-cli-tel" placeholder="Ej. 1198765432" style="padding: 0.4rem; font-size: 0.8rem;">
+                        </div>
+                    </div>
+                    <!-- Datos Auto -->
+                    <div style="display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="crm-veh-patente" style="font-size: 0.75rem;">Patente</label>
+                            <input type="text" id="crm-veh-patente" placeholder="Ej. AG999ZZ" required style="padding: 0.4rem; font-size: 0.8rem;">
+                        </div>
+                        <div class="form-group">
+                            <label for="crm-veh-marca" style="font-size: 0.75rem;">Marca</label>
+                            <input type="text" id="crm-veh-marca" placeholder="Ej. Toyota" required style="padding: 0.4rem; font-size: 0.8rem;">
+                        </div>
+                        <div class="form-group">
+                            <label for="crm-veh-modelo" style="font-size: 0.75rem;">Modelo</label>
+                            <input type="text" id="crm-veh-modelo" placeholder="Ej. Corolla" required style="padding: 0.4rem; font-size: 0.8rem;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="crm-veh-color" style="font-size: 0.75rem;">Color (Opcional)</label>
+                            <input type="text" id="crm-veh-color" placeholder="Ej. Gris" style="padding: 0.4rem; font-size: 0.8rem;">
+                        </div>
+                        <div class="form-group">
+                            <label for="crm-veh-anio" style="font-size: 0.75rem;">Año (Opcional)</label>
+                            <input type="number" id="crm-veh-anio" min="1980" max="2027" placeholder="Ej. 2022" style="padding: 0.4rem; font-size: 0.8rem;">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.5rem; font-size: 0.8rem; background: linear-gradient(135deg, var(--info) 0%, #0284C7 100%);">
+                        Guardar Cliente y Auto
+                    </button>
+                </form>
+            </div>
+
             <!-- Formulario Agendar Turno -->
             <form id="form-turno" style="display: flex; flex-direction: column; gap: 0.8rem; border-bottom: 1px solid var(--border-card); padding-bottom: 1.2rem;">
                 <h3 style="font-size: 0.9rem; color: var(--text-muted);">Agendar Nuevo Lavado</h3>
@@ -858,6 +908,24 @@
                     </form>
                 `;
             } else {
+                // Generar HTML de los movimientos de caja
+                let movimientosHTML = '';
+                const movimientos = globalData.cajaMovimientos || [];
+                if (movimientos.length === 0) {
+                    movimientosHTML = '<span style="font-size:0.75rem; color:var(--text-muted); display:block; padding:0.2rem 0;">Sin egresos/ingresos registrados hoy.</span>';
+                } else {
+                    movimientos.forEach(m => {
+                        const mColor = m.tipo === 'EGRESO' ? '#F87171' : '#34D399';
+                        const mSign = m.tipo === 'EGRESO' ? '-' : '+';
+                        movimientosHTML += `
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; border-bottom: 1px solid rgba(255,255,255,0.02); padding: 0.2rem 0;">
+                                <span style="color:var(--text-muted); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${m.hora} - ${m.descripcion}</span>
+                                <span style="font-weight:600; color:${mColor};">${mSign}$${m.monto}</span>
+                            </div>
+                        `;
+                    });
+                }
+
                 container.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-size:0.85rem; font-weight:600; color:var(--success);">🟢 Caja Diaria Abierta</span>
@@ -867,7 +935,38 @@
                         <span style="font-size:0.8rem; color:var(--text-muted);">Saldo Acumulado:</span>
                         <span style="font-size:1.1rem; font-weight:700; color:var(--info);">$${caja.saldo_actual}</span>
                     </div>
-                    <form id="form-caja-cerrar" style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.3rem;" onsubmit="cerrarCaja(event)">
+
+                    <!-- Libro de Caja Ledger -->
+                    <div style="margin-top:0.5rem; background:rgba(0,0,0,0.2); border:1px solid var(--border-card); border-radius:8px; padding:0.6rem; display:flex; flex-direction:column; gap:0.3rem;">
+                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:0.2rem;">Libro de Caja (Hoy)</div>
+                        <div style="max-height:80px; overflow-y:auto; display:flex; flex-direction:column; gap:0.2rem;">
+                            ${movimientosHTML}
+                        </div>
+                    </div>
+
+                    <!-- Formulario de Movimiento de Caja Rápido -->
+                    <form id="form-mov-caja" style="display:flex; flex-direction:column; gap:0.4rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.5rem;" onsubmit="registrarMovimientoCaja(event)">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem;">
+                            <div class="form-group">
+                                <label style="font-size:0.7rem;">Monto ($)</label>
+                                <input type="number" id="caja-mov-monto" min="1" step="any" placeholder="Ej. 1200" required style="padding:0.4rem; font-size:0.8rem;">
+                            </div>
+                            <div class="form-group">
+                                <label style="font-size:0.7rem;">Tipo</label>
+                                <select id="caja-mov-tipo" required style="padding:0.4rem; font-size:0.8rem;">
+                                    <option value="EGRESO">Egreso</option>
+                                    <option value="INGRESO">Ingreso</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size:0.7rem;">Descripción</label>
+                            <input type="text" id="caja-mov-desc" placeholder="Ej. Compra de franela" required style="padding:0.4rem; font-size:0.8rem;">
+                        </div>
+                        <button type="submit" class="btn btn-secondary" style="padding:0.45rem; font-size:0.75rem; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.25); color:#C084FC;">Registrar Movimiento</button>
+                    </form>
+
+                    <form id="form-caja-cerrar" style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.3rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.5rem;" onsubmit="cerrarCaja(event)">
                         <div class="form-group">
                             <label>Monto de Cierre Real ($)</label>
                             <input type="number" id="caja-monto-cierre" min="0" value="${caja.saldo_actual}" required>
@@ -1167,6 +1266,108 @@
                 .catch(err => {
                     terminal.innerText = `[ERROR] No se pudo conectar con el servidor: ${err}`;
                 });
+        };
+
+        // CRM: Toggle Formulario Rápido
+        window.toggleFormCRM = function() {
+            const form = document.getElementById('form-crm');
+            const chev = document.getElementById('crm-chevron');
+            if (form.style.display === 'none') {
+                form.style.display = 'flex';
+                chev.innerText = '[-] Colapsar';
+            } else {
+                form.style.display = 'none';
+                chev.innerText = '[+] Expandir';
+            }
+        };
+
+        // CRM: Guardar Cliente y Auto Rápido
+        document.getElementById('form-crm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nom = document.getElementById('crm-cli-nombre').value;
+            const tel = document.getElementById('crm-cli-tel').value;
+            const pat = document.getElementById('crm-veh-patente').value;
+            const mar = document.getElementById('crm-veh-marca').value;
+            const mod = document.getElementById('crm-veh-modelo').value;
+            const col = document.getElementById('crm-veh-color').value;
+            const ani = document.getElementById('crm-veh-anio').value;
+
+            // 1. Guardar Cliente
+            const cliUrl = `${API_BASE}/clientes/nuevo?nombre=${encodeURIComponent(nom)}&telefono=${encodeURIComponent(tel)}`;
+            fetch(cliUrl, { method: 'POST' })
+                .then(res => res.json())
+                .then(cliData => {
+                    if (cliData.status === 'success') {
+                        const cliId = cliData.id;
+                        // 2. Guardar Vehiculo
+                        let vehUrl = `${API_BASE}/vehiculos/nuevo?clienteId=${cliId}&patente=${encodeURIComponent(pat)}&marca=${encodeURIComponent(mar)}&modelo=${encodeURIComponent(mod)}`;
+                        if (col) vehUrl += `&color=${encodeURIComponent(col)}`;
+                        if (ani) vehUrl += `&anio=${parseInt(ani)}`;
+
+                        fetch(vehUrl, { method: 'POST' })
+                            .then(res => res.json())
+                            .then(vehData => {
+                                if (vehData.status === 'success') {
+                                    alert(`¡Cliente ${nom} y Vehículo ${pat} guardados con éxito!`);
+                                    
+                                    // Limpiar form
+                                    document.getElementById('crm-cli-nombre').value = '';
+                                    document.getElementById('crm-cli-tel').value = '';
+                                    document.getElementById('crm-veh-patente').value = '';
+                                    document.getElementById('crm-veh-marca').value = '';
+                                    document.getElementById('crm-veh-modelo').value = '';
+                                    document.getElementById('crm-veh-color').value = '';
+                                    document.getElementById('crm-veh-anio').value = '';
+                                    toggleFormCRM();
+
+                                    // Recargar Dashboard
+                                    fetch(`${API_BASE}/dashboard-data`)
+                                        .then(res => res.json())
+                                        .then(data => {
+                                            globalData = data;
+                                            if (data.status === 'success') {
+                                                populateDropdowns(data);
+                                                renderTurnos(data.turnos);
+                                                renderCaja(data.caja);
+                                                renderStockCritico(data.productosBajoStock);
+                                                renderNPS(data.nps);
+                                                renderEmpleados(data.empleados);
+
+                                                // Auto-seleccionar nuevo cliente y vehículo en el formulario de turnos
+                                                document.getElementById('turno-cliente').value = cliId;
+                                                document.getElementById('turno-vehiculo').value = vehData.id;
+                                            }
+                                        });
+                                } else {
+                                    alert('Error al registrar vehículo.');
+                                }
+                            });
+                    } else {
+                        alert('Error al registrar cliente.');
+                    }
+                })
+                .catch(err => alert('Error en red: ' + err));
+        });
+
+        // CAJA LEDGER: Registrar Movimiento Contable (Ingreso / Egreso)
+        window.registrarMovimientoCaja = function(e) {
+            e.preventDefault();
+            const monto = document.getElementById('caja-mov-monto').value;
+            const tipo = document.getElementById('caja-mov-tipo').value;
+            const desc = document.getElementById('caja-mov-desc').value;
+
+            const url = `${API_BASE}/caja/movimiento?tipo=${tipo}&monto=${monto}&descripcion=${encodeURIComponent(desc)}`;
+            fetch(url, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        loadDashboard();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(err => alert('Error en red: ' + err));
         };
     </script>
 </body>
