@@ -1,0 +1,31 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: lavadero-backend
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db.sqczmyaoqplrmrgyczjy.supabase.co:5432/postgres}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SUPABASE_DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# Configuración personalizada para la integración con Python
+python:
+  # Ruta del ejecutable. Por defecto usa 'python' del sistema, pero se puede sobrescribir
+  # con la ruta del entorno virtual: "C:/Lavadero/automation-python/.venv/Scripts/python.exe"
+  executable: ${PYTHON_EXECUTABLE:python}
+  # Directorio donde se alojan los scripts de marketing y automatización
+  scripts-path: ${PYTHON_SCRIPTS_PATH:C:/Lavadero/automation-python/scripts}
+  # URL base del servicio FastAPI
+  fastapi-url: ${PYTHON_FASTAPI_URL:http://localhost:8000}

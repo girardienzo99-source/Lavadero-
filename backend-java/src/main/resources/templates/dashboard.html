@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lavadero Car Wash - Panel Premium de Control</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0B0F19;
+            --bg-surface: rgba(17, 24, 39, 0.7);
+            --border-glow: rgba(124, 58, 237, 0.2);
+            --primary: #7C3AED;
+            --primary-glow: rgba(124, 58, 237, 0.4);
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --info: #3B82F6;
+            --text-main: #F3F4F6;
+            --text-muted: #9CA3AF;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(124, 58, 237, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(59, 130, 246, 0.15) 0px, transparent 50%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .brand {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .brand span {
+            color: var(--info);
+            -webkit-text-fill-color: initial;
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .status-badge {
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-badge.open {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-badge.closed {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        /* Layout Grid */
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glassmorphic Cards */
+        .glass-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0.5;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(124, 58, 237, 0.4);
+            box-shadow: 0 12px 40px 0 rgba(124, 58, 237, 0.15);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--text-main);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.8rem;
+        }
+
+        .card-title span {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        /* Quick Stats Row */
+        .stats-grid {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            position: relative;
+        }
+
+        .stat-val {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-box::after {
+            content: '';
+            position: absolute;
+            right: 15px;
+            bottom: 15px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .stat-box.pending::after { background-color: var(--warning); box-shadow: 0 0 10px var(--warning); }
+        .stat-box.progress::after { background-color: var(--info); box-shadow: 0 0 10px var(--info); }
+        .stat-box.completed::after { background-color: var(--success); box-shadow: 0 0 10px var(--success); }
+        .stat-box.stock::after { background-color: var(--danger); box-shadow: 0 0 10px var(--danger); }
+
+        /* Forms styling */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        input, select, textarea {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 0.75rem;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 0 3px var(--border-glow);
+        }
+
+        /* Buttons styling */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-success {
+            background: var(--success);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Lists & Tables */
+        .item-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            max-height: 350px;
+            overflow-y: auto;
+            padding-right: 0.3rem;
+        }
+
+        .item-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .item-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .list-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .list-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .list-item-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .list-item-sub {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 50px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge.vip { background: rgba(124, 58, 237, 0.2); color: #C084FC; border: 1px solid rgba(124, 58, 237, 0.3); }
+        .badge.frecuente { background: rgba(59, 130, 246, 0.2); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge.ocasional { background: rgba(156, 163, 175, 0.2); color: #D1D5DB; border: 1px solid rgba(156, 163, 175, 0.3); }
+
+        .badge.pendiente { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .badge.progreso { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+        .badge.completado { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+
+        .terminal-box {
+            background: #05070F;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.8rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #34D399;
+            height: 180px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .offline-banner {
+            background: rgba(239, 68, 68, 0.1);
+            color: #F87171;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 0.6rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .offline-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--danger);
+            box-shadow: 0 0 8px var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header / Brand & Caja -->
+    <header>
+        <div class="brand">🚀 LAVADERO <span>CAR WASH</span></div>
+        <div class="header-meta">
+            <span style="font-size: 0.9rem; color: var(--text-muted);" th:text="${fechaHoy}">2026-06-27</span>
+            <!-- Indicador de Caja Diaria -->
+            <div th:if="${cajaAbierta}" class="status-badge open">
+                <span class="offline-indicator" style="background-color: var(--success); box-shadow: 0 0 8px var(--success);"></span>
+                CAJA ABIERTA: $<span th:text="${caja.montoApertura + caja.ingresos - caja.egresos}">1000.00</span>
+            </div>
+            <div th:unless="${cajaAbierta}" class="status-badge closed">
+                <span class="offline-indicator"></span>
+                CAJA CERRADA
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="dashboard-container">
+
+        <!-- STATS ROW (Unificada) -->
+        <div class="stats-grid">
+            <div class="stat-box pending">
+                <span class="stat-val" th:text="${contPendientes}">0</span>
+                <span class="stat-label">Turnos Pendientes</span>
+            </div>
+            <div class="stat-box progress">
+                <span class="stat-val" th:text="${contEnProceso}">0</span>
+                <span class="stat-label">En Progreso</span>
+            </div>
+            <div class="stat-box completed">
+                <span class="stat-val" th:text="${contCompletados}">0</span>
+                <span class="stat-label">Completados Hoy</span>
+            </div>
+            <div class="stat-box stock">
+                <span class="stat-val" th:text="${contBajoStock}">0</span>
+                <span class="stat-label">Alertas de Stock</span>
+            </div>
+        </div>
+
+        <!-- COLUMNA 1: AGENDA Y TURNOS -->
+        <div class="glass-card">
+            <h2 class="card-title">📅 Agenda & Lavados <span>Turnos</span></h2>
+            
+            <!-- Crear Nuevo Turno -->
+            <form id="form-turno" style="display: flex; flex-direction: column; gap: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1rem;">
+                <h3 style="font-size: 0.95rem; color: var(--text-muted);">Agendar Nuevo Lavado</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-group">
+                        <label for="turno-cliente">Cliente ID</label>
+                        <input type="number" id="turno-cliente" required value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="turno-vehiculo">Vehículo ID</label>
+                        <input type="number" id="turno-vehiculo" required value="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="turno-servicio">Servicio</label>
+                    <select id="turno-servicio" required>
+                        <option th:each="srv : ${servicios}" th:value="${srv.id}" th:text="${srv.nombre} + ' ($' + ${srv.precio} + ')'"></option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="turno-fecha">Fecha y Hora</label>
+                    <input type="datetime-local" id="turno-fecha" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="padding: 0.6rem;">Agendar Turno</button>
+            </form>
+
+            <!-- Lista de Turnos Activos -->
+            <h3 style="font-size: 0.95rem; color: var(--text-muted);">Lavados del Día</h3>
+            <div class="item-list" id="turnos-container">
+                <div th:each="t : ${turnos}" class="list-item">
+                    <div class="list-item-info">
+                        <span class="list-item-title" th:text="${t.vehiculo.patente} + ' - ' + ${t.vehiculo.marca} + ' ' + ${t.vehiculo.modelo}">AA123BB - Toyota Corolla</span>
+                        <span class="list-item-sub" th:text="${t.servicio.nombre} + ' @ ' + ${#strings.replace(t.fechaHora, 'T', ' ')}">Lavado Completo</span>
+                    </div>
+                    <div>
+                        <!-- Botón para avanzar estado -->
+                        <span th:if="${t.estado == 'PENDIENTE'}" class="badge pendiente" style="cursor:pointer;" th:onclick="'actualizarEstadoTurno(' + ${t.id} + ', \'EN_PROGRESO\')'">Pendiente</span>
+                        <span th:if="${t.estado == 'EN_PROGRESO'}" class="badge progreso" style="cursor:pointer;" th:onclick="'actualizarEstadoTurno(' + ${t.id} + ', \'COMPLETADO\')'">En Progreso</span>
+                        <span th:if="${t.estado == 'COMPLETADO'}" class="badge completado">Completado</span>
+                        <span th:if="${t.estado == 'CANCELADO'}" class="badge" style="background:rgba(239,68,68,0.1); color:var(--danger)">Cancelado</span>
+                    </div>
+                </div>
+                <div th:if="${#lists.isEmpty(turnos)}" class="list-item-sub" style="text-align: center; padding: 2rem;">No hay turnos agendados.</div>
+            </div>
+        </div>
+
+        <!-- COLUMNA 2: POS (PUNTO DE VENTA) Y CAJA -->
+        <div class="glass-card">
+            <h2 class="card-title">🛒 Punto de Venta (POS) <span>Facturación</span></h2>
+            
+            <!-- Control de Caja Diaria -->
+            <div style="background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.85rem;" th:text="${cajaAbierta ? 'Caja Diaria Operativa' : 'Caja Cerrada (POS Inactivo)'}">Caja Cerrada</span>
+                <button th:if="${cajaAbierta}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="cerrarCaja()">Cerrar Caja</button>
+                <button th:unless="${cajaAbierta}" class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="abrirCaja()">Abrir Caja</button>
+            </div>
+
+            <!-- Formulario de Venta -->
+            <form id="form-venta" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="form-group">
+                    <label for="venta-cliente">Cliente ID (Opcional)</label>
+                    <input type="number" id="venta-cliente" placeholder="ID del cliente registrado (ej. 1)">
+                </div>
+
+                <div class="form-group">
+                    <label for="venta-item">Item (Servicio o Producto)</label>
+                    <select id="venta-item" required>
+                        <optgroup label="Servicios de Lavado">
+                            <option th:each="srv : ${servicios}" th:value="'SRV-' + ${srv.id}" th:text="${srv.nombre} + ' ($' + ${srv.precio} + ')'"></option>
+                        </optgroup>
+                        <optgroup label="Productos / Retail">
+                            <option th:each="p : ${productos}" th:value="'PROD-' + ${p.id}" th:text="${p.nombre} + ' ($' + ${p.precioVenta} + ') - Stock: ' + ${p.stock}"></option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="venta-cantidad">Cantidad</label>
+                    <input type="number" id="venta-cantidad" value="1" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="venta-cupon">Cupón de Descuento (Fidelización Python)</label>
+                    <input type="text" id="venta-cupon" placeholder="VOLVEXXXXXX (15% Off)" style="text-transform: uppercase;">
+                </div>
+
+                <div class="form-group">
+                    <label for="venta-pago">Método de Pago</label>
+                    <select id="venta-pago" required>
+                        <option value="EFECTIVO">Efectivo</option>
+                        <option value="TARJETA">Tarjeta de Crédito/Débito</option>
+                        <option value="TRANSFERENCIA">Transferencia / QR</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 0.5rem;" th:disabled="${!cajaAbierta}">Procesar Cobro (Cobrar)</button>
+            </form>
+
+            <!-- Alertas de Inventario / Reabastecimiento -->
+            <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem; margin-top: 1rem; display: flex; flex-direction: column; gap: 0.8rem;">
+                <h3 style="font-size: 0.95rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                    ⚠️ Insumos Críticos
+                    <span style="font-size: 0.8rem; padding: 0.1rem 0.4rem; background: rgba(239,68,68,0.2); color: #F87171; border-radius: 4px;" th:text="${contBajoStock}">0</span>
+                </h3>
+                <div class="item-list" style="max-height: 150px;">
+                    <div th:each="p : ${productosBajoStock}" class="list-item" style="border-left: 3px solid var(--danger); padding: 0.6rem;">
+                        <div class="list-item-info">
+                            <span class="list-item-title" style="color: #F87171; font-weight: 600;" th:text="${p.nombre}">Silicona interior</span>
+                            <span class="list-item-sub" th:text="'Stock: ' + ${p.stock} + ' | Mínimo: ' + ${p.stockMinimo}">Stock: 2 | Mínimo: 5</span>
+                        </div>
+                        <button type="button" class="btn" style="background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.3rem 0.6rem; font-size: 0.8rem; font-weight: 500;" th:onclick="'reabastecerProducto(' + ${p.id} + ')'">+10</button>
+                    </div>
+                    <div th:if="${#lists.isEmpty(productosBajoStock)}" class="list-item-sub" style="text-align: center; padding: 1rem; color: var(--success);">
+                        ✅ Todos los insumos tienen stock óptimo.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUMNA 3: MARKETING AUTOMATION & PANDAS -->
+        <div class="glass-card">
+            <h2 class="card-title">📈 Growth Marketing <span>Python</span></h2>
+            
+            <!-- Estado API de Python -->
+            <div th:if="${pythonOffline}" class="offline-banner">
+                <div class="offline-indicator"></div>
+                <span>FastAPI Offline. Usando simulador local de marketing.</span>
+            </div>
+            <div th:unless="${pythonOffline}" class="offline-banner" style="background: rgba(16,185,129,0.1); color: #34D399; border-color: rgba(16,185,129,0.2);">
+                <div class="offline-indicator" style="background-color: var(--success); box-shadow: 0 0 8px var(--success);"></div>
+                <span>FastAPI Conectada. Analítica Pandas activa.</span>
+            </div>
+
+            <!-- Segmentación de Clientes -->
+            <h3 style="font-size: 0.95rem; color: var(--text-muted);">Segmentación Pandas (Últimos Clientes)</h3>
+            <div class="item-list" style="max-height: 200px;">
+                <div th:each="c : ${clientesSegmentados}" class="list-item">
+                    <div class="list-item-info">
+                        <span class="list-item-title" th:text="${c.nombre}">Juan Pérez</span>
+                        <span class="list-item-sub" th:text="'Visitas: ' + ${c.cantidad_visitas} + ' | Total: $' + ${c.total_gastado}">Visitas: 6 | Total: $15000</span>
+                    </div>
+                    <div>
+                        <span th:if="${c.segmento_calculado == 'VIP'}" class="badge vip">VIP</span>
+                        <span th:if="${c.segmento_calculado == 'FRECUENTE'}" class="badge frecuente">Frecuente</span>
+                        <span th:if="${c.segmento_calculado == 'OCASIONAL'}" class="badge ocasional">Ocasional</span>
+                    </div>
+                </div>
+            </div>
+
+            </div>
+
+            <!-- Satisfacción y NPS -->
+            <div style="display: flex; flex-direction: column; gap: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem; margin-top: 1rem;">
+                <h3 style="font-size: 0.95rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                    ⭐ Satisfacción del Cliente (NPS)
+                    <span style="font-size: 0.8rem; padding: 0.1rem 0.4rem; background: rgba(59,130,246,0.15); color: #60A5FA; border-radius: 4px;" th:text="${nps.nivel}">EXCELENTE</span>
+                </h3>
+                
+                <!-- NPS Score Card -->
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); padding: 0.8rem; border-radius: 10px; align-items: center;">
+                    <div style="text-align: center; border-right: 1px solid rgba(255,255,255,0.05); padding-right: 0.5rem;">
+                        <span style="font-size: 2.2rem; font-weight: 800; font-family: 'Outfit'; color: var(--info);" th:text="${nps.nps > 0 ? '+' : ''} + ${nps.nps}">+75</span>
+                        <span style="display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">NPS Score</span>
+                    </div>
+                    <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.3rem;">
+                        <span th:text="'Respuestas Totales: ' + ${nps.total_respuestas}">Respuestas: 8</span>
+                        <span style="color: var(--success);" th:text="'Promotores (5★): ' + ${nps.promotores} + ' (' + ${nps.porcentaje_promotores} + '%)'">Promotores: 6 (75%)</span>
+                        <span style="color: var(--warning);" th:text="'Pasivos (4★): ' + ${nps.pasivos}">Pasivos: 1</span>
+                        <span style="color: var(--danger);" th:text="'Detractores (1-3★): ' + ${nps.detractores} + ' (' + ${nps.porcentaje_detractores} + '%)'">Detractores: 1 (12%)</span>
+                    </div>
+                </div>
+
+                <!-- Formulario registrar Calificación -->
+                <form id="form-feedback" style="display: flex; flex-direction: column; gap: 0.5rem; background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <h4 style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Registrar Encuesta de Lavado</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="fb-cliente">Cliente ID</label>
+                            <input type="number" id="fb-cliente" required value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="fb-nota">Calificación</label>
+                            <select id="fb-nota" required>
+                                <option value="5">5★ Promotor</option>
+                                <option value="4">4★ Pasivo</option>
+                                <option value="3">3★ Detractor</option>
+                                <option value="2">2★ Detractor</option>
+                                <option value="1">1★ Detractor</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="fb-comentario">Comentario</label>
+                        <input type="text" id="fb-comentario" placeholder="Excelente servicio o detalles..." style="padding: 0.5rem;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.5rem; font-size: 0.8rem;">Guardar Encuesta</button>
+                </form>
+            </div>
+
+            <!-- Ejecutar Campaña de Descuentos Automatizada (ProcessBuilder) -->
+            <div style="display: flex; flex-direction: column; gap: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem;">
+                <h3 style="font-size: 0.95rem; color: var(--text-muted);">Campaña Fidelidad (Fuga > 20 días)</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">Invocará el script Python mediante Java para detectar clientes inactivos y emitir cupones de descuento automáticos.</p>
+                <button type="button" class="btn btn-primary" onclick="ejecutarCampañaFidelidad()">Ejecutar Campaña Python</button>
+                
+                <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Resultado del Script:</h4>
+                <div class="terminal-box" id="terminal-output">Terminal lista. Esperando comando...</div>
+            </div>
+
+            <!-- Equipo de Trabajo -->
+            <div style="display: flex; flex-direction: column; gap: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem; margin-top: 1rem;">
+                <h3 style="font-size: 0.95rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                    👥 Equipo de Trabajo
+                    <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="toggleFormEmpleado()">+ Añadir</button>
+                </h3>
+
+                <!-- Formulario agregar empleado (oculto por defecto) -->
+                <form id="form-empleado" style="display: none; flex-direction: column; gap: 0.6rem; background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div class="form-group">
+                        <label for="emp-nombre">Nombre</label>
+                        <input type="text" id="emp-nombre" placeholder="Ej. Pedro Pérez" required>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="emp-rol">Rol</label>
+                            <select id="emp-rol" required>
+                                <option value="LAVADOR">Lavador</option>
+                                <option value="CAJERO">Cajero</option>
+                                <option value="ADMINISTRADOR">Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="emp-telefono">Teléfono</label>
+                            <input type="text" id="emp-telefono" placeholder="Ej. 11987654">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.5rem; font-size: 0.8rem;">Guardar Empleado</button>
+                </form>
+
+                <!-- Lista de Empleados -->
+                <div class="item-list" style="max-height: 180px;">
+                    <div th:each="emp : ${empleados}" class="list-item" style="padding: 0.6rem;">
+                        <div class="list-item-info">
+                            <span class="list-item-title" th:text="${emp.nombre}">Carlos Lavador</span>
+                            <span class="list-item-sub" th:text="${emp.rol} + ' | ' + ${emp.telefono}">LAVADOR | 11223344</span>
+                        </div>
+                        <div>
+                            <!-- Badge interactiva para alternar disponibilidad -->
+                            <span th:if="${emp.activo}" class="badge completado" style="cursor: pointer;" th:onclick="'toggleEstadoEmpleado(' + ${emp.id} + ', false)'">Activo</span>
+                            <span th:unless="${emp.activo}" class="badge" style="background: rgba(239, 68, 68, 0.15); color: var(--danger); cursor: pointer;" th:onclick="'toggleEstadoEmpleado(' + ${emp.id} + ', true)'">Inactivo</span>
+                        </div>
+                    </div>
+                    <div th:if="${#lists.isEmpty(empleados)}" class="list-item-sub" style="text-align: center; padding: 1rem;">No hay empleados registrados.</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- AJAX LOGIC -->
+    <script>
+        // Set default date-time to now for Turno
+        document.getElementById('turno-fecha').value = new Date().toISOString().slice(0, 16);
+
+        // Agendar Turno AJAX
+        document.getElementById('form-turno').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const clienteId = document.getElementById('turno-cliente').value;
+            const vehiculoId = document.getElementById('turno-vehiculo').value;
+            const servicioId = document.getElementById('turno-servicio').value;
+            const fechaHora = document.getElementById('turno-fecha').value;
+
+            const url = `/api/turnos/agendar?clienteId=${clienteId}&vehiculoId=${vehiculoId}&servicioId=${servicioId}&fechaHora=${fechaHora}:00`;
+
+            fetch(url, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(`Error: ${data.message}`);
+                    } else {
+                        alert('¡Turno agendado con éxito!');
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error al enviar solicitud: ' + err));
+        });
+
+        // Actualizar Estado de Turno AJAX
+        function actualizarEstadoTurno(id, nuevoEstado) {
+            const url = `/api/turnos/${id}/estado?estado=${nuevoEstado}`;
+            fetch(url, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(`Error: ${data.message}`);
+                    } else {
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error al actualizar: ' + err));
+        }
+
+        // Abrir Caja Diaria AJAX
+        function abrirCaja() {
+            const monto = prompt("Ingrese el monto de apertura de caja ($):", "5000");
+            if (monto === null) return;
+            
+            const url = `/api/caja/abrir?montoApertura=${monto}&observaciones=Apertura desde Dashboard`;
+            fetch(url, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(`Error: ${data.message}`);
+                    } else {
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error al abrir caja: ' + err));
+        }
+
+        // Cerrar Caja Diaria AJAX
+        function cerrarCaja() {
+            if (!confirm("¿Está seguro de cerrar la caja por hoy? Se balancearán los ingresos/egresos.")) return;
+            
+            const url = `/api/caja/cerrar?observaciones=Cierre desde Dashboard`;
+            fetch(url, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(`Error: ${data.message}`);
+                    } else {
+                        alert(`¡Caja cerrada! Balance final de cierre: $${data.montoCierre}`);
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error al cerrar caja: ' + err));
+        }
+
+        // Registrar Venta POS AJAX
+        document.getElementById('form-venta').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const clienteIdVal = document.getElementById('venta-cliente').value;
+            const clienteId = clienteIdVal ? parseInt(clienteIdVal) : null;
+            const itemVal = document.getElementById('venta-item').value;
+            const cantidad = parseInt(document.getElementById('venta-cantidad').value);
+            const codigoCupon = document.getElementById('venta-cupon').value || null;
+            const metodoPago = document.getElementById('venta-pago').value;
+
+            // Determinar si es producto o servicio
+            let productoId = null;
+            let servicioId = null;
+
+            if (itemVal.startsWith('PROD-')) {
+                productoId = parseInt(itemVal.replace('PROD-', ''));
+            } else {
+                servicioId = parseInt(itemVal.replace('SRV-', ''));
+            }
+
+            const payload = {
+                clienteId: clienteId,
+                metodoPago: metodoPago,
+                codigoCupon: codigoCupon,
+                detalles: [
+                    {
+                        productoId: productoId,
+                        servicioId: servicioId,
+                        cantidad: cantidad
+                    }
+                ]
+            };
+
+            fetch('/api/pos/venta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'error') {
+                    alert(`Error en el POS: ${data.message}`);
+                } else {
+                    let alertMsg = `¡Venta registrada con éxito!\nTotal cobrado: $${data.venta.total}`;
+                    if (data.alertasStock && data.alertasStock.length > 0) {
+                        alertMsg += `\n\n⚠️ ALERTA INVENTARIO:\n${data.alertasStock.join('\n')}`;
+                    }
+                    alert(alertMsg);
+                    location.reload();
+                }
+            })
+            .catch(err => alert('Error al enviar venta: ' + err));
+        });
+
+        // Ejecutar campaña fidelidad Python AJAX (ProcessBuilder en Java)
+        function ejecutarCampañaFidelidad() {
+            const terminal = document.getElementById('terminal-output');
+            terminal.innerText = "Invocando script Python 'customer_loyalty.py'...\nPor favor, espere...";
+
+            fetch('/api/marketing/run-loyalty', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        terminal.innerText = `[SUCCESS] Código de salida: ${data.exitCode}\n\nSTDOUT:\n${data.stdout}\n\nSTDERR:\n${data.stderr || 'Ninguno'}`;
+                        alert("¡Campaña de fidelidad ejecutada! Cupones generados con éxito.");
+                    } else {
+                        terminal.innerText = `[FAIL] Error en ejecución.\nCódigo de salida: ${data.exitCode}\n\nSTDOUT:\n${data.stdout}\n\nSTDERR:\n${data.stderr}`;
+                        alert("Error al ejecutar la campaña. Revise la consola del terminal.");
+                    }
+                })
+                .catch(err => {
+                    terminal.innerText = `[ERROR] No se pudo conectar con el servidor: ${err}`;
+                });
+        }
+
+        // Reabastecer stock AJAX
+        function reabastecerProducto(id) {
+            const cantidad = 10;
+            const url = `/api/pos/productos/${id}/reabastecer?cantidad=${cantidad}`;
+            fetch(url, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(`Error al reabastecer: ${data.message}`);
+                    } else {
+                        alert(`¡Insumo reabastecido! Nuevo stock de ${data.nombre}: ${data.stock}`);
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error al reabastecer producto: ' + err));
+        }
+
+        // Mostrar/Ocultar formulario de empleado
+        function toggleFormEmpleado() {
+            const form = document.getElementById('form-empleado');
+            form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        // Registrar Empleado AJAX
+        document.getElementById('form-empleado').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nombre = document.getElementById('emp-nombre').value;
+            const rol = document.getElementById('emp-rol').value;
+            const telefono = document.getElementById('emp-telefono').value;
+
+            const url = `/api/empleados/nuevo?nombre=${encodeURIComponent(nombre)}&rol=${rol}&telefono=${encodeURIComponent(telefono)}`;
+            
+            fetch(url, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(`Error: ${data.message}`);
+                    } else {
+                        alert('¡Empleado registrado con éxito!');
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error al registrar empleado: ' + err));
+        });
+
+        // Cambiar disponibilidad de Empleado AJAX
+        function toggleEstadoEmpleado(id, nuevoEstado) {
+            const url = `/api/empleados/${id}/estado?activo=${nuevoEstado}`;
+            fetch(url, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(`Error: ${data.message}`);
+                    } else {
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error al cambiar estado del empleado: ' + err));
+        }
+
+        // Registrar Feedback AJAX
+        document.getElementById('form-feedback').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const clienteId = document.getElementById('fb-cliente').value;
+            const puntuacion = document.getElementById('fb-nota').value;
+            const comentario = document.getElementById('fb-comentario').value;
+
+            const url = `/api/pos/feedback?clienteId=${clienteId}&puntuacion=${puntuacion}&comentario=${encodeURIComponent(comentario)}`;
+            fetch(url, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(`Error al registrar calificación: ${data.message}`);
+                    } else {
+                        alert('¡Muchas gracias por calificar el servicio!');
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error al enviar calificación: ' + err));
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+# Java y Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+.project
+.classpath
+.factorypath
+.settings/
+dependency-reduced-pom.xml
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.toast
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Entornos y Secretos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# IDEs (IntelliJ, VS Code, Eclipse)
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.metadata/
+*.sublime-project
+*.sublime-workspace
+
+# Sistema Operativo
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+hc.log
+
+# Logs del proyecto
+*.log
+logs/
+.system_generated/
