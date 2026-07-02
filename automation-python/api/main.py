@@ -22,6 +22,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/db-direct-test")
+def db_direct_test():
+    import psycopg2
+    results = []
+    tests = [
+        ("db.tqbikenqygnyzrxnabia.supabase.co", 5432, "postgres"),
+        ("db.tqbikenqygnyzrxnabia.supabase.co", 6543, "postgres"),
+        ("aws-0-us-east-2.pooler.supabase.com", 6543, "postgres.tqbikenqygnyzrxnabia"),
+        ("aws-0-us-east-2.pooler.supabase.com", 5432, "postgres.tqbikenqygnyzrxnabia"),
+    ]
+    for host, port, user in tests:
+        try:
+            conn = psycopg2.connect(
+                host=host,
+                port=port,
+                dbname="postgres",
+                user=user,
+                password="Lavadero2026/",
+                connect_timeout=4
+            )
+            conn.close()
+            return {"status": "success", "host": host, "port": port, "user": user}
+        except Exception as e:
+            results.append(f"[{host}:{port} ({user})] {type(e).__name__}: {str(e)}")
+    return {"status": "error", "results": results}
+
 # Configuración de base de datos
 DB_URL = os.getenv("DATABASE_URL", f"postgresql://postgres:{os.getenv('SUPABASE_DB_PASSWORD', 'postgres')}@db.sqczmyaoqplrmrgyczjy.supabase.co:5432/postgres")
 
