@@ -34,10 +34,10 @@ export default function WhatsAppIntegration({
   
   // Custom templates
   const [templateReady, setTemplateReady] = useState(
-    '¡Hola {{1}}! Te informamos que tu vehículo {{2}} (patente {{3}}) ya se encuentra listo para retirar en Mobile Wash. Servicio: {{4}}. ¡Te esperamos!'
+    '¡Hola {{1}}! Te informamos que tu vehículo {{2}} (patente {{3}}) ya se encuentra listo para retirar en Albelo Detail. Servicio: {{4}}. ¡Te esperamos!'
   );
   const [templateConfirm, setTemplateConfirm] = useState(
-    'Hola {{1}}, te confirmamos el turno en Mobile Wash para tu auto patente {{2}} para el servicio: {{3}}.'
+    'Hola {{1}}, te confirmamos el turno en Albelo Detail para tu auto patente {{2}} para el servicio: {{3}}.'
   );
 
   // Active logs state
@@ -46,7 +46,7 @@ export default function WhatsAppIntegration({
       id: 'w_log_1',
       clienteNombre: 'Carlos Mendoza',
       telefono: '+54 9 261 458-9214',
-      mensaje: '¡Hola Carlos Mendoza! Te informamos que tu vehículo Corolla (patente AA123BB) ya se encuentra listo para retirar en Mobile Wash. Servicio: Lavado Completo + Cera. ¡Te esperamos!',
+      mensaje: '¡Hola Carlos Mendoza! Te informamos que tu vehículo Corolla (patente AA123BB) ya se encuentra listo para retirar en Albelo Detail. Servicio: Lavado Completo + Cera. ¡Te esperamos!',
       fecha: new Date(Date.now() - 3600000 * 2).toISOString(),
       estado: 'LEIDO',
       tipo: 'RETIRO'
@@ -55,7 +55,7 @@ export default function WhatsAppIntegration({
       id: 'w_log_2',
       clienteNombre: 'Sofía Rodríguez',
       telefono: '+54 9 261 987-6543',
-      mensaje: 'Hola Sofía Rodríguez, te confirmamos el turno en Mobile Wash para tu auto patente AB987CD para el servicio: Detailing Acrílico.',
+      mensaje: 'Hola Sofía Rodríguez, te confirmamos el turno en Albelo Detail para tu auto patente AB987CD para el servicio: Detailing Acrílico.',
       fecha: new Date(Date.now() - 3600000 * 5).toISOString(),
       estado: 'ENTREGADO',
       tipo: 'CONFIRMACION'
@@ -148,11 +148,11 @@ URL_META = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
 
 @app.post("/api/notificar-entrega")
 async def enviar_notificacion(payload: NotificationPayload):
-    # Formatear el mensaje según la plantilla de Mobile Wash
+    # Formatear el mensaje según la plantilla de Albelo Detail
     mensaje = (
         f"¡Hola {payload.cliente_nombre}! Te informamos que tu vehículo "
         f"{payload.vehiculo_modelo} (patente {payload.vehiculo_patente}) ya se encuentra listo "
-        f"para retirar en Mobile Wash. Servicio: {payload.servicio}. ¡Te esperamos!"
+        f"para retirar en Albelo Detail. Servicio: {payload.servicio}. ¡Te esperamos!"
     )
     
     # En producción se envía la petición oficial a la API de Meta
@@ -436,9 +436,9 @@ public class WhatsAppNotificationService {
               {/* WhatsApp header */}
               <div className="bg-[#075e54] p-2 flex items-center justify-between text-white border-b border-[#128c7e]/30">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-6 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-[9px]">MW</div>
+                  <div className="w-6 h-6 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-[9px]">AD</div>
                   <div>
-                    <h4 className="text-[10px] font-bold leading-tight">Mobile Wash Detailing</h4>
+                    <h4 className="text-[10px] font-bold leading-tight">Albelo Detail</h4>
                     <span className="text-[7px] text-emerald-200">en línea</span>
                   </div>
                 </div>
@@ -455,7 +455,7 @@ public class WhatsAppNotificationService {
                   <p className="whitespace-pre-wrap leading-relaxed">
                     {previewClient 
                       ? getRenderedMessage(templateReady, previewClient)
-                      : '¡Hola Carlos! Tu vehículo Corolla ya se encuentra listo para retirar en Mobile Wash.'
+                      : '¡Hola Carlos! Tu vehículo Corolla ya se encuentra listo para retirar en Albelo Detail.'
                     }
                   </p>
                   <span className="text-[7px] text-[#80bfb4] block text-right mt-1 font-mono">10:04 AM</span>
@@ -466,7 +466,7 @@ public class WhatsAppNotificationService {
                   <p className="leading-relaxed">
                     {previewClient
                       ? getRenderedMessage(templateConfirm, previewClient)
-                      : 'Hola, te confirmamos el turno en Mobile Wash...'
+                      : 'Hola, te confirmamos el turno en Albelo Detail...'
                     }
                   </p>
                   <span className="text-[7px] text-slate-500 block text-right mt-1 font-mono">9:15 AM</span>

@@ -51,23 +51,26 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#06080a] text-slate-100 flex items-center justify-center p-4 relative font-sans">
+    <div className="min-h-screen bg-[#030508] text-slate-100 flex items-center justify-center p-4 relative font-sans">
       {/* Decorative Blur Mesh Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
-          className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-10"
+          className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[140px] opacity-15"
           style={{ backgroundColor: brandConfig.primaryColor }}
         />
-        <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-10 bg-[#00d2ff]" />
+        <div className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] rounded-full blur-[140px] opacity-10 bg-[#00d2ff]" />
       </div>
 
-      <div className="w-full max-w-[850px] bg-white/[0.02] backdrop-blur-2xl border border-white/[0.08] rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] grid grid-cols-1 md:grid-cols-2 relative z-10">
+      <div className="w-full max-w-[850px] bg-black/60 backdrop-blur-3xl border border-red-500/20 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(220,38,38,0.15)] grid grid-cols-1 md:grid-cols-2 relative z-10 card-sport-border">
         
-        {/* Left Side: Branding */}
-        <div className="p-8 lg:p-12 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.08] bg-white/[0.01]">
-          <div className="flex items-center gap-3">
+        {/* Left Side: Branding / Flyer Mockup */}
+        <div className="p-8 lg:p-12 flex flex-col justify-between border-b md:border-b-0 md:border-r border-red-500/10 bg-gradient-to-b from-black/40 via-red-950/5 to-black/60 relative overflow-hidden">
+          {/* Subtle grid pattern overlay */}
+          <div className="absolute inset-0 grid-pattern opacity-30 pointer-events-none" />
+          
+          <div className="relative z-10 flex items-center gap-3">
             <div 
-              className="p-2.5 rounded-xl border flex items-center justify-center"
+              className="p-2.5 rounded-xl border flex items-center justify-center shadow-[0_0_15px_rgba(220,38,38,0.2)]"
               style={{ 
                 backgroundColor: `${brandConfig.primaryColor}15`, 
                 borderColor: `${brandConfig.primaryColor}30`,
@@ -77,64 +80,91 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
               <Car className="w-6 h-6 animate-pulse" />
             </div>
             <div>
-              <h1 className="text-sm font-extrabold tracking-wider text-white uppercase">
+              <h1 className="text-sm font-black tracking-wider text-white uppercase font-display">
                 {brandConfig.nombre}
               </h1>
-              <span className="text-[9px] text-slate-400 font-mono tracking-widest uppercase block mt-0.5">
+              <span className="text-[9px] text-red-400 font-mono tracking-widest uppercase block mt-0.5 font-bold">
                 {brandConfig.tagline}
               </span>
             </div>
           </div>
 
-          <div className="my-10 md:my-0 space-y-4">
-            <h2 className="text-2xl font-extrabold tracking-tight text-white leading-tight font-display">
-              CONTROL OPERATIVO <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500" style={{ backgroundImage: `linear-gradient(to right, ${brandConfig.primaryColor}, #f59e0b)` }}>
-                Y GESTIÓN INTEGRAL
+          {/* Circular Albelo Detailing Flyer Logo Design */}
+          <div className="relative z-10 my-8 flex flex-col items-center justify-center text-center">
+            <div className="relative p-2 bg-black/80 rounded-full border-2 border-red-500/30 shadow-[0_0_30px_rgba(220,38,38,0.25)] mb-4">
+              <svg className="w-28 h-28" viewBox="0 0 100 100">
+                {/* Outer red ring with racing notches */}
+                <circle cx="50" cy="50" r="46" fill="none" stroke={brandConfig.primaryColor} strokeWidth="3.5" strokeDasharray="6 2" />
+                <circle cx="50" cy="50" r="41" fill="#0c0e12" stroke={brandConfig.primaryColor} strokeWidth="1" />
+                
+                {/* Inner details: Spray gun & buffer silhouette in vector */}
+                <path d="M32 55 C 32 40, 68 40, 68 55" stroke={brandConfig.primaryColor} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                <path d="M22 62 L78 62" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                
+                {/* Polisher rotary head */}
+                <circle cx="50" cy="45" r="9" fill="none" stroke="#ffffff" strokeWidth="2" />
+                <circle cx="50" cy="45" r="4" fill={brandConfig.primaryColor} />
+                
+                {/* Brand Banner red text box */}
+                <path d="M15 62 L85 62 L80 75 L20 75 Z" fill={brandConfig.primaryColor} />
+                <text x="50" y="71" fill="#ffffff" fontSize="7.5" fontWeight="900" textAnchor="middle" letterSpacing="0.8" fontFamily="sans-serif">ALBELO</text>
+                <text x="50" y="86" fill="#94a3b8" fontSize="5.5" fontWeight="bold" textAnchor="middle" letterSpacing="0.5">Estética Vehicular</text>
+                <text x="50" y="93" fill="#e11d48" fontSize="4.5" fontWeight="black" textAnchor="middle">EST. 2021</text>
+              </svg>
+            </div>
+            
+            <h2 className="text-xl font-extrabold tracking-tight text-white uppercase font-display leading-tight">
+              Transformamos <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500 font-black" style={{ backgroundImage: `linear-gradient(to right, ${brandConfig.primaryColor}, #f59e0b)` }}>
+                TU VEHÍCULO
               </span>
             </h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Accede al tablero comercial para agendar turnos, controlar stock crítico de insumos, ver métricas de satisfacción NPS y gestionar el libro contable de caja diaria.
+            <p className="text-[11px] text-slate-400 max-w-xs mt-3 leading-relaxed">
+              Sistema Cockpit de gestión para turnos de pulido, tapicería húmeda, tratamientos cerámicos y polarizados de alta gama.
             </p>
           </div>
 
-          <div className="text-[10px] text-slate-500 font-mono">
-            © 2026 {brandConfig.nombre} • Versión 3.0.0
+          {/* Core Flyer Badges */}
+          <div className="relative z-10 flex flex-wrap gap-2 justify-center text-[9px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="flex items-center gap-1 bg-red-950/30 border border-red-500/20 px-2 py-1 rounded">🛡️ Calidad Profesional</span>
+            <span className="flex items-center gap-1 bg-red-950/30 border border-red-500/20 px-2 py-1 rounded">⚡ Turnos Rápidos</span>
           </div>
         </div>
 
         {/* Right Side: Form */}
-        <div className="p-8 lg:p-12 flex flex-col justify-center gap-6">
-          <div>
-            <h3 className="text-lg font-bold text-white">Iniciar Sesión</h3>
-            <p className="text-xs text-slate-400 mt-1">Ingresa tus credenciales para acceder al sistema.</p>
+        <div className="p-8 lg:p-12 flex flex-col justify-center gap-6 bg-black/40 relative">
+          <div className="absolute inset-0 grid-pattern opacity-10 pointer-events-none" />
+          
+          <div className="relative z-10">
+            <h3 className="text-base font-black text-white uppercase tracking-wider font-display">Ingreso al Sistema</h3>
+            <p className="text-xs text-slate-400 mt-1">Introducí tus credenciales autorizadas.</p>
           </div>
 
           {error && (
-            <div className="p-3 bg-red-950/40 border border-red-800/60 text-red-200 rounded-xl text-xs flex items-center gap-2 animate-shake">
-              <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
+            <div className="relative z-10 p-3 bg-red-950/50 border border-red-500/30 text-red-200 rounded-lg text-xs flex items-center gap-2.5 animate-shake">
+              <ShieldAlert className="w-4.5 h-4.5 text-red-400 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="relative z-10 space-y-4">
             <div className="space-y-1.5">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider">Usuario / Correo</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold">Usuario / Email</label>
               <div className="relative">
                 <input
                   type="text"
                   required
-                  placeholder="ejemplo@correo.com"
+                  placeholder="ejemplo@albelo.com"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-white/[0.02] border border-white/[0.1] focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20 focus:outline-none rounded-xl px-3 py-2.5 pl-10 text-xs text-white transition-all placeholder:text-slate-600"
+                  className="w-full bg-white/[0.02] border border-white/[0.08] focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20 focus:outline-none rounded-xl px-3 py-2.5 pl-10 text-xs text-white transition-all placeholder:text-slate-600 font-mono"
                 />
                 <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider">Contraseña</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold">Contraseña</label>
               <div className="relative">
                 <input
                   type="password"
@@ -142,7 +172,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/[0.02] border border-white/[0.1] focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20 focus:outline-none rounded-xl px-3 py-2.5 pl-10 text-xs text-white transition-all placeholder:text-slate-600"
+                  className="w-full bg-white/[0.02] border border-white/[0.08] focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20 focus:outline-none rounded-xl px-3 py-2.5 pl-10 text-xs text-white transition-all placeholder:text-slate-600 font-mono"
                 />
                 <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
@@ -151,29 +181,29 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-brand-primary hover:bg-brand-hover text-white py-2.5 rounded-xl text-xs font-bold transition duration-200 shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full bg-brand-primary hover:bg-brand-hover text-white py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-[0_0_15px_rgba(220,38,38,0.2)] flex items-center justify-center gap-2 cursor-pointer border border-red-500/20"
               style={{ backgroundColor: brandConfig.primaryColor }}
             >
-              {loading ? 'Validando...' : 'Ingresar al Panel'}
+              {loading ? 'Validando...' : 'Acceder al Cockpit'}
             </button>
           </form>
 
-          <div className="relative flex py-1 items-center">
+          <div className="relative z-10 flex py-1 items-center">
             <div className="flex-grow border-t border-white/[0.06]"></div>
-            <span className="flex-shrink mx-3 text-[10px] text-slate-600 uppercase font-mono">Ingreso Rápido</span>
+            <span className="flex-shrink mx-3 text-[9px] text-slate-600 uppercase font-mono font-bold tracking-widest">Acceso Rápido</span>
             <div className="flex-grow border-t border-white/[0.06]"></div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="relative z-10 grid grid-cols-2 gap-3">
             <button
               onClick={() => loginWith('admin@gmail.com', '1998')}
-              className="py-2 px-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] rounded-xl text-[10px] font-bold text-[#f59e0b] hover:text-white transition duration-200 cursor-pointer"
+              className="py-2 px-3 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 hover:border-red-500/40 rounded-xl text-[10px] font-extrabold text-red-400 hover:text-white transition duration-200 cursor-pointer text-center"
             >
-              ⚡ Admin (1998)
+              ⚡ Creador (1998)
             </button>
             <button
               onClick={() => loginWith('enzo', '1234')}
-              className="py-2 px-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] rounded-xl text-[10px] font-bold text-slate-400 hover:text-white transition duration-200 cursor-pointer"
+              className="py-2 px-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] hover:border-slate-500/30 rounded-xl text-[10px] font-extrabold text-slate-400 hover:text-white transition duration-200 cursor-pointer text-center"
             >
               👤 Enzo (1234)
             </button>

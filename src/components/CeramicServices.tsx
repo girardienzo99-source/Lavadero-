@@ -319,41 +319,49 @@ export default function CeramicServices({
 
               {/* Select Vehicle Size */}
               <div className="space-y-2">
-                <label className="block text-[10px] text-slate-400 uppercase tracking-wider font-bold">4. Tamaño del Vehículo (Multiplicadores)</label>
-                <div className="space-y-2">
-                  {factores.map((f) => (
-                    <div
-                      key={f.tipo}
-                      onClick={() => {
-                        setSelectedTamano(f.tipo);
-                        setCustomPrecioCalc(null); // Reset custom price override
-                      }}
-                      className={`p-3 rounded-lg border cursor-pointer transition flex items-center justify-between ${
-                        selectedTamano === f.tipo
-                          ? 'bg-red-600/10 border-red-500/35'
-                          : 'bg-white/[0.01] border-white/[0.06] hover:border-white/[0.1] hover:bg-white/[0.02]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className={`p-1.5 rounded-md ${selectedTamano === f.tipo ? 'bg-red-500/20 text-red-400' : 'bg-white/[0.04] text-slate-400'}`}>
-                          <Car className="w-4 h-4" />
+                <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold">4. Tamaño del Vehículo (Multiplicadores)</label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {factores.map((f) => {
+                    const isSelected = selectedTamano === f.tipo;
+                    return (
+                      <div
+                        key={f.tipo}
+                        onClick={() => {
+                          setSelectedTamano(f.tipo);
+                          setCustomPrecioCalc(null); // Reset custom price override
+                        }}
+                        className={`p-3.5 rounded-xl border text-center cursor-pointer transition flex flex-col items-center justify-between h-36 ${
+                          isSelected
+                            ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.1)]'
+                            : 'bg-black/20 border-white/[0.06] hover:border-white/[0.1] hover:bg-black/30'
+                        }`}
+                      >
+                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-red-500/20 text-red-400' : 'bg-white/[0.03] text-slate-500'}`}>
+                          {f.tipo === 'AUTO' && <Car className="w-6 h-6" />}
+                          {f.tipo === 'SUV' && (
+                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M2 13 C 2 13, 5 13, 6 12 L8 9 L15 9 L17 12 C 18 13, 22 13, 22 13 L22 16 L2 16 Z" strokeLinecap="round" strokeLinejoin="round" />
+                              <circle cx="6.5" cy="17.5" r="2" />
+                              <circle cx="17.5" cy="17.5" r="2" />
+                            </svg>
+                          )}
+                          {f.tipo === 'CAMIONETA' && (
+                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M2 13 L12 13 L12 9 L16 9 L19 12 L22 12 L22 16 L2 16 Z" strokeLinecap="round" strokeLinejoin="round" />
+                              <circle cx="6.5" cy="17.5" r="2" />
+                              <circle cx="17.5" cy="17.5" r="2" />
+                            </svg>
+                          )}
                         </div>
-                        <div>
-                          <span className="text-xs font-bold text-white block">{f.nombre}</span>
-                          <span className="text-[9px] text-slate-500">
-                            Factor: {f.multiplicador}x {f.adicional > 0 ? `+ $${f.adicional.toLocaleString('es-AR')}` : ''}
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider block text-white">{f.tipo}</span>
+                          <span className="text-[8px] text-slate-500 block">
+                            {f.multiplicador}x {f.adicional > 0 ? `+$${f.adicional/1000}k` : ''}
                           </span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        {selectedTamano === f.tipo && (
-                          <span className="p-1 rounded-full bg-red-500/20 text-red-400 block w-fit ml-auto">
-                            <Check className="w-3.5 h-3.5" />
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Helpful Note about formulas */}

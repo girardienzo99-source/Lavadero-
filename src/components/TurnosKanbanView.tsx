@@ -355,13 +355,13 @@ export default function TurnosKanbanView({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-20">
         
         {/* Column 1: PENDIENTE */}
-        <div className="bg-white/[0.02] rounded-xl border border-white/[0.06] p-4 flex flex-col min-h-[450px]">
+        <div className="glass-panel p-4 rounded-xl flex flex-col min-h-[450px] border-amber-500/15 relative">
           <div className="flex justify-between items-center pb-3 border-b border-white/[0.08] mb-4">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <h3 className="font-bold text-white text-xs uppercase tracking-wider">Pendientes</h3>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 badge-neon-yellow animate-pulse" />
+              <h3 className="font-extrabold text-white text-xs uppercase tracking-widest font-display">Pendientes</h3>
             </div>
-            <span className="text-[10px] bg-white/[0.04] text-slate-400 border border-white/[0.06] px-2 py-0.5 rounded font-mono font-bold">{pendientes.length}</span>
+            <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-mono font-bold">{pendientes.length}</span>
           </div>
 
           <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">
@@ -458,13 +458,13 @@ export default function TurnosKanbanView({
         </div>
 
         {/* Column 2: EN PROCESO */}
-        <div className="bg-white/[0.02] rounded-xl border border-white/[0.06] p-4 flex flex-col min-h-[450px]">
+        <div className="glass-panel p-4 rounded-xl flex flex-col min-h-[450px] border-red-500/25 shadow-[0_0_20px_rgba(220,38,38,0.06)] relative card-sport-border">
           <div className="flex justify-between items-center pb-3 border-b border-white/[0.08] mb-4">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#00d2ff] animate-ping" />
-              <h3 className="font-bold text-white text-xs uppercase tracking-wider">En Proceso</h3>
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 badge-neon-red animate-ping" />
+              <h3 className="font-extrabold text-white text-xs uppercase tracking-widest font-display">En Proceso</h3>
             </div>
-            <span className="text-[10px] bg-white/[0.04] text-slate-400 border border-white/[0.06] px-2 py-0.5 rounded font-mono font-bold">{enProceso.length}</span>
+            <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded font-mono font-bold">{enProceso.length}</span>
           </div>
 
           <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">
@@ -549,13 +549,13 @@ export default function TurnosKanbanView({
         </div>
 
         {/* Column 3: LISTO PARA ENTREGA / COMPLETADO */}
-        <div className="bg-white/[0.02] rounded-xl border border-white/[0.06] p-4 flex flex-col min-h-[450px]">
+        <div className="glass-panel p-4 rounded-xl flex flex-col min-h-[450px] border-emerald-500/15 relative">
           <div className="flex justify-between items-center pb-3 border-b border-white/[0.08] mb-4">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <h3 className="font-bold text-white text-xs uppercase tracking-wider">Listos / Entregados</h3>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 badge-neon-green" />
+              <h3 className="font-extrabold text-white text-xs uppercase tracking-widest font-display">Listos para Entrega</h3>
             </div>
-            <span className="text-[10px] bg-white/[0.04] text-slate-400 border border-white/[0.06] px-2 py-0.5 rounded font-mono font-bold">{completados.length}</span>
+            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-mono font-bold">{completados.length}</span>
           </div>
 
           <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">

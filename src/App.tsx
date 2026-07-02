@@ -67,7 +67,7 @@ export default function App() {
       primaryColor: '#dc2626',
       hoverColor: '#b91c1c',
       logoType: 'icon',
-      selectedIcon: 'Car',
+      selectedIcon: 'Albelo',
       customLogoUrl: '',
       fontFamily: 'Outfit'
     };
@@ -89,6 +89,14 @@ export default function App() {
       );
     }
     switch (brandConfig.selectedIcon) {
+      case 'Albelo':
+        return (
+          <svg className={sizeClass} viewBox="0 0 100 100" fill="currentColor">
+            <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="6" />
+            <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" />
+            <path d="M30 68 L50 26 L70 68 M36 54 L64 54" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+        );
       case 'Sparkles':
         return <Sparkles className={sizeClass} />;
       case 'Shield':
@@ -821,14 +829,14 @@ export default function App() {
       </header>
 
       {/* Subheader Toolbar & Tab Selectors */}
-      <section className="bg-white/[0.01] border-b border-white/[0.06] backdrop-blur-md px-4 lg:px-8 py-2.5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 relative z-30">
-        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-thin">
+      <section className="bg-black/40 border-b border-red-500/10 backdrop-blur-md px-4 lg:px-8 py-2.5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 relative z-30">
+        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
           <button
             id="btn-nav-overview"
             onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'overview'
-                ? 'bg-white/[0.05] text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -837,9 +845,9 @@ export default function App() {
           <button
             id="btn-nav-turnos"
             onClick={() => setActiveTab('turnos')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'turnos'
-                ? 'bg-white/[0.05] text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -848,9 +856,9 @@ export default function App() {
           <button
             id="btn-nav-caja"
             onClick={() => setActiveTab('caja')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'caja'
-                ? 'bg-white/[0.05] text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -859,9 +867,9 @@ export default function App() {
           <button
             id="btn-nav-publicidad"
             onClick={() => setActiveTab('publicidad')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'publicidad'
-                ? 'bg-white/[0.05] text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -870,9 +878,9 @@ export default function App() {
           <button
             id="btn-nav-roadmap"
             onClick={() => setActiveTab('roadmap')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'roadmap'
-                ? 'bg-white/[0.05] text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -881,50 +889,50 @@ export default function App() {
           <button
             id="btn-nav-public-page"
             onClick={() => setActiveTab('public-page')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'public-page'
-                ? 'bg-white/[0.05] text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <Globe className="w-3.5 h-3.5 text-brand-primary" />
-            Portal Público & Tienda
+            <Globe className="w-3 h-3 text-red-500" />
+            Portal Público
           </button>
           <button
             id="btn-nav-whatsapp"
             onClick={() => setActiveTab('whatsapp')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'whatsapp'
-                ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <MessageSquare className="w-3.5 h-3.5 text-brand-primary" />
-            WhatsApp & API Gateway
+            <MessageSquare className="w-3 h-3 text-red-500" />
+            WhatsApp Gateway
           </button>
           <button
             id="btn-nav-ceramic"
             onClick={() => setActiveTab('ceramic')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'ceramic'
-                ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-brand-primary" />
+            <Sparkles className="w-3 h-3 text-red-500" />
             Estética & Cerámicos
           </button>
           <button
             id="btn-nav-branding"
             onClick={() => setActiveTab('branding')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'branding'
-                ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <Palette className="w-3.5 h-3.5 text-brand-primary" />
-            Identidad de Marca
+            <Palette className="w-3 h-3 text-red-500" />
+            Branding
           </button>
         </div>
 
@@ -932,10 +940,10 @@ export default function App() {
         <button
           id="btn-trigger-add-client-modal"
           onClick={() => setShowAddClientForm(!showAddClientForm)}
-          className="flex items-center justify-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-brand-primary/30 text-slate-200 font-semibold px-4 py-1.5 rounded-lg text-xs transition-all shadow-sm cursor-pointer"
+          className="flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-200 font-extrabold px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-widest transition-all duration-300 shadow-[0_0_10px_rgba(220,38,38,0.15)] cursor-pointer"
         >
-          <Plus className="w-3.5 h-3.5 text-brand-primary" />
-          Registrar Patente/Cliente
+          <Plus className="w-3 h-3 text-red-500" />
+          Registrar Cliente
         </button>
       </section>
 

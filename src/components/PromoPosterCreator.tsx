@@ -205,15 +205,15 @@ export default function PromoPosterCreator({ onAddPromotionToConsole }: PromoPos
           <button
             id="btn-download-flyer"
             onClick={handleDownload}
-            className="flex items-center justify-center gap-2 bg-white/[0.02] hover:bg-white/[0.08] border border-white/[0.08] text-white font-bold py-2 px-3 rounded-lg text-xs transition duration-200"
+            className="flex items-center justify-center gap-2 bg-white/[0.02] hover:bg-white/[0.08] border border-white/[0.08] text-white font-bold py-2 px-3 rounded-lg text-xs transition duration-200 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-[#00d2ff]" />
+            <Download className="w-4 h-4 text-red-500" />
             Descargar Flyer
           </button>
           <button
             id="btn-publish-campaign"
             onClick={handlePublishCampaign}
-            className="flex items-center justify-center gap-2 bg-[#00d2ff] hover:bg-[#00d2ff]/80 text-black font-bold py-2 px-3 rounded-lg text-xs transition duration-200 shadow-[0_0_15px_rgba(0,210,255,0.2)]"
+            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition duration-200 shadow-[0_0_15px_rgba(220,38,38,0.25)] cursor-pointer"
           >
             <Wand2 className="w-4 h-4" />
             Lanzar Campaña
@@ -222,66 +222,70 @@ export default function PromoPosterCreator({ onAddPromotionToConsole }: PromoPos
       </div>
 
       {/* Render Preview Visual */}
-      <div className="lg:col-span-7 flex flex-col justify-center items-center bg-white/[0.01] rounded-xl p-6 border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">VISTA PREVIA DEL FLYER PUBLICITARIO</span>
+      <div className="lg:col-span-7 flex flex-col justify-center items-center bg-black/40 rounded-xl p-6 border border-red-500/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+        <span className="text-[10px] font-black uppercase tracking-widest text-red-400 mb-4">VISTA PREVIA DEL FLYER PUBLICITARIO</span>
         
         {/* Flyer Canvas representation */}
         <div 
           id="flyer-card-preview"
-          className={`w-full max-w-[340px] aspect-[4/5] rounded-2xl bg-gradient-to-b ${bgGradient} p-6 flex flex-col justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden transition-all duration-300 transform hover:scale-[1.01]`}
+          className={`w-full max-w-[340px] aspect-[4/5] rounded-2xl bg-gradient-to-b ${bgGradient} p-6 flex flex-col justify-between shadow-[0_20px_50px_rgba(0,0,0,0.6)] relative overflow-hidden transition-all duration-300 transform hover:scale-[1.02] border border-white/10`}
         >
-          {/* Decorative shapes */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-black/10 rounded-full blur-2xl pointer-events-none" />
+          {/* Decorative mesh bg styling */}
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none opacity-40" />
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-black/40 rounded-full blur-2xl pointer-events-none" />
 
           {/* Top Row: Brand & Icon */}
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-start relative z-10">
             <div className="flex items-center gap-1.5">
-              <Car className="w-5 h-5 text-white/90" />
-              <span className="text-[11px] font-bold tracking-widest text-white/90 font-display">MOBILE WASH</span>
+              {/* Simplified Albelo Logo */}
+              <div className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center font-extrabold text-[10px] tracking-tighter text-white bg-black/40">
+                A
+              </div>
+              <span className="text-[11px] font-black tracking-widest text-white font-display uppercase">ALBELO DETAIL</span>
             </div>
-            <div className="p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-white">
+            <div className="p-2 rounded-xl bg-black/30 backdrop-blur-sm border border-white/10 text-white">
               {renderIcon(selectedIcon)}
             </div>
           </div>
 
           {/* Middle Body */}
-          <div className="my-auto space-y-2">
-            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/20 text-white text-[10px] font-bold tracking-wider uppercase backdrop-blur-sm border border-white/5">
-              <Sparkles className="w-3 h-3 text-yellow-300 animate-pulse" />
+          <div className="my-auto space-y-2 relative z-10">
+            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-600/20 text-red-200 text-[8px] font-black tracking-widest uppercase backdrop-blur-sm border border-red-500/20">
+              <Sparkles className="w-2.5 h-2.5 text-red-400 animate-pulse" />
               {serviceType === 'LAVADO' ? 'Lavado Profesional' : serviceType === 'TAPICERIA' ? 'Tapicería y Limpieza' : 'Reparación Estética'}
             </div>
             
-            <h2 className="text-2xl font-extrabold tracking-tight text-white leading-tight font-display uppercase break-words drop-shadow-md">
+            <h2 className="text-xl font-black tracking-tight text-white leading-tight font-display uppercase break-words drop-shadow-md">
               {title || 'TÍTULO INCREÍBLE'}
             </h2>
             
-            <p className="text-white/85 text-xs font-light tracking-wide leading-relaxed truncate-3-lines">
+            <p className="text-white/80 text-[10px] font-medium tracking-wide leading-relaxed truncate-3-lines">
               {subTitle || 'Ingresa una descripción de tus servicios en los controles de la izquierda.'}
             </p>
           </div>
 
           {/* Footer: Discount Badge & CTA */}
-          <div className="border-t border-white/15 pt-4 flex justify-between items-center">
+          <div className="border-t border-white/15 pt-4 flex justify-between items-center relative z-10">
             <div className="flex flex-col">
-              <span className="text-[9px] text-white/70 uppercase tracking-wider font-bold">Descuento Especial</span>
+              <span className="text-[8px] text-white/60 uppercase tracking-widest font-black">Descuento Especial</span>
               <div className="flex items-baseline gap-0.5">
                 <span className="text-3xl font-black tracking-tighter text-white font-display">{discount}%</span>
-                <span className="text-lg font-bold text-white">OFF</span>
+                <span className="text-lg font-black text-white">OFF</span>
               </div>
             </div>
 
             <div className="flex flex-col items-end">
-              <span className="text-[9px] text-white/70 uppercase tracking-wider font-bold">¡Reserva Hoy!</span>
-              <span className="text-[11px] font-bold bg-white text-slate-900 px-3 py-1 rounded-lg shadow-sm font-display mt-0.5">
+              <span className="text-[8px] text-white/60 uppercase tracking-widest font-black">¡Reserva Hoy!</span>
+              <span className="text-[10px] font-black bg-white text-black px-3 py-1 rounded-md shadow-md font-display mt-0.5 uppercase tracking-wider">
                 Cupos Limitados
               </span>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 bg-white/[0.01] px-3 py-1.5 rounded-lg border border-white/[0.06] font-semibold">
-          <Share2 className="w-3.5 h-3.5 text-[#00d2ff]" />
+        <div className="mt-4 flex items-center gap-1.5 text-[10px] text-slate-400 bg-white/[0.01] px-3 py-1.5 rounded-lg border border-white/[0.06] font-semibold">
+          <Share2 className="w-3.5 h-3.5 text-red-500" />
           <span>Formatos listos para <b className="text-slate-300">Instagram Story</b> y <b className="text-slate-300">Estados de WhatsApp</b></span>
         </div>
       </div>

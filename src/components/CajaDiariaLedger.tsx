@@ -60,6 +60,7 @@ export default function CajaDiariaLedger({
     .reduce((sum, t) => sum + t.monto, 0);
 
   const saldoActual = totalIngresos - totalEgresos;
+  const currentPosInsumo = insumos.find((i) => i.id === posSelectedInsumo);
 
   const handleOpenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -381,42 +382,42 @@ export default function CajaDiariaLedger({
         <div className="lg:col-span-5 space-y-6">
           
           {/* POS Cart widget */}
-          <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+          <div className="glass-panel p-5 rounded-xl border border-red-500/15 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden card-sport-border">
             <div className="flex items-center gap-2 pb-2 border-b border-white/[0.08]">
-              <span className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.06] text-[#00d2ff]">
+              <span className="p-2 rounded-lg bg-red-500/10 border border-red-500/25 text-red-500">
                 <ShoppingBag className="w-5 h-5" />
               </span>
               <div>
-                <h3 className="font-bold text-white text-sm uppercase tracking-wide">Punto de Venta (POS)</h3>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Insumos y Adicionales</span>
+                <h3 className="font-extrabold text-white text-sm uppercase tracking-widest font-display">Punto de Venta (POS)</h3>
+                <span className="text-[10px] text-red-400 font-bold uppercase tracking-widest">Insumos y Adicionales</span>
               </div>
             </div>
 
             {cajaAbierta ? (
               <form onSubmit={handlePosSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Insumo / Producto a Vender</label>
+                  <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Producto a Vender</label>
                   <select
                     id="select-pos-insumo"
                     value={posSelectedInsumo}
                     onChange={(e) => setPosSelectedInsumo(e.target.value)}
-                    className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg px-2.5 py-2 text-xs text-white"
+                    className="w-full bg-black/40 border border-white/[0.08] focus:border-red-500/60 focus:outline-none rounded-lg px-2.5 py-2 text-xs text-white"
                   >
                     {insumos.map((i) => {
                       const isLow = i.stockActual <= i.stockMinimo;
                       const isOut = i.stockActual === 0;
                       return (
-                        <option key={i.id} value={i.id} disabled={isOut} className="bg-[#0c0f12]">
-                          {i.nombre} - ${i.precioCosto * 1.5} ({isOut ? 'SIN STOCK' : isLow ? `Bajo Stock: ${i.stockActual}` : `Stock: ${i.stockActual}`} {i.unidad})
+                        <option key={i.id} value={i.id} disabled={isOut} className="bg-[#0c0f12] text-white">
+                          {i.nombre} - ${Math.round(i.precioCosto * 1.5)} ({isOut ? 'SIN STOCK' : isLow ? `Bajo Stock: ${i.stockActual}` : `Stock: ${i.stockActual}`} {i.unidad})
                         </option>
                       );
                     })}
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Cantidad</label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1">
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Cantidad</label>
                     <input
                       id="input-pos-quantity"
                       type="number"
@@ -424,18 +425,48 @@ export default function CajaDiariaLedger({
                       min="1"
                       value={posCantidad}
                       onChange={(e) => setPosCantidad(Number(e.target.value))}
-                      className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg px-3 py-2 text-xs text-white font-mono"
+                      className="w-full bg-black/40 border border-white/[0.08] focus:border-red-500/60 focus:outline-none rounded-lg px-3 py-2 text-xs text-white font-mono"
                     />
                   </div>
 
-                  <div className="flex items-end">
+                  <div className="col-span-2 flex items-end">
                     <button
                       id="btn-pos-sell"
                       type="submit"
-                      className="w-full bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold py-2 rounded-lg text-xs transition duration-200"
+                      className="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-200 hover:text-white font-black uppercase tracking-widest py-2 rounded-lg text-[10px] transition duration-200 cursor-pointer shadow-md"
                     >
                       Registrar Venta
                     </button>
+                  </div>
+                </div>
+
+                {/* Live Ticket Mockup Preview */}
+                <div className="bg-amber-50/5 text-amber-200/90 font-mono text-[10px] p-4 rounded-lg border border-amber-500/20 space-y-2 relative overflow-hidden shadow-inner bg-black/50">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/5 rounded-full blur-md" />
+                  <div className="text-center font-extrabold border-b border-white/[0.08] pb-1.5 uppercase tracking-wider text-white">
+                    *** ALBELO DETAIL ***
+                    <span className="text-[7.5px] block text-slate-400 normal-case mt-0.5 tracking-normal">Estética Vehicular & Detailing</span>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between">
+                      <span>PRODUCTO:</span>
+                      <span className="text-white font-bold">{currentPosInsumo?.nombre || 'Ninguno'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>CANTIDAD:</span>
+                      <span className="text-white">{posCantidad} U.</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>PRECIO UNIT:</span>
+                      <span className="text-slate-300">${Math.round((currentPosInsumo?.precioCosto || 0) * 1.5)} ARS</span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/[0.08] pt-1.5 text-xs font-bold text-red-400">
+                      <span>TOTAL ESTIMADO:</span>
+                      <span>${Math.round((currentPosInsumo?.precioCosto || 0) * 1.5 * posCantidad)} ARS</span>
+                    </div>
+                  </div>
+                  <div className="text-[7px] text-slate-500 text-center pt-1 border-t border-white/[0.08] uppercase tracking-wider">
+                    Simulador Factura Electrónica AFIP
                   </div>
                 </div>
               </form>
@@ -444,9 +475,9 @@ export default function CajaDiariaLedger({
             )}
 
             {lastSale && (
-              <div className="bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 animate-fade-in">
+              <div className="bg-emerald-500/5 border border-emerald-500/25 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 animate-fade-in">
                 <div className="space-y-0.5">
-                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">¡Venta Registrada!</span>
+                  <span className="text-[9px] text-emerald-400 font-extrabold uppercase tracking-widest block">¡Venta Registrada!</span>
                   <span className="text-xs text-white block font-medium truncate max-w-[200px]">{lastSale.concepto}</span>
                 </div>
                 <button
@@ -459,7 +490,7 @@ export default function CajaDiariaLedger({
                     fecha: lastSale.fecha,
                     origen: 'VENTA_POS'
                   })}
-                  className="text-[11px] font-bold text-[#00d2ff] hover:text-white flex items-center gap-1 bg-[#00d2ff]/10 hover:bg-[#00d2ff]/20 border border-[#00d2ff]/20 px-2 py-1 rounded transition"
+                  className="text-[10px] font-black uppercase tracking-widest text-[#00d2ff] hover:text-white flex items-center gap-1 bg-[#00d2ff]/10 hover:bg-[#00d2ff]/20 border border-[#00d2ff]/20 px-2 py-1.5 rounded transition cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Descargar Ticket
