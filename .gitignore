@@ -62,3 +62,11 @@ hc.log
 *.log
 logs/
 .system_generated/
+
+# Vercel
+.vercel/
+
+.vercel
+.env*
+node_modules/
+dist/

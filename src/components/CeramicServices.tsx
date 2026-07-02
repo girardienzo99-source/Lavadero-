@@ -1,0 +1,725 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Sparkles, Shield, Car, User, Clock, DollarSign, Plus, Trash2, 
+  Settings, Calculator, Check, ArrowRight, HelpCircle
+} from 'lucide-react';
+import { Cliente, Turno, TipoServicio } from '../types';
+import { LAVADORES_ACTIVOS } from '../data/initialData';
+
+interface CeramicServicesProps {
+  clientes: Cliente[];
+  turnos: Turno[];
+  onAddTurno: (newTurno: Turno) => void;
+  onAddLog: (message: string) => void;
+}
+
+interface NivelTratamiento {
+  id: string;
+  nombre: string;
+  durabilidad: string; // ej: "1 Año", "3 Años", "5 Años"
+  descripcion: string;
+  precioBase: number;
+  duracionEstimada: string;
+}
+
+interface FactorTamano {
+  tipo: 'AUTO' | 'SUV' | 'CAMIONETA';
+  nombre: string;
+  multiplicador: number;
+  adicional: number;
+}
+
+export default function CeramicServices({
+  clientes,
+  turnos,
+  onAddTurno,
+  onAddLog
+}: CeramicServicesProps) {
+  // Local active tab within Ceramic Module
+  const [activeSubTab, setActiveSubTab] = useState<'calculator' | 'config'>('calculator');
+
+  // Initial Treatment Levels state (stored in local state, seeded with pro values)
+  const [niveles, setNiveles] = useState<NivelTratamiento[]>([
+    {
+      id: 'n1',
+      nombre: 'Tratamiento Cerámico SiO2 Express',
+      durabilidad: '1 Año',
+      descripcion: 'Sellado de acople rápido con base de cuarzo SiO2. Otorga brillo extremo y repelencia hidrofóbica básica de fácil mantenimiento.',
+      precioBase: 140000,
+      duracionEstimada: '6 hs'
+    },
+    {
+      id: 'n2',
+      nombre: 'Tratamiento Cerámico Premium 9H Gyeon',
+      durabilidad: '3 Años',
+      descripcion: 'Corrección de laca en 2 pasos para eliminar micro-rayas y aplicación de sellador de dureza 9H real. Protección contra resina, rayos UV y sales.',
+      precioBase: 240000,
+      duracionEstimada: '12 hs'
+    },
+    {
+      id: 'n3',
+      nombre: 'Tratamiento de Grafeno / Cerámico Elite',
+      durabilidad: '5 Años',
+      descripcion: 'Nuestra protección máxima de calidad de exposición. Revestimiento infundido con óxido de grafeno para la máxima resistencia térmica, brillo mojado tridimensional y repelencia.',
+      precioBase: 380000,
+      duracionEstimada: '18 hs'
+    }
+  ]);
+
+  // Vehicle Size multipliers & added pricing
+  const [factores, setFactores] = useState<FactorTamano[]>([
+    { tipo: 'AUTO', nombre: 'Auto / Hatchback / Sedan', multiplicador: 1.0, adicional: 0 },
+    { tipo: 'SUV', nombre: 'SUV / Crossover / Monovolumen', multiplicador: 1.25, adicional: 25000 },
+    { tipo: 'CAMIONETA', nombre: 'Camioneta / Pick-up / Utilitario Grande', multiplicador: 1.45, adicional: 50000 }
+  ]);
+
+  // Form states for adding/editing Treatment Levels
+  const [newNombre, setNewNombre] = useState('');
+  const [newDurabilidad, setNewDurabilidad] = useState('3 Años');
+  const [newDescripcion, setNewDescripcion] = useState('');
+  const [newPrecioBase, setNewPrecioBase] = useState('');
+  const [newDuracionEstimada, setNewDuracionEstimada] = useState('12 hs');
+
+  // Form states for creating a custom Ceramic Turno
+  const [selectedClienteId, setSelectedClienteId] = useState(clientes[0]?.id || '');
+  const [selectedNivelId, setSelectedNivelId] = useState(niveles[1]?.id || niveles[0]?.id || '');
+  const [selectedTamano, setSelectedTamano] = useState<'AUTO' | 'SUV' | 'CAMIONETA'>('AUTO');
+  const [selectedDetallador, setSelectedDetallador] = useState(LAVADORES_ACTIVOS[1] || LAVADORES_ACTIVOS[0]);
+  const [customPrecioCalc, setCustomPrecioCalc] = useState<number | null>(null);
+
+  // Derive active selections
+  const currentCliente = clientes.find((c) => c.id === selectedClienteId);
+  const currentNivel = niveles.find((n) => n.id === selectedNivelId);
+  const currentFactor = factores.find((f) => f.tipo === selectedTamano);
+
+  // Auto-calculated pricing based on formula: (Precio Base * Multiplicador) + Adicional
+  const calculatedPrice = currentNivel && currentFactor
+    ? Math.round((currentNivel.precioBase * currentFactor.multiplicador) + currentFactor.adicional)
+    : 0;
+
+  // Use calculated price by default unless custom pricing is set
+  const finalPriceToUse = customPrecioCalc !== null ? customPrecioCalc : calculatedPrice;
+
+  // Trigger default selections on load
+  useEffect(() => {
+    if (clientes.length > 0 && !selectedClienteId) {
+      setSelectedClienteId(clientes[0].id);
+    }
+  }, [clientes, selectedClienteId]);
+
+  // Handle adding a new NivelTratamiento
+  const handleAddNivel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNombre || !newPrecioBase) return;
+
+    const newN: NivelTratamiento = {
+      id: `n_${Date.now()}`,
+      nombre: newNombre,
+      durabilidad: newDurabilidad,
+      descripcion: newDescripcion,
+      precioBase: Number(newPrecioBase),
+      duracionEstimada: newDuracionEstimada
+    };
+
+    setNiveles([...niveles, newN]);
+    setSelectedNivelId(newN.id);
+    setNewNombre('');
+    setNewDescripcion('');
+    setNewPrecioBase('');
+    onAddLog(`⚙️ Configuración: Agregado nivel de tratamiento cerámico "${newN.nombre}" (${newN.durabilidad}) con precio base $${newN.precioBase.toLocaleString('es-AR')}`);
+  };
+
+  // Handle deleting a NivelTratamiento
+  const handleDeleteNivel = (id: string) => {
+    if (niveles.length <= 1) {
+      alert('Debe conservar al menos un nivel de tratamiento activo en el sistema.');
+      return;
+    }
+    const target = niveles.find(n => n.id === id);
+    setNiveles(niveles.filter(n => n.id !== id));
+    if (selectedNivelId === id) {
+      const remaining = niveles.filter(n => n.id !== id);
+      setSelectedNivelId(remaining[0].id);
+    }
+    if (target) {
+      onAddLog(`⚙️ Configuración: Eliminado nivel de tratamiento cerámico "${target.nombre}".`);
+    }
+  };
+
+  // Handle editing Factor multiplicadores/adicionales directly
+  const handleUpdateFactor = (tipo: 'AUTO' | 'SUV' | 'CAMIONETA', key: 'multiplicador' | 'adicional', value: number) => {
+    setFactores(factores.map(f => {
+      if (f.tipo === tipo) {
+        return { ...f, [key]: value };
+      }
+      return f;
+    }));
+  };
+
+  // Create Ceramic Turno Action
+  const handleScheduleCeramic = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentCliente || !currentNivel || !currentFactor) return;
+
+    // Create the special Turno object
+    const newT: Turno = {
+      id: `t_${Date.now()}`,
+      clienteId: currentCliente.id,
+      clienteNombre: currentCliente.nombre,
+      telefono: currentCliente.telefono,
+      vehiculoPatente: currentCliente.vehiculoPatente,
+      vehiculoModelo: `${currentCliente.vehiculoModelo} (${selectedTamano})`,
+      tipo: 'ESTETICA',
+      servicioNombre: `Tratamiento Cerámico [${currentNivel.durabilidad}] - ${currentNivel.nombre}`,
+      lavadorAsignado: selectedDetallador,
+      estado: 'PENDIENTE',
+      precio: finalPriceToUse,
+      fechaCreacion: new Date().toISOString(),
+      isCeramic: true,
+      ceramicNivel: currentNivel.durabilidad,
+      tamanoVehiculo: selectedTamano
+    };
+
+    onAddTurno(newT);
+    setCustomPrecioCalc(null);
+    onAddLog(`💎 DETAILED AGENDADO: ${newT.clienteNombre} (${newT.vehiculoPatente}) para un ${newT.servicioNombre}. Detallador asignado: ${newT.lavadorAsignado}. Tamaño: ${selectedTamano}. Valor final: $${newT.precio.toLocaleString('es-AR')}.`);
+    
+    // Quick success scroll indicator or notification
+    alert(`¡Tratamiento Cerámico agendado correctamente! Podrás hacerle seguimiento en la sección de Turnos (Tablero Kanban) con una etiqueta especial de servicio complejo.`);
+  };
+
+  return (
+    <div className="space-y-6">
+      
+      {/* Tab Selector inside CeramicServices */}
+      <div className="flex justify-between items-center bg-white/[0.02] p-2 rounded-xl border border-white/[0.08]">
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setActiveSubTab('calculator')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 ${
+              activeSubTab === 'calculator'
+                ? 'bg-red-600/20 text-red-500 border border-red-600/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+            }`}
+          >
+            <Calculator className="w-3.5 h-3.5" />
+            Calculadora & Agendador
+          </button>
+          <button
+            onClick={() => setActiveSubTab('config')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 ${
+              activeSubTab === 'config'
+                ? 'bg-red-600/20 text-red-500 border border-red-600/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+            }`}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Configurar Tarifas y Niveles
+          </button>
+        </div>
+        
+        <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-400 font-mono font-bold uppercase">
+          <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
+          Estética Premium
+        </div>
+      </div>
+
+      {/* Sub-Tab 1: Calculator & Turno Creator */}
+      {activeSubTab === 'calculator' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Main Calculator Form */}
+          <form onSubmit={handleScheduleCeramic} className="lg:col-span-8 glass-panel p-5 rounded-xl border border-white/[0.08] space-y-5">
+            <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-red-500 flex items-center gap-1.5">
+                <Calculator className="w-4 h-4 text-red-500" />
+                Cotización de Tratamiento Cerámico Complejo
+              </h4>
+              <span className="text-[9px] bg-red-950/40 text-red-400 border border-red-600/35 px-1.5 py-0.5 rounded font-bold uppercase">ALBELO STUDIO</span>
+            </div>
+
+            {/* Selection inputs */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Cliente & Vehiculo */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] text-slate-400 uppercase tracking-wider font-bold">1. Seleccionar Cliente Registrado</label>
+                <select
+                  value={selectedClienteId}
+                  onChange={(e) => setSelectedClienteId(e.target.value)}
+                  className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg px-3 py-2 text-xs text-white"
+                >
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nombre} ({c.vehiculoPatente})</option>
+                  ))}
+                </select>
+                
+                {currentCliente && (
+                  <div className="bg-white/[0.01] p-2.5 rounded-lg border border-white/[0.04] text-[10px] text-slate-400 flex justify-between items-center">
+                    <span>Modelo: <b className="text-slate-200">{currentCliente.vehiculoModelo}</b></span>
+                    <span>Patente: <b className="text-red-400 uppercase">{currentCliente.vehiculoPatente}</b></span>
+                  </div>
+                )}
+              </div>
+
+              {/* Detallador / Operario especializado */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] text-slate-400 uppercase tracking-wider font-bold">2. Detallador / Técnico Asignado</label>
+                <select
+                  value={selectedDetallador}
+                  onChange={(e) => setSelectedDetallador(e.target.value)}
+                  className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg px-3 py-2 text-xs text-white"
+                >
+                  {LAVADORES_ACTIVOS.map((lav) => (
+                    <option key={lav} value={lav}>{lav} (Técnico Detailing)</option>
+                  ))}
+                </select>
+                <div className="text-[9px] text-slate-500 italic px-1">Este técnico liderará la corrección y curado térmico de laca.</div>
+              </div>
+
+            </div>
+
+            <hr className="border-white/[0.06]" />
+
+            {/* Treatment Level & Size Selector Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              
+              {/* Select Level */}
+              <div className="space-y-2">
+                <label className="block text-[10px] text-slate-400 uppercase tracking-wider font-bold">3. Nivel de Tratamiento (Garantía)</label>
+                <div className="space-y-2">
+                  {niveles.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        setSelectedNivelId(n.id);
+                        setCustomPrecioCalc(null); // Reset custom price override
+                      }}
+                      className={`p-3 rounded-lg border cursor-pointer transition text-left relative ${
+                        selectedNivelId === n.id
+                          ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.05)]'
+                          : 'bg-white/[0.01] border-white/[0.06] hover:border-white/[0.1] hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-white">{n.nombre}</span>
+                        <span className="text-[9px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.5 rounded uppercase">
+                          {n.durabilidad}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">{n.descripcion}</p>
+                      <div className="flex justify-between text-[9px] text-slate-500 mt-2 font-mono">
+                        <span>Duración: <b>{n.duracionEstimada}</b></span>
+                        <span>Base: <b>${n.precioBase.toLocaleString('es-AR')}</b></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Select Vehicle Size */}
+              <div className="space-y-2">
+                <label className="block text-[10px] text-slate-400 uppercase tracking-wider font-bold">4. Tamaño del Vehículo (Multiplicadores)</label>
+                <div className="space-y-2">
+                  {factores.map((f) => (
+                    <div
+                      key={f.tipo}
+                      onClick={() => {
+                        setSelectedTamano(f.tipo);
+                        setCustomPrecioCalc(null); // Reset custom price override
+                      }}
+                      className={`p-3 rounded-lg border cursor-pointer transition flex items-center justify-between ${
+                        selectedTamano === f.tipo
+                          ? 'bg-red-600/10 border-red-500/35'
+                          : 'bg-white/[0.01] border-white/[0.06] hover:border-white/[0.1] hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`p-1.5 rounded-md ${selectedTamano === f.tipo ? 'bg-red-500/20 text-red-400' : 'bg-white/[0.04] text-slate-400'}`}>
+                          <Car className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-white block">{f.nombre}</span>
+                          <span className="text-[9px] text-slate-500">
+                            Factor: {f.multiplicador}x {f.adicional > 0 ? `+ $${f.adicional.toLocaleString('es-AR')}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {selectedTamano === f.tipo && (
+                          <span className="p-1 rounded-full bg-red-500/20 text-red-400 block w-fit ml-auto">
+                            <Check className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Helpful Note about formulas */}
+                <div className="bg-white/[0.01] border border-white/[0.06] rounded-lg p-3 space-y-1.5 text-[10px] text-slate-400">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-300">
+                    <HelpCircle className="w-3.5 h-3.5 text-red-400" />
+                    <span>Fórmula de Cobro Detailing</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    El valor de los tratamientos de estética premium escala según la laca del vehículo. Se calcula con:
+                  </p>
+                  <p className="font-mono text-[9px] text-amber-400 text-center bg-black/40 py-1.5 rounded border border-white/[0.04]">
+                    Precio Final = (Precio Base * Multiplicador) + Cargo Adicional
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            <hr className="border-white/[0.06]" />
+
+            {/* Calculated Price & Form submit */}
+            <div className="bg-gradient-to-r from-red-950/20 to-amber-950/10 border border-red-900/30 rounded-xl p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="text-left space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Precio de Venta Sugerido</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-extrabold font-mono text-amber-400">
+                    ${finalPriceToUse.toLocaleString('es-AR')}
+                  </span>
+                  <span className="text-xs text-slate-500">ARS</span>
+                </div>
+                {customPrecioCalc === null ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const promptVal = prompt('Ingrese el precio personalizado para este servicio:', calculatedPrice.toString());
+                      if (promptVal && !isNaN(Number(promptVal))) {
+                        setCustomPrecioCalc(Number(promptVal));
+                      }
+                    }}
+                    className="text-[10px] text-red-400 underline hover:text-red-300 transition"
+                  >
+                    Establecer precio manual
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setCustomPrecioCalc(null)}
+                    className="text-[10px] text-slate-400 underline hover:text-slate-300 transition"
+                  >
+                    Restablecer precio sugerido (fórmula)
+                  </button>
+                )}
+              </div>
+
+              <div className="text-right space-y-1 md:max-w-xs">
+                <div className="flex items-center gap-1.5 justify-end text-[10px] text-slate-300 font-semibold font-mono">
+                  <Clock className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Duración Estimada: {currentNivel?.duracionEstimada || '12 hs'}</span>
+                </div>
+                <button
+                  type="submit"
+                  className="mt-1 w-full bg-red-600 hover:bg-red-700 text-white font-extrabold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-[0_0_15px_rgba(220,38,38,0.25)] flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Agendar Turno Detailing
+                </button>
+              </div>
+            </div>
+
+          </form>
+
+          {/* Side Panel: Dynamic Active Ceramic Turnos */}
+          <div className="lg:col-span-4 space-y-5">
+            
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-amber-500" />
+                  Garantías y Control
+                </h4>
+                <span className="text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1 rounded font-bold font-mono">LIVE</span>
+              </div>
+
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Cada tratamiento genera una garantía electrónica vinculada a la patente del vehículo. El panel Kanban de turnos alertará automáticamente al personal operario para que apliquen los protocolos de curado sellador térmico correspondientes de forma meticulosa.
+              </p>
+
+              {/* Quick Metrics */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="bg-white/[0.02] border border-white/[0.05] p-2.5 rounded-lg text-center">
+                  <span className="text-[9px] text-slate-500 block uppercase">Detallados de Hoy</span>
+                  <span className="text-sm font-bold text-white font-mono mt-1 block">
+                    {turnos.filter(t => t.isCeramic).length} activos
+                  </span>
+                </div>
+                <div className="bg-white/[0.02] border border-white/[0.05] p-2.5 rounded-lg text-center">
+                  <span className="text-[9px] text-slate-500 block uppercase">Ingreso Proyectado</span>
+                  <span className="text-sm font-bold text-amber-400 font-mono mt-1 block">
+                    ${turnos.filter(t => t.isCeramic).reduce((acc, t) => acc + t.precio, 0).toLocaleString('es-AR')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* List of currently scheduled ceramic jobs */}
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-3">
+              <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Monitoreo Detailing</h4>
+                <span className="text-[9px] font-mono text-slate-500 font-bold">Patentes</span>
+              </div>
+
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                {turnos.filter(t => t.isCeramic).length === 0 ? (
+                  <div className="text-center py-6 text-[10px] text-slate-500 italic">No hay tratamientos de estética complejos agendados hoy.</div>
+                ) : (
+                  turnos.filter(t => t.isCeramic).map((t) => (
+                    <div key={t.id} className="bg-white/[0.01] p-2 rounded-lg border border-white/[0.04] space-y-1 text-[11px]">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-white truncate max-w-[120px]">{t.clienteNombre}</span>
+                        <span className="text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded uppercase font-bold font-mono">
+                          {t.ceramicNivel}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-400">
+                        <span>Vehículo: {t.vehiculoModelo}</span>
+                        <span className="text-amber-500 font-bold font-mono">${t.precio.toLocaleString('es-AR')}</span>
+                      </div>
+                      <div className="flex justify-between text-[9px] text-slate-500 font-mono border-t border-white/[0.03] pt-1">
+                        <span>Técnico: {t.lavadorAsignado}</span>
+                        <span>Estado: <b className="text-amber-400 uppercase">{t.estado}</b></span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* Sub-Tab 2: Treatment configuration and factors config */}
+      {activeSubTab === 'config' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
+          
+          {/* Left Column: List of existing Treatment levels & Create form */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Treatment level configuration form */}
+            <form onSubmit={handleAddNivel} className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-red-500 flex items-center gap-1.5">
+                  <Plus className="w-4 h-4 text-red-500" /> Configurar Niveles de Tratamiento
+                </h4>
+                <span className="text-[8px] text-slate-500">Formulario Admin</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-[10px] text-slate-400 uppercase">Nombre del Tratamiento</label>
+                  <input
+                    type="text"
+                    required
+                    value={newNombre}
+                    onChange={(e) => setNewNombre(e.target.value)}
+                    placeholder="Ej. Tratamiento Cerámico Sonax CC36"
+                    className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg px-3 py-1.5 text-xs text-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] text-slate-400 uppercase">Durabilidad / Garantía</label>
+                  <select
+                    value={newDurabilidad}
+                    onChange={(e) => setNewDurabilidad(e.target.value)}
+                    className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  >
+                    <option value="1 Año">1 Año de Protección</option>
+                    <option value="2 Años">2 Años de Protección</option>
+                    <option value="3 Años">3 Años de Protección</option>
+                    <option value="5 Años">5 Años de Protección</option>
+                    <option value="De por Vida">De por Vida (Garantía Escrita)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-[10px] text-slate-400 uppercase">Precio Base (Auto estándar)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      value={newPrecioBase}
+                      onChange={(e) => setNewPrecioBase(e.target.value)}
+                      placeholder="Ej. 180000"
+                      className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg pl-6 pr-3 py-1.5 text-xs text-white font-mono"
+                    />
+                    <span className="absolute left-2 top-1.5 text-slate-500 text-xs">$</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] text-slate-400 uppercase">Duración Estimada de Mano de Obra</label>
+                  <input
+                    type="text"
+                    required
+                    value={newDuracionEstimada}
+                    onChange={(e) => setNewDuracionEstimada(e.target.value)}
+                    placeholder="Ej. 8 hs, 1.5 días"
+                    className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg px-3 py-1.5 text-xs text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[10px] text-slate-400 uppercase">Descripción detallada técnica del servicio</label>
+                <textarea
+                  value={newDescripcion}
+                  onChange={(e) => setNewDescripcion(e.target.value)}
+                  placeholder="Detalla los pasos de descontaminado férreo, cantidad de pasos de pulido, marca y propiedades del compuesto curador."
+                  rows={2}
+                  className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-wider transition duration-200 flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Crear y Publicar Nivel Cerámico
+              </button>
+            </form>
+
+            {/* List of current configured levels */}
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 pb-2 border-b border-white/[0.08]">
+                Niveles en Base de Datos ({niveles.length})
+              </h4>
+              <div className="space-y-3">
+                {niveles.map((n) => (
+                  <div key={n.id} className="bg-white/[0.01] p-3 rounded-xl border border-white/[0.05] flex justify-between items-start gap-4">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">{n.nombre}</span>
+                        <span className="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1 py-0.5 rounded font-bold uppercase">
+                          {n.durabilidad}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-normal">{n.descripcion}</p>
+                      <div className="flex gap-4 text-[9px] text-slate-500 font-mono mt-2">
+                        <span>Precio Base: <b className="text-slate-300">${n.precioBase.toLocaleString('es-AR')}</b></span>
+                        <span>Mano de Obra: <b className="text-slate-300">{n.duracionEstimada}</b></span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNivel(n.id)}
+                      className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition shrink-0"
+                      title="Eliminar nivel de tratamiento"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right Column: Editable Factors config */}
+          <div className="lg:col-span-5 space-y-6">
+            
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Car className="w-4 h-4 text-red-500" />
+                  Factores por Tamaño de Vehículo
+                </h4>
+                <span className="text-[9px] text-slate-500 font-bold uppercase font-mono">Formulas</span>
+              </div>
+
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Los tratamientos cerámicos consumen significativamente más insumos (militros de cuarzo/SiO2) y horas de lijado técnico en SUVs y camionetas de gran volumen que en hatchbacks pequeños o sedanes. Ajusta los coeficientes y cargos adicionales fijos abajo:
+              </p>
+
+              <div className="space-y-4 pt-2">
+                {factores.map((f) => (
+                  <div key={f.tipo} className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 rounded bg-red-500/20 text-red-400">
+                        <Car className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-white uppercase">{f.tipo} • {f.nombre}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3.5">
+                      {/* Multiplier Edit */}
+                      <div className="space-y-1">
+                        <label className="block text-[9px] text-slate-400 uppercase">Multiplicador Coeficiente</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.05"
+                            value={f.multiplicador}
+                            onChange={(e) => handleUpdateFactor(f.tipo, 'multiplicador', Number(e.target.value))}
+                            className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg px-2.5 py-1 text-xs text-white font-mono"
+                          />
+                          <span className="absolute right-2 top-1 text-slate-500 text-[10px]">x</span>
+                        </div>
+                      </div>
+
+                      {/* Cargo Adicional edit */}
+                      <div className="space-y-1">
+                        <label className="block text-[9px] text-slate-400 uppercase">Cargo Adicional Fijo ($)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="5000"
+                            value={f.adicional}
+                            onChange={(e) => handleUpdateFactor(f.tipo, 'adicional', Number(e.target.value))}
+                            className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg pl-5 pr-2 py-1 text-xs text-white font-mono"
+                          />
+                          <span className="absolute left-1.5 top-1 text-slate-500 text-[10px]">$</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Resumen de Precios de Venta Simulado
+              </h4>
+              <p className="text-[10px] text-slate-500 leading-normal">Simulación rápida de precios en base a los factores configurados:</p>
+              
+              <div className="space-y-1.5 font-mono text-[10px]">
+                {niveles.map((n) => (
+                  <div key={n.id} className="border-b border-white/[0.03] pb-1.5 last:border-none last:pb-0 space-y-1">
+                    <div className="font-semibold text-slate-300 text-[11px] font-sans">{n.nombre}</div>
+                    <div className="grid grid-cols-3 gap-1 text-[10px]">
+                      {factores.map((f) => {
+                        const calculated = Math.round((n.precioBase * f.multiplicador) + f.adicional);
+                        return (
+                          <div key={f.tipo} className="bg-white/[0.01] p-1.5 rounded border border-white/[0.04] text-center">
+                            <span className="text-slate-500 text-[8px] block uppercase">{f.tipo}</span>
+                            <span className="text-amber-400 font-bold block mt-0.5">${calculated.toLocaleString('es-AR')}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+    </div>
+  );
+}

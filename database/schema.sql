@@ -1,7 +1,7 @@
 -- Schema para el Sistema de Gestión y Ventas del Lavadero de Autos (Car Wash)
--- Base de Datos recomendada: PostgreSQL
+-- Base de Datos recomendada: PostgreSQL (Supabase)
 
--- Habilitar extensiones necesarias si es necesario
+-- Habilitar extensiones necesarias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. Tabla de Empleados
@@ -51,6 +51,7 @@ CREATE TABLE turnos (
     cliente_id INT REFERENCES clientes(id) ON DELETE CASCADE,
     vehiculo_id INT REFERENCES vehiculos(id) ON DELETE CASCADE,
     servicio_id INT REFERENCES servicios(id),
+    empleado_id INT REFERENCES empleados(id) ON DELETE SET NULL,
     fecha_hora TIMESTAMP NOT NULL,
     estado VARCHAR(20) DEFAULT 'PENDIENTE', -- 'PENDIENTE', 'COMPLETADO', 'CANCELADO', 'EN_PROGRESO'
     observaciones TEXT
@@ -67,14 +68,14 @@ CREATE TABLE productos (
     precio_venta NUMERIC(10, 2) NOT NULL
 );
 
--- 7. Tabla de Caja Diaria (Control de Caja)
-CREATE TABLE caja_diaria (
+-- 7. Tabla de Cajas Diarias (Control de Caja)
+CREATE TABLE cajas_diarias (
     id SERIAL PRIMARY KEY,
-    fecha DATE UNIQUE NOT NULL DEFAULT CURRENT_DATE,
+    fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_cierre TIMESTAMP,
     monto_apertura NUMERIC(10, 2) NOT NULL,
     monto_cierre NUMERIC(10, 2),
-    ingresos NUMERIC(10, 2) DEFAULT 0.00,
-    egresos NUMERIC(10, 2) DEFAULT 0.00,
+    saldo_actual NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     estado VARCHAR(15) DEFAULT 'ABIERTA', -- 'ABIERTA', 'CERRADA'
     observaciones TEXT
 );
@@ -82,7 +83,7 @@ CREATE TABLE caja_diaria (
 -- 8. Tabla de Ventas / Facturación
 CREATE TABLE ventas (
     id SERIAL PRIMARY KEY,
-    caja_id INT REFERENCES caja_diaria(id),
+    caja_id INT REFERENCES cajas_diarias(id),
     cliente_id INT REFERENCES clientes(id) ON DELETE SET NULL,
     fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
@@ -118,13 +119,49 @@ CREATE TABLE cupones_descuento (
     fecha_uso TIMESTAMP
 );
 
+-- 11. Tabla de Feedback y NPS (Satisfacción de Clientes)
+CREATE TABLE feedback_clientes (
+    id SERIAL PRIMARY KEY,
+    cliente_id INT REFERENCES clientes(id) ON DELETE CASCADE,
+    puntuacion INT NOT NULL CHECK (puntuacion >= 1 AND puntuacion <= 5),
+    comentario TEXT,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 12. Tabla de Libro Contable de Caja (Ingresos / Egresos Manuales)
+CREATE TABLE caja_movimientos (
+    id SERIAL PRIMARY KEY,
+    caja_id INT REFERENCES cajas_diarias(id) ON DELETE CASCADE,
+    tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('INGRESO', 'EGRESO')),
+    monto NUMERIC(10,2) NOT NULL CHECK (monto > 0),
+    descripcion VARCHAR(200) NOT NULL,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 13. Tabla de Usuarios (Autenticación y Roles)
+CREATE TABLE usuarios (
+    id_usuario SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    apellido VARCHAR(100) DEFAULT '',
+    rol VARCHAR(50) NOT NULL,
+    pin VARCHAR(10) DEFAULT NULL,
+    activo BOOLEAN DEFAULT TRUE,
+    mail VARCHAR(150) DEFAULT NULL,
+    contrasena VARCHAR(150) DEFAULT NULL,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(150) NOT NULL
+);
+
 -- Índices recomendados para optimización
 CREATE INDEX idx_turnos_fecha ON turnos(fecha_hora);
 CREATE INDEX idx_clientes_ultima_visita ON clientes(ultima_visita);
 CREATE INDEX idx_ventas_fecha ON ventas(fecha_hora);
 CREATE INDEX idx_productos_stock ON productos(stock);
 
+-- ============================================================================
 -- Datos Semilla (Seed Data)
+-- ============================================================================
+
 INSERT INTO servicios (nombre, descripcion, precio, duracion_minutos) VALUES
 ('Lavado Simple', 'Lavado de carrocería exterior y aspirado básico.', 1500.00, 30),
 ('Lavado Completo', 'Lavado exterior, aspirado profundo, siliconas y perfume.', 2500.00, 50),
@@ -150,49 +187,22 @@ INSERT INTO vehiculos (cliente_id, patente, marca, modelo, color, anio) VALUES
 (3, 'AB456CD', 'Chevrolet', 'Onix', 'Negro', 2019),
 (4, 'AD789EF', 'Volkswagen', 'Gol Trend', 'Rojo', 2020);
 
--- 11. Tabla de Feedback y NPS (Satisfacción de Clientes)
-CREATE TABLE feedback_clientes (
-    id SERIAL PRIMARY KEY,
-    cliente_id INT REFERENCES clientes(id) ON DELETE CASCADE,
-    puntuacion INT NOT NULL CHECK (puntuacion >= 1 AND puntuacion <= 5),
-    comentario TEXT,
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 INSERT INTO feedback_clientes (cliente_id, puntuacion, comentario) VALUES
 (1, 5, 'Excelente servicio de aspirado profundo y atencion muy atenta.'),
 (2, 5, 'El pulido y encerado quedo increible, muy recomendable!'),
 (3, 4, 'Buen lavado rapido, pero tardaron un poco mas de lo acordado.'),
 (4, 2, 'No secaron bien las llantas, hay detalles para mejorar.');
 
--- 12. Tabla de Libro Contable de Caja (Ingresos / Egresos Manuales)
-CREATE TABLE caja_movimientos (
-    id SERIAL PRIMARY KEY,
-    caja_id INT REFERENCES cajas_diarias(id) ON DELETE CASCADE,
-    tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('INGRESO', 'EGRESO')),
-    monto NUMERIC(10,2) NOT NULL CHECK (monto > 0),
-    descripcion VARCHAR(200) NOT NULL,
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Insertar caja activa de demostración
+INSERT INTO cajas_diarias (id, fecha_apertura, monto_apertura, saldo_actual, estado) VALUES
+(1, CURRENT_TIMESTAMP - INTERVAL '12 hours', 10000.00, 10300.00, 'ABIERTA');
 
+-- Insertar movimientos para esa caja activa
 INSERT INTO caja_movimientos (caja_id, tipo, monto, descripcion) VALUES
 (1, 'EGRESO', 1200.00, 'Compra de esponjas y trapos de microfibra extra'),
 (1, 'INGRESO', 1500.00, 'Aporte cambio monedas inicial');
 
--- 13. Tabla de Usuarios (Autenticación y Roles)
-CREATE TABLE usuarios (
-    id_usuario SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    apellido VARCHAR(100) DEFAULT '',
-    rol VARCHAR(50) NOT NULL,
-    pin VARCHAR(10) DEFAULT NULL,
-    activo BOOLEAN DEFAULT TRUE,
-    mail VARCHAR(150) DEFAULT NULL,
-    contrasena VARCHAR(150) DEFAULT NULL,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(150) NOT NULL
-);
-
+-- Insertar usuarios predeterminados (incluyendo admin/1998)
 INSERT INTO usuarios (nombre, apellido, rol, pin, activo, mail, contrasena, username, password) VALUES
 ('Super Admin', '', 'superadmin', '1234', TRUE, 'super@admi.com', 'superadmi2026/', 'super@admi.com', 'superadmi2026/'),
 ('Administrador', '', 'administrador', '1234', TRUE, 'admi@patron.com', 'Elpatron2026/', 'admi@patron.com', 'Elpatron2026/'),
@@ -202,7 +212,16 @@ INSERT INTO usuarios (nombre, apellido, rol, pin, activo, mail, contrasena, user
 ('Damián', 'Martínez', 'cocina', NULL, TRUE, NULL, NULL, 'damian', '1234'),
 ('Sofía', 'Alegre', 'administrador', NULL, TRUE, NULL, NULL, 'sofia', '1234'),
 ('Nuevo', 'Usuario', 'mozo', NULL, TRUE, NULL, NULL, 'nuevo', 'clave'),
-('Admin', '', 'superadmin', NULL, TRUE, NULL, NULL, 'admin', '1998');
+('Admin', '', 'superadmin', NULL, TRUE, NULL, NULL, 'admin', '1998'),
+('Admin Gmail', '', 'superadmin', NULL, TRUE, 'admin@gmail.com', '1998', 'admin@gmail.com', '1998');
 
 
-
+-- Sincronizar secuencias
+SELECT setval('servicios_id_seq', (SELECT MAX(id) FROM servicios));
+SELECT setval('productos_id_seq', (SELECT MAX(id) FROM productos));
+SELECT setval('clientes_id_seq', (SELECT MAX(id) FROM clientes));
+SELECT setval('vehiculos_id_seq', (SELECT MAX(id) FROM vehiculos));
+SELECT setval('feedback_clientes_id_seq', (SELECT MAX(id) FROM feedback_clientes));
+SELECT setval('cajas_diarias_id_seq', (SELECT MAX(id) FROM cajas_diarias));
+SELECT setval('caja_movimientos_id_seq', (SELECT MAX(id) FROM caja_movimientos));
+SELECT setval('usuarios_id_usuario_seq', (SELECT MAX(id_usuario) FROM usuarios));

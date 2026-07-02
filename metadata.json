@@ -1,0 +1,6 @@
+{
+  "name": "Albelo Detail",
+  "description": "Sistema integral de gestión, marketing y planificación para lavaderos de autos, tapicería y estética vehicular.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

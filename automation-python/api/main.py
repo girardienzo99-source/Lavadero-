@@ -50,7 +50,7 @@ def get_dashboard_data():
     """
     try:
         # Cargar todos los datos desde Supabase
-        turnos = execute_query("SELECT t.id, t.fecha_hora, t.estado, c.nombre as cliente_nombre, v.patente, s.nombre as servicio_nombre, s.precio FROM turnos t JOIN clientes c ON t.cliente_id = c.id JOIN vehiculos v ON t.vehiculo_id = v.id JOIN servicios s ON t.servicio_id = s.id ORDER BY t.fecha_hora DESC;", fetch_all=True)
+        turnos = execute_query("SELECT t.id, t.fecha_hora, t.estado, c.nombre as cliente_nombre, v.patente, s.nombre as servicio_nombre, s.precio, e.nombre as empleado_nombre FROM turnos t JOIN clientes c ON t.cliente_id = c.id JOIN vehiculos v ON t.vehiculo_id = v.id JOIN servicios s ON t.servicio_id = s.id LEFT JOIN empleados e ON t.empleado_id = e.id ORDER BY t.fecha_hora DESC;", fetch_all=True)
         productos = execute_query("SELECT * FROM productos ORDER BY nombre;", fetch_all=True)
         servicios = execute_query("SELECT * FROM servicios ORDER BY nombre;", fetch_all=True)
         empleados = execute_query("SELECT * FROM empleados ORDER BY nombre;", fetch_all=True)
@@ -87,9 +87,11 @@ def get_dashboard_data():
             "productosBajoStock": bajo_stock
         }
     except Exception as e:
-        print(f"[DASHBOARD-WARNING] DB Error ({e}). Cargando fallback de demostración.")
+        import traceback
+        err_msg = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"[DASHBOARD-WARNING] DB Error:\n{err_msg}")
         # Fallback Mock Completo
-        return get_mock_dashboard_data(str(e))
+        return get_mock_dashboard_data(err_msg)
 
 # ==========================================
 # 📈 ENDPOINT: SEGMENTACIÓN DE CLIENTES (PANDAS)
@@ -223,12 +225,12 @@ def toggle_employee_status(id: int, activo: bool):
 # ==========================================
 
 @app.post("/api/turnos/agendar")
-def schedule_appointment(clienteId: int, vehiculoId: int, servicioId: int, fechaHora: str):
+def schedule_appointment(clienteId: int, vehiculoId: int, servicioId: int, fechaHora: str, empleadoId: int = None):
     try:
         # fechaHora viene como YYYY-MM-DDTHH:MM
         fecha_parsed = datetime.strptime(fechaHora.replace("T", " "), "%Y-%m-%d %H:%M:%S" if len(fechaHora) > 16 else "%Y-%m-%d %H:%M")
-        execute_query("INSERT INTO turnos (cliente_id, vehiculo_id, servicio_id, fecha_hora, estado) VALUES (:c, :v, :s, :f, 'PENDIENTE');",
-                      {"c": clienteId, "v": vehiculoId, "s": servicioId, "f": fecha_parsed})
+        execute_query("INSERT INTO turnos (cliente_id, vehiculo_id, servicio_id, empleado_id, fecha_hora, estado) VALUES (:c, :v, :s, :e, :f, 'PENDIENTE');",
+                      {"c": clienteId, "v": vehiculoId, "s": servicioId, "e": empleadoId, "f": fecha_parsed})
         return {"status": "success", "message": "Turno agendado correctamente."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al agendar turno: {e}")
@@ -419,9 +421,9 @@ def get_mock_dashboard_data(err_msg: str):
         "db_offline": True,
         "db_error": err_msg,
         "turnos": [
-            {"id": 1, "fecha_hora": "2026-06-27 10:00:00", "estado": "COMPLETADO", "cliente_nombre": "Juan Pérez", "patente": "AA123BB", "servicio_nombre": "Lavado Completo", "precio": 2500.0},
-            {"id": 2, "fecha_hora": "2026-06-27 14:00:00", "estado": "EN_PROCESO", "cliente_nombre": "María Rodríguez", "patente": "AF987ZZ", "servicio_nombre": "Encerado y Pulido", "precio": 6000.0},
-            {"id": 3, "fecha_hora": "2026-06-27 16:30:00", "estado": "PENDIENTE", "cliente_nombre": "Carlos Gómez", "patente": "AB456CD", "servicio_nombre": "Lavado Simple", "precio": 1500.0}
+            {"id": 1, "fecha_hora": "2026-06-27 10:00:00", "estado": "COMPLETADO", "cliente_nombre": "Juan Pérez", "patente": "AA123BB", "servicio_nombre": "Lavado Completo", "precio": 2500.0, "empleado_nombre": "Carlos Lavador"},
+            {"id": 2, "fecha_hora": "2026-06-27 14:00:00", "estado": "EN_PROCESO", "cliente_nombre": "María Rodríguez", "patente": "AF987ZZ", "servicio_nombre": "Encerado y Pulido", "precio": 6000.0, "empleado_nombre": "Carlos Lavador"},
+            {"id": 3, "fecha_hora": "2026-06-27 16:30:00", "estado": "PENDIENTE", "cliente_nombre": "Carlos Gómez", "patente": "AB456CD", "servicio_nombre": "Lavado Simple", "precio": 1500.0, "empleado_nombre": None}
         ],
         "productos": [
             {"id": 1, "nombre": "Silicona Interior Aromatizada", "stock": 2, "stock_minimo": 5, "precio_venta": 600.0},
@@ -565,7 +567,8 @@ def login(payload: dict):
             {"id_usuario": 1, "nombre": "Super Admin", "rol": "superadmin", "username": "super@admi.com", "password": "superadmi2026/"},
             {"id_usuario": 2, "nombre": "Administrador", "rol": "administrador", "username": "admi@patron.com", "password": "Elpatron2026/"},
             {"id_usuario": 4, "nombre": "Enzo", "rol": "mozo", "username": "enzo", "password": "1234"},
-            {"id_usuario": 9, "nombre": "Admin", "rol": "superadmin", "username": "admin", "password": "1998"}
+            {"id_usuario": 9, "nombre": "Admin", "rol": "superadmin", "username": "admin", "password": "1998"},
+            {"id_usuario": 10, "nombre": "Admin Gmail", "rol": "superadmin", "username": "admin@gmail.com", "password": "1998"}
         ]
         found = next((u for u in mock_users if (u["username"] == username and u["password"] == password)), None)
         if found:
@@ -582,6 +585,7 @@ def login(payload: dict):
             return {"status": "error", "message": "Usuario o contraseña incorrectos (modo simulación)."}
 
 if __name__ == "__main__":
+
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
