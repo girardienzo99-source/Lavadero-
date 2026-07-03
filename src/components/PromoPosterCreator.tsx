@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, Wand2, Percent, Share2, Download, Car, Gift, Flame, Droplet, Shield } from 'lucide-react';
 import { TemplatePublicidad, TipoServicio } from '../types';
 import { INITIAL_TEMPLATES } from '../data/initialData';
+import html2canvas from 'html2canvas';
 
 interface PromoPosterCreatorProps {
   onAddPromotionToConsole: (text: string) => void;
@@ -47,8 +48,27 @@ export default function PromoPosterCreator({ onAddPromotionToConsole }: PromoPos
   };
 
   const handleDownload = () => {
-    const message = `📥 Flyer promocional generado con éxito: "${title}" (${discount}% OFF para ${serviceType}). Archivo guardado como 'promo_${serviceType.toLowerCase()}_${discount}off.png'.`;
-    onAddPromotionToConsole(message);
+    const element = document.getElementById('flyer-card-preview');
+    if (!element) return;
+    
+    // Temporarily apply a slight shadow class or prepare element for clean snapshot
+    html2canvas(element, {
+      scale: 2, // 2x scale for high resolution
+      useCORS: true,
+      backgroundColor: null
+    }).then((canvas) => {
+      const link = document.createElement('a');
+      link.download = `promo_${serviceType.toLowerCase()}_${discount}off.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      
+      const message = `📥 Flyer promocional generado con éxito: "${title}" (${discount}% OFF para ${serviceType}). Archivo guardado como 'promo_${serviceType.toLowerCase()}_${discount}off.png'.`;
+      onAddPromotionToConsole(message);
+    }).catch((err) => {
+      console.error('Error generating image', err);
+      const message = `⚠️ Error al generar la imagen del flyer. Formato simulado guardado.`;
+      onAddPromotionToConsole(message);
+    });
   };
 
   const handlePublishCampaign = () => {
