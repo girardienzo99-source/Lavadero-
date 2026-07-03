@@ -647,7 +647,96 @@ def schedule_appointment(clienteId: int, vehiculoId: int, servicioId: int, fecha
 @app.post("/api/turnos/{id}/estado")
 def update_appointment_status(id: int, estado: str):
     try:
+        # 1. Update the status of the appointment
         execute_query("UPDATE turnos SET estado = :estado WHERE id = :id;", {"estado": estado, "id": id})
+        
+        # 2. If the status is COMPLETADO, run the automatic accounting and stock deductions
+        if estado == "COMPLETADO":
+            # Find the appointment details
+            turno = execute_query(
+                "SELECT t.id, s.precio, c.nombre as cliente_nombre, s.nombre as servicio_nombre "
+                "FROM turnos t "
+                "JOIN clientes c ON t.cliente_id = c.id "
+                "JOIN servicios s ON t.servicio_id = s.id "
+                "WHERE t.id = :id;",
+                {"id": id},
+                fetch_one=True
+            )
+            
+            if turno:
+                precio = float(turno["precio"])
+                cliente_nombre = turno["cliente_nombre"]
+                servicio_nombre = turno["servicio_nombre"]
+                
+                # Check if there is an open cashbox
+                caja = execute_query(
+                    "SELECT id FROM cajas_diarias WHERE estado = 'ABIERTA' ORDER BY id DESC LIMIT 1;",
+                    fetch_one=True
+                )
+                
+                if caja:
+                    caja_id = caja["id"]
+                    descripcion = f"Cobro Turno #{turno['id']} - {cliente_nombre} ({servicio_nombre})"
+                    
+                    # Insert cashbox movement
+                    execute_query(
+                        "INSERT INTO caja_movimientos (caja_id, tipo, monto, descripcion) VALUES (:c, 'INGRESO', :m, :d);",
+                        {"c": caja_id, "m": precio, "d": descripcion}
+                    )
+                    
+                    # Update cashbox current balance
+                    execute_query(
+                        "UPDATE cajas_diarias SET saldo_actual = saldo_actual + :m WHERE id = :id;",
+                        {"m": precio, "id": caja_id}
+                    )
+                
+                # Classify service category for stock deduction
+                servicio_lower = servicio_nombre.lower()
+                cat = 'LAVADO'
+                if 'tapizado' in servicio_lower or 'butaca' in servicio_lower or 'habitáculo' in servicio_lower:
+                    cat = 'TAPICERIA'
+                elif 'tratamiento' in servicio_lower or 'pulido' in servicio_lower or 'cerámico' in servicio_lower or 'óptica' in servicio_lower:
+                    cat = 'ESTETICA'
+                
+                # Fetch all products
+                productos = execute_query("SELECT id, nombre, stock, stock_minimo FROM productos;", fetch_all=True)
+                
+                for p in productos:
+                    p_id = p["id"]
+                    p_name = p["nombre"].lower()
+                    stock = float(p["stock"])
+                    qty_deduction = 0.0
+                    
+                    if cat == 'LAVADO':
+                        if 'shampoo' in p_name:
+                            qty_deduction = 1.0
+                        elif 'silicona' in p_name:
+                            qty_deduction = 0.5
+                        elif 'cera' in p_name and ('encerado' in servicio_lower or 'carnauba' in servicio_lower or 'premium' in servicio_lower):
+                            qty_deduction = 0.2
+                    elif cat == 'TAPICERIA':
+                        if 'apc' in p_name or 'limpiador' in p_name:
+                            qty_deduction = 1.0
+                        elif 'microfibra' in p_name or 'paño' in p_name:
+                            qty_deduction = 0.5
+                    elif cat == 'ESTETICA':
+                        if 'sellador' in p_name or 'sio2' in p_name:
+                            if 'cerámico' in servicio_lower or 'sio2' in servicio_lower:
+                                qty_deduction = 0.2
+                        elif 'pulidor' in p_name or 'compuesto' in p_name:
+                            if 'pulido' in servicio_lower or 'corrección' in servicio_lower or 'tratamiento' in servicio_lower:
+                                qty_deduction = 0.2
+                        elif 'microfibra' in p_name or 'paño' in p_name:
+                            if 'pulido' in servicio_lower or 'corrección' in servicio_lower or 'tratamiento' in servicio_lower:
+                                qty_deduction = 1.0
+                    
+                    if qty_deduction > 0.0:
+                        new_stock = max(0.0, round(stock - qty_deduction, 2))
+                        execute_query(
+                            "UPDATE productos SET stock = :new_stock WHERE id = :id;",
+                            {"new_stock": new_stock, "id": p_id}
+                        )
+        
         return {"status": "success", "message": f"Estado del turno cambiado a {estado}."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al actualizar estado del turno: {e}")
