@@ -182,7 +182,7 @@ export default function App() {
               telefono: c.telefono || '',
               vehiculoPatente: pat,
               vehiculoModelo: mod,
-              visitas: (data.turnos || []).filter((t: any) => t.cliente_id === c.id && t.estado === 'COMPLETADO').length || 0,
+              visitas: (data.turnos || []).filter((t: any) => t.cliente_id === c.id && (t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO')).length || 0,
               ultimaVisitaDiasAgo: c.ultima_visita ? Math.max(0, Math.floor((Date.now() - new Date(c.ultima_visita).getTime()) / (1000 * 60 * 60 * 24))) : 99
             };
           });
@@ -338,7 +338,7 @@ export default function App() {
 
   const handleUpdateTurnoEstado = (
     id: string, 
-    nuevoEstado: 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO',
+    nuevoEstado: 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO' | 'ENTREGADO',
     nps?: number,
     comentarios?: string
   ) => {
@@ -748,7 +748,7 @@ export default function App() {
     .filter((t) => t.tipo === 'INGRESO')
     .reduce((sum, t) => sum + t.monto, 0);
 
-  const completedTurnos = turnos.filter((t) => t.estado === 'COMPLETADO');
+  const completedTurnos = turnos.filter((t) => t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO');
   const npsAvg = completedTurnos.length > 0
     ? (completedTurnos.reduce((sum, t) => sum + (t.npsScore || 5), 0) / completedTurnos.length).toFixed(1)
     : '5.0';
@@ -1113,7 +1113,7 @@ export default function App() {
                   <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Caja Diaria</span>
                   <span className="text-xl font-extrabold font-mono text-emerald-400 mt-1 block">${totalIncomingsToday.toLocaleString('es-AR')}</span>
                   <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Ticket Prom: <b className="text-white">${Math.round(turnos.filter(t => t.estado === 'COMPLETADO').reduce((sum, t) => sum + t.precio, 0) / (turnos.filter(t => t.estado === 'COMPLETADO').length || 1)).toLocaleString('es-AR')}</b>
+                    Ticket Prom: <b className="text-white">${Math.round(turnos.filter(t => t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO').reduce((sum, t) => sum + t.precio, 0) / (turnos.filter(t => t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO').length || 1)).toLocaleString('es-AR')}</b>
                   </span>
                 </div>
                 <span className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
@@ -1185,7 +1185,7 @@ export default function App() {
 
                   const rev = { 'Lun': 0, 'Mar': 0, 'Mié': 0, 'Jue': 0, 'Vie': 0, 'Sáb': 0, 'Dom': 0 };
 
-                  turnos.filter(t => t.estado === 'COMPLETADO').forEach(t => {
+                  turnos.filter(t => t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO').forEach(t => {
                     try {
                       const tDate = new Date(t.fechaCreacion);
                       if (tDate >= mondayDate) {
@@ -1214,9 +1214,9 @@ export default function App() {
                 // Staff list performance dynamically calculated
                 const staffNames = ['Mateo', 'Enzo', 'Santiago'];
                 const staffStats = staffNames.map(name => {
-                  const staffTurnos = turnos.filter(t => t.lavadorAsignado === name && t.estado === 'COMPLETADO');
+                  const staffTurnos = turnos.filter(t => t.lavadorAsignado === name && (t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO'));
                   const completed = staffTurnos.length;
-                  const active = turnos.filter(t => t.lavadorAsignado === name && t.estado !== 'COMPLETADO').length;
+                  const active = turnos.filter(t => t.lavadorAsignado === name && t.estado !== 'COMPLETADO' && t.estado !== 'ENTREGADO').length;
                   const revenue = staffTurnos.reduce((sum, t) => sum + t.precio, 0);
                   const npsSum = staffTurnos.reduce((sum, t) => sum + (t.npsScore || 5), 0);
                   const rating = completed > 0 ? (npsSum / completed).toFixed(1) : '5.0';

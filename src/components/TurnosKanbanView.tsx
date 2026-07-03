@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Plus, Play, CheckCircle2, Star, Calendar, MessageSquare, 
   Printer, Trash2, ArrowRight, User, Car, Phone, Scissors, Sparkles, Droplet, Clock, ChevronRight, Download,
-  ClipboardList, ShieldAlert, ShieldCheck, Shield, AlertTriangle, X
+  ClipboardList, ShieldAlert, ShieldCheck, Shield, AlertTriangle, X, Archive, RotateCcw
 } from 'lucide-react';
 import { Turno, Cliente, TipoServicio, VehicleHealthData } from '../types';
 import { LAVADORES_ACTIVOS, SERVICIOS_DISPONIBLES } from '../data/initialData';
@@ -50,7 +50,7 @@ export default function TurnosKanbanView({
 
   // Filters & Tabs
   const [filterType, setFilterType] = useState<TipoServicio | 'ALL'>('ALL');
-  const [viewMode, setViewMode] = useState<'kanban' | 'calendar'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'calendar' | 'archive'>('kanban');
 
   // Form states
   const [selectedClienteId, setSelectedClienteId] = useState(clientes[0]?.id || '');
@@ -237,6 +237,17 @@ export default function TurnosKanbanView({
               }`}
             >
               Agenda Semanal
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('archive')}
+              className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition cursor-pointer ${
+                viewMode === 'archive'
+                  ? 'bg-brand-primary text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Archivo de Entregados
             </button>
           </div>
 
@@ -564,7 +575,7 @@ export default function TurnosKanbanView({
         </div>
       )}
 
-      {viewMode === 'kanban' ? (
+      {viewMode === 'kanban' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-20">
         
         {/* Column 1: PENDIENTE */}
@@ -876,14 +887,23 @@ export default function TurnosKanbanView({
                       <Download className="w-3.5 h-3.5 text-emerald-400" />
                     </button>
                   </div>
+
+                  <button
+                    onClick={() => onUpdateTurnoEstado(t.id, 'ENTREGADO')}
+                    className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[10px] font-extrabold py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider shadow-[0_2px_8px_rgba(16,185,129,0.25)]"
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    Entregar Auto (Archivar)
+                  </button>
                 </div>
               ))
             )}
           </div>
         </div>
-
       </div>
-      ) : (
+      )}
+
+      {viewMode === 'calendar' && (
         <WeeklyCalendar
           turnos={turnos}
           clientes={clientes}
@@ -901,6 +921,109 @@ export default function TurnosKanbanView({
             }, 100);
           }}
         />
+      )}
+
+      {viewMode === 'archive' && (
+        <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 relative z-20">
+          <div className="flex justify-between items-center flex-wrap gap-3 pb-3 border-b border-white/[0.08]">
+            <div>
+              <h3 className="font-extrabold text-white text-base font-display uppercase tracking-widest flex items-center gap-2">
+                <Archive className="w-5 h-5 text-brand-primary" />
+                Archivo de Vehículos Entregados
+              </h3>
+              <p className="text-xs text-slate-400">Listado histórico de vehículos entregados y retirados por clientes.</p>
+            </div>
+            <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded font-mono font-bold">
+              Total Entregados: {turnos.filter(t => t.estado === 'ENTREGADO').length}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-slate-400 uppercase text-[9px] tracking-wider">
+                  <th className="py-3 font-bold">Fecha / Hora</th>
+                  <th className="py-3 font-bold">Cliente</th>
+                  <th className="py-3 font-bold">Vehículo / Patente</th>
+                  <th className="py-3 font-bold">Servicio / Precio</th>
+                  <th className="py-3 font-bold">Lavador</th>
+                  <th className="py-3 font-bold text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {turnos.filter(t => t.estado === 'ENTREGADO' && (filterType === 'ALL' || t.tipo === filterType)).length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-500 italic">
+                      No hay registros de vehículos entregados en esta categoría aún.
+                    </td>
+                  </tr>
+                ) : (
+                  turnos
+                    .filter(t => t.estado === 'ENTREGADO' && (filterType === 'ALL' || t.tipo === filterType))
+                    .sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime())
+                    .map((t) => (
+                      <tr key={t.id} className="hover:bg-white/[0.01] transition-all">
+                        <td className="py-3 font-mono text-slate-400">
+                          {new Date(t.fechaCreacion).toLocaleDateString('es-AR')} {new Date(t.fechaCreacion).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="py-3">
+                          <span className="font-bold text-slate-200 block">{t.clienteNombre}</span>
+                          <span className="text-[10px] text-slate-500">{t.telefono || 'Sin teléfono'}</span>
+                        </td>
+                        <td className="py-3">
+                          <span className="text-slate-300 block">{t.vehiculoModelo}</span>
+                          <span className="font-mono text-[#00d2ff] uppercase tracking-wider font-bold text-[10px]">[{t.vehiculoPatente}]</span>
+                        </td>
+                        <td className="py-3">
+                          <span className="text-slate-300 block font-semibold">{t.servicioNombre}</span>
+                          <span className="text-emerald-400 font-mono font-bold">${t.precio.toLocaleString('es-AR')}</span>
+                        </td>
+                        <td className="py-3 text-slate-400">
+                          {t.lavadorAsignado || 'Sin asignar'}
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              onClick={() => onUpdateTurnoEstado(t.id, 'COMPLETADO')}
+                              className="px-2 py-1.5 bg-slate-500/10 hover:bg-slate-500/20 active:bg-slate-500/30 border border-slate-500/30 text-slate-400 hover:text-slate-300 rounded font-semibold text-[9px] uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
+                              title="Deshacer entrega (regresar a listos)"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Deshacer
+                            </button>
+                            <button
+                              onClick={() => setTicketTurno(t)}
+                              className="px-2 py-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-[#00d2ff]/30 text-slate-300 rounded font-semibold text-[9px] uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <Printer className="w-3 h-3 text-[#00d2ff]" />
+                              Boleto
+                            </button>
+                            <button
+                              onClick={() => generateTicketPDF({
+                                id: t.id,
+                                clienteNombre: t.clienteNombre,
+                                vehiculoModelo: t.vehiculoModelo,
+                                vehiculoPatente: t.vehiculoPatente,
+                                servicioNombre: t.servicioNombre,
+                                precio: t.precio,
+                                lavadorAsignado: t.lavadorAsignado,
+                                fecha: t.fechaCreacion,
+                                origen: 'TURNO'
+                              })}
+                              className="px-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-[#00d2ff]/30 text-slate-300 rounded transition flex items-center justify-center cursor-pointer"
+                              title="Descargar Ticket PDF"
+                            >
+                              <Download className="w-3.5 h-3.5 text-emerald-400" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* NPS Evaluation Popup Dialog */}

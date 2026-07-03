@@ -44,7 +44,7 @@ export interface Turno {
   tipo: TipoServicio;
   servicioNombre: string;
   lavadorAsignado: string;
-  estado: 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO';
+  estado: 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO' | 'ENTREGADO';
   precio: number;
   fechaCreacion: string;
   npsScore?: number; // 1-5 estrellas
