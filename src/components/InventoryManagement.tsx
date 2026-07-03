@@ -1,0 +1,616 @@
+import React, { useState } from 'react';
+import { 
+  Package, AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, Minus, DollarSign, 
+  ShoppingCart, RefreshCw, Layers, ShieldCheck, ClipboardList, User, Search
+} from 'lucide-react';
+import { Insumo, Transaccion } from '../types';
+
+interface InventoryManagementProps {
+  insumos: Insumo[];
+  onUpdateInsumos: (updated: Insumo[]) => void;
+  onAddLog: (message: string) => void;
+  onAddTransaccion?: (tx: Transaccion) => void;
+}
+
+interface StockMovement {
+  id: string;
+  insumoNombre: string;
+  tipo: 'ENTRADA' | 'SALIDA' | 'AJUSTE';
+  cantidad: number;
+  unidad: string;
+  concepto: string;
+  proveedor?: string;
+  fecha: string;
+}
+
+export default function InventoryManagement({
+  insumos,
+  onUpdateInsumos,
+  onAddLog,
+  onAddTransaccion
+}: InventoryManagementProps) {
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Purchase form states
+  const [selectedInsumoId, setSelectedInsumoId] = useState<string>(insumos[0]?.id || 'NEW');
+  const [newInsumoNombre, setNewInsumoNombre] = useState('');
+  const [newInsumoUnidad, setNewInsumoUnidad] = useState('Lts');
+  const [newInsumoStockMinimo, setNewInsumoStockMinimo] = useState('5');
+  const [purchaseQuantity, setPurchaseQuantity] = useState('5');
+  const [purchaseCost, setPurchaseCost] = useState('');
+  const [purchaseSupplier, setPurchaseSupplier] = useState('Detailers Mayorista');
+  const [registerInCashBook, setRegisterInCashBook] = useState(true);
+
+  // Manual adjustment modal states
+  const [editingInsumo, setEditingInsumo] = useState<Insumo | null>(null);
+  const [adjustmentAmount, setAdjustmentAmount] = useState('1');
+  const [adjustmentType, setAdjustmentType] = useState<'MAS' | 'MENOS'>('MAS');
+
+  // Local movement logs state
+  const [movements, setMovements] = useState<StockMovement[]>([
+    {
+      id: 'm1',
+      insumoNombre: 'Shampoo pH Neutro Concentrado',
+      tipo: 'ENTRADA',
+      cantidad: 10,
+      unidad: 'Lts',
+      concepto: 'Compra de stock a distribuidor',
+      proveedor: 'Detailers Mayorista',
+      fecha: new Date(Date.now() - 3600000 * 2).toISOString()
+    },
+    {
+      id: 'm2',
+      insumoNombre: 'Cera Rápida de Carnauba líquida',
+      tipo: 'SALIDA',
+      cantidad: 0.5,
+      unidad: 'Lts',
+      concepto: 'Consumo automático - Turno #t3',
+      fecha: new Date(Date.now() - 3600000 * 4).toISOString()
+    },
+    {
+      id: 'm3',
+      insumoNombre: 'Compuesto Pulidor de Corte Medio',
+      tipo: 'AJUSTE',
+      cantidad: 2,
+      unidad: 'Unidades',
+      concepto: 'Ajuste manual de stock por auditoría',
+      fecha: new Date(Date.now() - 3600000 * 24).toISOString()
+    }
+  ]);
+
+  // Derived statistics
+  const totalItems = insumos.length;
+  const totalStockValue = insumos.reduce((acc, item) => acc + (item.stockActual * item.precioCosto), 0);
+  const criticalItems = insumos.filter(item => item.stockActual <= item.stockMinimo).length;
+  const outOfStockItems = insumos.filter(item => item.stockActual === 0).length;
+
+  // Filtered insumos list
+  const filteredInsumos = insumos.filter(item => 
+    item.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Handlers
+  const handlePurchaseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const qty = Number(purchaseQuantity);
+    const cost = purchaseCost ? Number(purchaseCost) : 0;
+    if (isNaN(qty) || qty <= 0) return;
+
+    let targetInsumoName = '';
+    let updatedInsumos = [...insumos];
+
+    if (selectedInsumoId === 'NEW') {
+      if (!newInsumoNombre.trim()) {
+        alert('Por favor ingresa el nombre del nuevo insumo.');
+        return;
+      }
+      // Create new Insumo
+      const newId = `i_${Date.now()}`;
+      const newInsumo: Insumo = {
+        id: newId,
+        nombre: newInsumoNombre,
+        stockActual: qty,
+        stockMinimo: Number(newInsumoStockMinimo) || 2,
+        unidad: newInsumoUnidad,
+        precioCosto: cost
+      };
+      updatedInsumos.push(newInsumo);
+      targetInsumoName = newInsumo.nombre;
+      onAddLog(`📦 [INVENTARIO] Creado nuevo insumo: "${newInsumo.nombre}" con stock inicial de ${qty} ${newInsumo.unidad}.`);
+    } else {
+      // Add stock to existing Insumo
+      updatedInsumos = insumos.map(item => {
+        if (item.id === selectedInsumoId) {
+          targetInsumoName = item.nombre;
+          const updatedCost = cost > 0 ? cost : item.precioCosto;
+          return {
+            ...item,
+            stockActual: item.stockActual + qty,
+            precioCosto: updatedCost
+          };
+        }
+        return item;
+      });
+      onAddLog(`📦 [INVENTARIO] Abastecimiento de ${qty} unidades de "${targetInsumoName}".`);
+    }
+
+    onUpdateInsumos(updatedInsumos);
+
+    // Register transaction if checked
+    const totalCost = qty * (cost || updatedInsumos.find(i => i.nombre === targetInsumoName)?.precioCosto || 0);
+    if (registerInCashBook && onAddTransaccion && totalCost > 0) {
+      const newTx: Transaccion = {
+        id: `tx_inv_${Date.now()}`,
+        tipo: 'EGRESO',
+        monto: totalCost,
+        concepto: `Compra Insumo: ${targetInsumoName} (${qty} x $${cost || 'Costo Base'}) - Prov: ${purchaseSupplier}`,
+        origen: 'MANUAL',
+        fecha: new Date().toISOString()
+      };
+      onAddTransaccion(newTx);
+      onAddLog(`💸 [CAJA] Registrado egreso automático por $${totalCost} por compra de insumos.`);
+    }
+
+    // Add to local movements log
+    const newMovement: StockMovement = {
+      id: `mov_${Date.now()}`,
+      insumoNombre: targetInsumoName,
+      tipo: 'ENTRADA',
+      cantidad: qty,
+      unidad: selectedInsumoId === 'NEW' ? newInsumoUnidad : insumos.find(i => i.id === selectedInsumoId)?.unidad || 'U',
+      concepto: 'Compra de stock a proveedor',
+      proveedor: purchaseSupplier,
+      fecha: new Date().toISOString()
+    };
+    setMovements(prev => [newMovement, ...prev]);
+
+    // Reset Form
+    setNewInsumoNombre('');
+    setPurchaseQuantity('5');
+    setPurchaseCost('');
+    alert('Compra confirmada y stock actualizado.');
+  };
+
+  const handleManualAdjustment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInsumo) return;
+
+    const amt = Number(adjustmentAmount);
+    if (isNaN(amt) || amt <= 0) return;
+
+    const diff = adjustmentType === 'MAS' ? amt : -amt;
+    const nextStock = Math.max(0, editingInsumo.stockActual + diff);
+
+    const updated = insumos.map(item => {
+      if (item.id === editingInsumo.id) {
+        return { ...item, stockActual: nextStock };
+      }
+      return item;
+    });
+
+    onUpdateInsumos(updated);
+    onAddLog(`⚙️ [INVENTARIO] Ajuste de stock manual para "${editingInsumo.nombre}": ${diff > 0 ? '+' : ''}${diff}. Stock actual: ${nextStock}.`);
+
+    // Add movement
+    const newMovement: StockMovement = {
+      id: `mov_${Date.now()}`,
+      insumoNombre: editingInsumo.nombre,
+      tipo: 'AJUSTE',
+      cantidad: amt,
+      unidad: editingInsumo.unidad,
+      concepto: `Ajuste manual (${adjustmentType === 'MAS' ? 'Incremento' : 'Reducción'})`,
+      fecha: new Date().toISOString()
+    };
+    setMovements(prev => [newMovement, ...prev]);
+    setEditingInsumo(null);
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in min-w-0">
+      
+      {/* COLUMN 1: Stock List & Analytics */}
+      <div className="lg:col-span-2 space-y-6 min-w-0">
+        
+        {/* KPI Cards Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="glass-panel p-4 rounded-xl space-y-1">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Catálogo Insumos</span>
+            <div className="flex justify-between items-baseline">
+              <span className="text-xl font-bold text-white font-display">{totalItems}</span>
+              <span className="text-[9px] text-slate-500 font-bold font-mono">Ítems</span>
+            </div>
+            <div className="w-full bg-white/[0.05] h-1 rounded-full overflow-hidden mt-2">
+              <div className="bg-[#00d2ff] h-full" style={{ width: '100%' }} />
+            </div>
+          </div>
+
+          <div className="glass-panel p-4 rounded-xl space-y-1">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Valor de Activos</span>
+            <div className="flex justify-between items-baseline">
+              <span className="text-xl font-bold text-white font-display">${totalStockValue.toLocaleString('es-AR')}</span>
+              <span className="text-[9px] text-emerald-400 font-bold font-mono">ARS</span>
+            </div>
+            <div className="w-full bg-white/[0.05] h-1 rounded-full overflow-hidden mt-2">
+              <div className="bg-emerald-500 h-full" style={{ width: '100%' }} />
+            </div>
+          </div>
+
+          <div className="glass-panel p-4 rounded-xl space-y-1">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Stock Crítico</span>
+            <div className="flex justify-between items-baseline">
+              <span className={`text-xl font-bold font-display ${criticalItems > 0 ? 'text-amber-400' : 'text-white'}`}>{criticalItems}</span>
+              <span className="text-[9px] text-amber-400 font-bold font-mono">Alertas</span>
+            </div>
+            <div className="w-full bg-white/[0.05] h-1 rounded-full overflow-hidden mt-2">
+              <div className={`h-full ${criticalItems > 0 ? 'bg-amber-500' : 'bg-slate-500'}`} style={{ width: `${(criticalItems / totalItems) * 100}%` }} />
+            </div>
+          </div>
+
+          <div className="glass-panel p-4 rounded-xl space-y-1">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Sin Stock (Quiebre)</span>
+            <div className="flex justify-between items-baseline">
+              <span className={`text-xl font-bold font-display ${outOfStockItems > 0 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{outOfStockItems}</span>
+              <span className="text-[9px] text-red-500 font-bold font-mono">Agotado</span>
+            </div>
+            <div className="w-full bg-white/[0.05] h-1 rounded-full overflow-hidden mt-2">
+              <div className={`h-full ${outOfStockItems > 0 ? 'bg-red-500' : 'bg-slate-500'}`} style={{ width: `${(outOfStockItems / totalItems) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Catalog Table Card */}
+        <div className="glass-panel p-5 rounded-xl space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pb-2 border-b border-white/[0.06]">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 font-display">
+              <Layers className="w-4 h-4 text-brand-primary" />
+              Inventario de Insumos & Productos
+            </h3>
+
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar insumo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-white/[0.02] border border-white/[0.08] focus:border-brand-primary/50 text-xs text-white rounded-lg pl-8 pr-3 py-1.5 w-full sm:w-48 focus:outline-none"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-slate-400 uppercase text-[9px] tracking-wider">
+                  <th className="py-2.5 font-bold">Código</th>
+                  <th className="py-2.5 font-bold">Detalle del Producto</th>
+                  <th className="py-2.5 font-bold text-center">Mínimo</th>
+                  <th className="py-2.5 font-bold text-center">Stock Actual</th>
+                  <th className="py-2.5 font-bold text-right">Costo Unit.</th>
+                  <th className="py-2.5 font-bold text-right">Valor Total</th>
+                  <th className="py-2.5 font-bold text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {filteredInsumos.map((item, index) => {
+                  const isCritical = item.stockActual <= item.stockMinimo;
+                  const isAgotado = item.stockActual === 0;
+                  const itemValue = item.stockActual * item.precioCosto;
+
+                  return (
+                    <tr key={item.id} className="hover:bg-white/[0.01] transition-colors">
+                      <td className="py-3 font-mono text-[10px] text-slate-500">INS-{10 + index}</td>
+                      <td className="py-3 pr-2">
+                        <div className="font-bold text-slate-200">{item.nombre}</div>
+                        <div className="text-[10px] text-slate-500">Medida: {item.unidad}</div>
+                      </td>
+                      <td className="py-3 text-center font-mono font-bold text-slate-400">
+                        {item.stockMinimo} {item.unidad}
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-[10px] ${
+                          isAgotado 
+                            ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                            : isCritical
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                          {item.stockActual} {item.unidad}
+                          {isAgotado && ' (Agotado)'}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right font-mono text-slate-300">
+                        ${item.precioCosto.toLocaleString('es-AR')}
+                      </td>
+                      <td className="py-3 text-right font-mono font-bold text-slate-200">
+                        ${itemValue.toLocaleString('es-AR')}
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            onClick={() => {
+                              setEditingInsumo(item);
+                              setAdjustmentType('MAS');
+                              setAdjustmentAmount('1');
+                            }}
+                            className="p-1 rounded bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/20 text-brand-primary transition cursor-pointer"
+                            title="Sumar Stock"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingInsumo(item);
+                              setAdjustmentType('MENOS');
+                              setAdjustmentAmount('1');
+                            }}
+                            className="p-1 rounded bg-slate-800 hover:bg-slate-700 border border-white/[0.06] text-slate-300 transition cursor-pointer"
+                            title="Restar Stock"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      {/* COLUMN 2: Supplier Orders & Stock Movements */}
+      <div className="space-y-6 min-w-0">
+        
+        {/* Manual Stock Adjuster Panel (Contextual) */}
+        {editingInsumo && (
+          <div className="glass-panel p-5 rounded-xl border border-brand-primary/30 shadow-[0_0_20px_rgba(220,38,38,0.1)] space-y-4 animate-slide-in">
+            <div className="flex justify-between items-center pb-2 border-b border-white/[0.06]">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-display flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4 text-brand-primary" />
+                Ajuste Rápido: {editingInsumo.nombre}
+              </h3>
+              <button 
+                onClick={() => setEditingInsumo(null)}
+                className="text-slate-500 hover:text-white transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleManualAdjustment} className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAdjustmentType('MAS')}
+                  className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1 ${
+                    adjustmentType === 'MAS'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : 'bg-white/[0.01] text-slate-400 border-white/[0.06]'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Incrementar (+)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustmentType('MENOS')}
+                  className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1 ${
+                    adjustmentType === 'MENOS'
+                      ? 'bg-red-500/10 text-red-500 border-red-500/30'
+                      : 'bg-white/[0.01] text-slate-400 border-white/[0.06]'
+                  }`}
+                >
+                  <Minus className="w-3.5 h-3.5" /> Reducir (-)
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[9px] text-slate-400 uppercase tracking-wider">Cantidad ({editingInsumo.unidad})</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0.1"
+                  required
+                  value={adjustmentAmount}
+                  onChange={(e) => setAdjustmentAmount(e.target.value)}
+                  className="w-full bg-white/[0.02] border border-white/[0.08] focus:border-brand-primary/40 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-brand-primary hover:bg-brand-hover text-white font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition cursor-pointer"
+              >
+                Confirmar Ajuste
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Purchase & Supplier order card */}
+        <div className="glass-panel p-5 rounded-xl space-y-4">
+          <div className="flex items-center gap-1.5 pb-2 border-b border-white/[0.06]">
+            <ShoppingCart className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-display">Registrar Compra / Entrada</h3>
+          </div>
+
+          <form onSubmit={handlePurchaseSubmit} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="block text-[9px] text-slate-400 uppercase tracking-wider">Producto / Insumo</label>
+              <select
+                value={selectedInsumoId}
+                onChange={(e) => setSelectedInsumoId(e.target.value)}
+                className="w-full bg-white/[0.02] border border-white/[0.08] text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none"
+              >
+                {insumos.map(i => (
+                  <option key={i.id} value={i.id} className="bg-slate-900">
+                    {i.nombre} (Stock: {i.stockActual} {i.unidad})
+                  </option>
+                ))}
+                <option value="NEW" className="bg-slate-900 font-bold text-[#00d2ff]">+ AGREGAR NUEVO PRODUCTO...</option>
+              </select>
+            </div>
+
+            {/* Conditional fields for new items */}
+            {selectedInsumoId === 'NEW' && (
+              <div className="space-y-3 p-3 bg-white/[0.01] border border-[#00d2ff]/20 rounded-xl animate-fade-in">
+                <span className="text-[9px] text-[#00d2ff] font-bold uppercase tracking-wider block">Detalles del Nuevo Producto</span>
+                
+                <div className="space-y-1.5">
+                  <label className="block text-[8px] text-slate-500 uppercase tracking-wider">Nombre del Producto</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Paños de Microfibra de Secado 60x90"
+                    value={newInsumoNombre}
+                    onChange={(e) => setNewInsumoNombre(e.target.value)}
+                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded px-2 py-1 text-xs text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <label className="block text-[8px] text-slate-500 uppercase tracking-wider">Unidad</label>
+                    <select
+                      value={newInsumoUnidad}
+                      onChange={(e) => setNewInsumoUnidad(e.target.value)}
+                      className="w-full bg-slate-900 border border-white/[0.08] rounded px-1.5 py-1 text-xs text-white"
+                    >
+                      <option value="Lts">Litros (Lts)</option>
+                      <option value="Unidades">Unidades (U)</option>
+                      <option value="Mililitros">Mililitros (ml)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[8px] text-slate-500 uppercase tracking-wider">Stock Mínimo</label>
+                    <input
+                      type="number"
+                      required
+                      value={newInsumoStockMinimo}
+                      onChange={(e) => setNewInsumoStockMinimo(e.target.value)}
+                      className="w-full bg-white/[0.02] border border-white/[0.08] rounded px-2 py-1 text-xs text-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <label className="block text-[8px] text-slate-400 uppercase tracking-wider">Cantidad a Ingresar</label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  value={purchaseQuantity}
+                  onChange={(e) => setPurchaseQuantity(e.target.value)}
+                  className="w-full bg-white/[0.02] border border-white/[0.08] rounded px-2 py-1 text-xs text-white font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[8px] text-slate-400 uppercase tracking-wider">Costo Unitario ($)</label>
+                <input
+                  type="number"
+                  placeholder={selectedInsumoId !== 'NEW' ? `${insumos.find(i => i.id === selectedInsumoId)?.precioCosto || ''}` : 'Ej. 500'}
+                  value={purchaseCost}
+                  onChange={(e) => setPurchaseCost(e.target.value)}
+                  className="w-full bg-white/[0.02] border border-white/[0.08] rounded px-2 py-1 text-xs text-white font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-[8px] text-slate-400 uppercase tracking-wider">Proveedor</label>
+              <input
+                type="text"
+                required
+                value={purchaseSupplier}
+                onChange={(e) => setPurchaseSupplier(e.target.value)}
+                className="w-full bg-white/[0.02] border border-white/[0.08] rounded px-2 py-1 text-xs text-white"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 py-1">
+              <input
+                type="checkbox"
+                id="check-register-cash"
+                checked={registerInCashBook}
+                onChange={(e) => setRegisterInCashBook(e.target.checked)}
+                className="w-4 h-4 accent-emerald-500 rounded bg-slate-900 border-white/[0.08]"
+              />
+              <label htmlFor="check-register-cash" className="text-[10px] text-slate-400 cursor-pointer font-bold select-none">
+                Registrar gasto como EGRESO en Caja Diaria
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 font-bold py-2 rounded-lg text-xs transition duration-200 uppercase tracking-wider cursor-pointer"
+            >
+              Confirmar Entrada de Stock
+            </button>
+          </form>
+        </div>
+
+        {/* Recent stock movements log */}
+        <div className="glass-panel p-5 rounded-xl space-y-3.5">
+          <div className="flex justify-between items-center pb-2 border-b border-white/[0.06]">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Movimientos de Stock Recientes</span>
+            <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono font-bold">{movements.length}</span>
+          </div>
+
+          <div className="space-y-2.5 max-h-[190px] overflow-y-auto pr-1 scrollbar-thin">
+            {movements.map(log => {
+              const isEntrada = log.tipo === 'ENTRADA';
+              const isSalida = log.tipo === 'SALIDA';
+
+              return (
+                <div key={log.id} className="bg-white/[0.01] border border-white/[0.04] p-2.5 rounded-lg space-y-1 text-xs">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-bold text-slate-200">{log.insumoNombre}</span>
+                    </div>
+                    
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                      isEntrada
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : isSalida
+                        ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                        : 'bg-amber-500/10 text-amber-400 border border-emerald-500/20'
+                    }`}>
+                      {isEntrada ? <ArrowUpRight className="w-2.5 h-2.5" /> : isSalida ? <ArrowDownRight className="w-2.5 h-2.5" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                      {log.tipo}
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 leading-normal">
+                    {log.concepto} • <span className="font-mono font-bold">{log.cantidad > 0 ? `+${log.cantidad}` : log.cantidad} {log.unidad}</span>
+                  </p>
+                  
+                  {log.proveedor && (
+                    <div className="text-[9px] text-slate-500">
+                      Proveedor: <span className="text-slate-400 font-semibold">{log.proveedor}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center pt-1 text-[9px] text-slate-500 font-mono">
+                    <span>{new Date(log.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>{new Date(log.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  );
+}

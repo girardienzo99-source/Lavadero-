@@ -15,14 +15,14 @@ import CajaDiariaLedger from './components/CajaDiariaLedger';
 import TurnosKanbanView from './components/TurnosKanbanView';
 import ArgentineFacturacion from './components/ArgentineFacturacion';
 import PublicPage from './components/PublicPage';
-import WhatsAppIntegration from './components/WhatsAppIntegration';
+import InventoryManagement from './components/InventoryManagement';
 import CeramicServices from './components/CeramicServices';
 import BrandSettings from './components/BrandSettings';
 import Login from './components/Login';
 
 export default function App() {
   // Navigation
-  const [activeTab, setActiveTab] = useState<'overview' | 'turnos' | 'caja' | 'publicidad' | 'roadmap' | 'public-page' | 'whatsapp' | 'ceramic' | 'branding'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'turnos' | 'caja' | 'publicidad' | 'roadmap' | 'public-page' | 'inventario' | 'ceramic' | 'branding'>('overview');
   const [cajaSubTab, setCajaSubTab] = useState<'pos' | 'facturacion'>('pos');
   const [statsSubTab, setStatsSubTab] = useState<'semanal' | 'mix' | 'lavadores'>('semanal');
 
@@ -911,16 +911,16 @@ export default function App() {
             Portal Público
           </button>
           <button
-            id="btn-nav-whatsapp"
-            onClick={() => setActiveTab('whatsapp')}
+            id="btn-nav-inventario"
+            onClick={() => setActiveTab('inventario')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'whatsapp'
+              activeTab === 'inventario'
                 ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <MessageSquare className="w-3 h-3 text-red-500" />
-            WhatsApp Gateway
+            <Package className="w-3 h-3 text-red-500" />
+            Inventario & Stock
           </button>
           <button
             id="btn-nav-ceramic"
@@ -1453,20 +1453,21 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: WHATSAPP & API GATEWAY */}
-        {activeTab === 'whatsapp' && (
+        {/* TAB: INVENTARIO & STOCK */}
+        {activeTab === 'inventario' && (
           <div className="space-y-6 animate-fade-in">
             <div className="glass-panel p-5 rounded-xl space-y-2">
-              <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">Consola de Automatización & Gateway de WhatsApp</h3>
+              <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">Control de Stock & Compras a Proveedores</h3>
               <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                Controla las notificaciones automáticas que se envían a tus clientes. Este módulo interactivo permite definir las plantillas de mensaje para confirmación de turnos o avisos de vehículos listos, simular peticiones POST de tu microservicio Python y testear la entrega en un simulador de teléfono celular.
+                Administra el inventario de insumos, químicos, paños de microfibra y cerámicos de Albelo Detail. Registrá compras a proveedores de forma directa integradas con el Libro de Caja Diaria.
               </p>
             </div>
 
-            <WhatsAppIntegration
-              turnos={turnos}
-              clientes={clientes}
+            <InventoryManagement
+              insumos={insumos}
+              onUpdateInsumos={setInsumos}
               onAddLog={addConsoleLog}
+              onAddTransaccion={(tx) => setTransacciones(prev => [...prev, tx])}
             />
           </div>
         )}
