@@ -1584,8 +1584,10 @@ export default function App() {
 
             <PlanRoadmap 
               turnos={turnos}
+              empleados={rawDbData?.empleados || []}
               onAddLog={addConsoleLog}
               onAddTransaccion={(tx) => setTransacciones(prev => [...prev, tx])}
+              onReloadData={loadDashboardData}
             />
           </div>
         )}

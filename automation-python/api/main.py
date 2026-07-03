@@ -394,6 +394,51 @@ def execute_query_rest(query: str, params: dict = None, fetch_all: bool = False,
         res = requests.post(f"{REST_URL}/cupones_descuento", headers=headers, json=payload).json()
         return res
 
+    # 31. Cambiar Comisión Empleado (Update)
+    elif "update" in q and "empleados" in q and "porcentaje_comision" in q:
+        payload = {
+            "porcentaje_comision": float(params.get("porcentaje_comision"))
+        }
+        url = f"{REST_URL}/empleados?id=eq.{params.get('id')}"
+        res = requests.patch(url, headers=headers, json=payload).json()
+        return res
+
+    # 32. Liquidaciones de Comisiones (Select)
+    elif "select" in q and "liquidacion_comisiones" in q:
+        url = f"{REST_URL}/liquidacion_comisiones?select=*,empleados(nombre)&order=fecha.desc"
+        res = requests.get(url, headers=headers)
+        if res.status_code != 200:
+            return []
+        mapped = []
+        for r in res.json():
+            mapped.append({
+                "id": r["id"],
+                "empleado_id": r["empleado_id"],
+                "fecha": r["fecha"],
+                "monto_bruto": float(r["monto_bruto"]) if r.get("monto_bruto") is not None else 0.0,
+                "monto_vales": float(r["monto_vales"]) if r.get("monto_vales") is not None else 0.0,
+                "monto_neto": float(r["monto_neto"]) if r.get("monto_neto") is not None else 0.0,
+                "porcentaje_comision": float(r["porcentaje_comision"]) if r.get("porcentaje_comision") is not None else 0.0,
+                "concepto": r["concepto"],
+                "empleado_nombre": r["empleados"]["nombre"] if r.get("empleados") else None,
+                "caja_movimiento_id": r.get("caja_movimiento_id")
+            })
+        return mapped
+
+    # 33. Nueva Liquidación (Insert)
+    elif "insert" in q and "liquidacion_comisiones" in q:
+        payload = {
+            "empleado_id": int(params.get("empleado_id")),
+            "monto_bruto": float(params.get("monto_bruto")),
+            "monto_vales": float(params.get("monto_vales", 0.0)),
+            "monto_neto": float(params.get("monto_neto")),
+            "porcentaje_comision": float(params.get("porcentaje_comision")),
+            "concepto": params.get("concepto"),
+            "caja_movimiento_id": int(params.get("caja_movimiento_id")) if params.get("caja_movimiento_id") is not None else None
+        }
+        res = requests.post(f"{REST_URL}/liquidacion_comisiones", headers=headers, json=payload).json()
+        return res
+
     # Default fallback
     print(f"[REST-FALLBACK-WARNING] Unhandled SQL query: {query}")
     if fetch_one:
@@ -652,6 +697,144 @@ def toggle_employee_status(id: int, activo: bool):
         return {"status": "success", "message": "Estado del empleado actualizado."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al cambiar disponibilidad: {e}")
+
+@app.post("/api/empleados/{id}/comision")
+def update_employee_commission(id: int, porcentaje_comision: float):
+    try:
+        execute_query("UPDATE empleados SET porcentaje_comision = :porcentaje_comision WHERE id = :id;", 
+                      {"porcentaje_comision": porcentaje_comision, "id": id})
+        return {"status": "success", "message": "Porcentaje de comisión del empleado actualizado."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al actualizar comisión del empleado: {e}")
+
+@app.get("/api/comisiones/historial")
+def get_comisiones_historial():
+    try:
+        historial = execute_query("SELECT * FROM liquidacion_comisiones ORDER BY id DESC;", fetch_all=True) or []
+        # Calculate outstanding vales per employee in-memory to avoid multiple unhandled queries
+        vales_dict = {}
+        # Fetch all employees
+        empleados = execute_query("SELECT id FROM empleados;", fetch_all=True) or []
+        
+        for emp in empleados:
+            e_id = emp["id"]
+            # Sum registered vales (monto_bruto == 0)
+            registered = sum(float(r["monto_vales"]) for r in historial if r["empleado_id"] == e_id and float(r["monto_bruto"]) == 0.0)
+            # Sum deducted vales (monto_bruto > 0)
+            deducted = sum(float(r["monto_vales"]) for r in historial if r["empleado_id"] == e_id and float(r["monto_bruto"]) > 0.0)
+            vales_dict[e_id] = max(0.0, registered - deducted)
+            
+        return {
+            "status": "success",
+            "historial": historial,
+            "vales": vales_dict
+        }
+    except Exception as e:
+        import traceback
+        print(f"[COMISIONES-ERROR] {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=400, detail=f"Error al obtener historial: {e}")
+
+@app.post("/api/comisiones/vale")
+def add_comision_vale(empleado_id: int, monto: float, concepto: str = "Adelanto (Vale)", registrar_en_caja: bool = True):
+    try:
+        # 1. Register in cashbox if requested
+        caja_mov_id = None
+        if registrar_en_caja:
+            caja_activa = execute_query("SELECT * FROM cajas_diarias WHERE estado = 'ABIERTA' ORDER BY id DESC LIMIT 1;", fetch_one=True)
+            if not caja_activa:
+                raise Exception("No hay una caja diaria abierta para registrar el egreso del vale.")
+            
+            c_id = caja_activa["id"]
+            # Insert cash movement
+            emp_info = execute_query("SELECT nombre FROM empleados WHERE id = :id;", {"id": empleado_id}, fetch_one=True)
+            emp_name = emp_info["nombre"] if emp_info else f"Empleado #{empleado_id}"
+            desc = f"Vale/Adelanto: {emp_name} ({concepto})"
+            
+            execute_query(
+                "INSERT INTO caja_movimientos (caja_id, tipo, monto, descripcion) VALUES (:caja_id, 'EGRESO', :monto, :descripcion);",
+                {"caja_id": c_id, "monto": monto, "descripcion": desc}
+            )
+            # Fetch the inserted movement id
+            mov = execute_query(
+                "SELECT id FROM caja_movimientos WHERE caja_id = :caja_id ORDER BY id DESC LIMIT 1;",
+                {"caja_id": c_id},
+                fetch_one=True
+            )
+            if mov:
+                caja_mov_id = mov["id"]
+            
+            # Update cashbox current balance
+            execute_query(
+                "UPDATE cajas_diarias SET saldo_actual = saldo_actual - :monto WHERE id = :caja_id;",
+                {"monto": monto, "caja_id": c_id}
+            )
+            
+        # 2. Insert into liquidacion_comisiones
+        execute_query(
+            "INSERT INTO liquidacion_comisiones (empleado_id, monto_bruto, monto_vales, monto_neto, porcentaje_comision, concepto, caja_movimiento_id) VALUES (:empleado_id, 0.0, :monto, :monto_negativo, 0.0, :concepto, :caja_mov_id);",
+            {
+                "empleado_id": empleado_id,
+                "monto": monto,
+                "monto_negativo": -monto,
+                "concepto": concepto,
+                "caja_mov_id": caja_mov_id
+            }
+        )
+        return {"status": "success", "message": "Vale registrado con éxito."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al registrar vale: {e}")
+
+@app.post("/api/comisiones/liquidar")
+def liquidar_comisiones(empleado_id: int, monto_bruto: float, monto_vales: float, monto_neto: float, porcentaje_comision: float, concepto: str = "Liquidación de Comisiones", registrar_en_caja: bool = True):
+    try:
+        # 1. Register in cashbox if requested
+        caja_mov_id = None
+        if registrar_en_caja and monto_neto > 0:
+            caja_activa = execute_query("SELECT * FROM cajas_diarias WHERE estado = 'ABIERTA' ORDER BY id DESC LIMIT 1;", fetch_one=True)
+            if not caja_activa:
+                raise Exception("No hay una caja diaria abierta para registrar el egreso de la liquidación.")
+            
+            c_id = caja_activa["id"]
+            # Insert cash movement
+            emp_info = execute_query("SELECT nombre FROM empleados WHERE id = :id;", {"id": empleado_id}, fetch_one=True)
+            emp_name = emp_info["nombre"] if emp_info else f"Empleado #{empleado_id}"
+            desc = f"Pago Comisión: {emp_name} (Bruto: ${monto_bruto} - Vales: ${monto_vales})"
+            
+            execute_query(
+                "INSERT INTO caja_movimientos (caja_id, tipo, monto, descripcion) VALUES (:caja_id, 'EGRESO', :monto, :descripcion);",
+                {"caja_id": c_id, "monto": monto_neto, "descripcion": desc}
+            )
+            # Fetch the inserted movement id
+            mov = execute_query(
+                "SELECT id FROM caja_movimientos WHERE caja_id = :caja_id ORDER BY id DESC LIMIT 1;",
+                {"caja_id": c_id},
+                fetch_one=True
+            )
+            if mov:
+                caja_mov_id = mov["id"]
+            
+            # Update cashbox current balance
+            execute_query(
+                "UPDATE cajas_diarias SET saldo_actual = saldo_actual - :monto WHERE id = :caja_id;",
+                {"monto": monto_neto, "caja_id": c_id}
+            )
+            
+        # 2. Insert into liquidacion_comisiones
+        execute_query(
+            "INSERT INTO liquidacion_comisiones (empleado_id, monto_bruto, monto_vales, monto_neto, porcentaje_comision, concepto, caja_movimiento_id) VALUES (:empleado_id, :monto_bruto, :monto_vales, :monto_neto, :porcentaje, :concepto, :caja_mov_id);",
+            {
+                "empleado_id": empleado_id,
+                "monto_bruto": monto_bruto,
+                "monto_vales": monto_vales,
+                "monto_neto": monto_neto,
+                "porcentaje": porcentaje_comision,
+                "concepto": concepto,
+                "caja_mov_id": caja_mov_id
+            }
+        )
+        return {"status": "success", "message": "Liquidación registrada con éxito."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al liquidar comisiones: {e}")
 
 # ==========================================
 # 📅 ENDPOINTS: TURNOS (AGENDA)

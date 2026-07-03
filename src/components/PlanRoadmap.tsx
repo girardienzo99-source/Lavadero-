@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Sparkles, Droplet, CheckCircle, HelpCircle, DollarSign, ArrowRight, Sliders, Briefcase, Award, TrendingUp, Award as PaySlipIcon, Plus } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -6,68 +6,133 @@ import { Turno, Transaccion } from '../types';
 
 interface PlanRoadmapProps {
   turnos?: Turno[];
+  empleados?: any[];
   onAddLog?: (message: string) => void;
   onAddTransaccion?: (tx: Transaccion) => void;
+  onReloadData?: () => void;
 }
 
 export default function PlanRoadmap({
   turnos = [],
+  empleados = [],
   onAddLog,
-  onAddTransaccion
+  onAddTransaccion,
+  onReloadData
 }: PlanRoadmapProps) {
   const [activeTab, setActiveTab] = useState<'blueprint' | 'calculator' | 'equipment' | 'roi' | 'comisiones'>('blueprint');
 
+  // Active staff list with database or hardcoded mock fallback
+  const activeStaff = empleados && empleados.length > 0
+    ? empleados.filter(e => e.activo)
+    : [
+        { id: 1001, nombre: 'Mateo', rol: 'LAVADOR', porcentaje_comision: 40 },
+        { id: 1002, nombre: 'Enzo', rol: 'LAVADOR', porcentaje_comision: 45 },
+        { id: 1003, nombre: 'Santiago', rol: 'LAVADOR', porcentaje_comision: 50 },
+        { id: 1004, nombre: 'Bautista', rol: 'LAVADOR', porcentaje_comision: 40 }
+      ];
+
   // Commissions states
-  const [commissionPercentages, setCommissionPercentages] = useState<{ [op: string]: number }>({
-    Mateo: 40,
-    Enzo: 45,
-    Santiago: 50,
-    Bautista: 40
-  });
+  const [commissionPercentages, setCommissionPercentages] = useState<{ [opId: number]: number }>({});
+  const [dbVales, setDbVales] = useState<{ [opId: number]: number }>({});
+  const [historialComisiones, setHistorialComisiones] = useState<any[]>([]);
+  const [loadingComisiones, setLoadingComisiones] = useState(false);
 
-  const [vales, setVales] = useState<{ [op: string]: number }>({
-    Mateo: 5000,
-    Enzo: 0,
-    Santiago: 8000,
-    Bautista: 0
-  });
-
-  const [selectedOpForVale, setSelectedOpForVale] = useState('Mateo');
+  const [selectedOpIdForVale, setSelectedOpIdForVale] = useState('');
   const [valeAmountInput, setValeAmountInput] = useState('');
   const [valeConceptInput, setValeConceptInput] = useState('Adelanto de sueldo semanal');
   const [registerValeInCash, setRegisterValeInCash] = useState(true);
 
-  const handleAddValeSubmit = (e: React.FormEvent) => {
+  // Sync percentages when empleados load
+  useEffect(() => {
+    if (empleados && empleados.length > 0) {
+      const initialPct: { [opId: number]: number } = {};
+      empleados.forEach(emp => {
+        initialPct[emp.id] = emp.porcentaje_comision !== undefined && emp.porcentaje_comision !== null 
+          ? Number(emp.porcentaje_comision) 
+          : 40;
+      });
+      setCommissionPercentages(initialPct);
+    }
+  }, [empleados]);
+
+  // Load database vales and payouts
+  const loadComisionesData = async () => {
+    try {
+      setLoadingComisiones(true);
+      const res = await fetch('/api/comisiones/historial');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'success') {
+          setHistorialComisiones(data.historial || []);
+          setDbVales(data.vales || {});
+        }
+      }
+    } catch (e) {
+      console.error("Error loading commissions data:", e);
+    } finally {
+      setLoadingComisiones(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'comisiones') {
+      loadComisionesData();
+    }
+  }, [activeTab]);
+
+  // Initialize selected vale operator
+  useEffect(() => {
+    if (activeStaff.length > 0 && !selectedOpIdForVale) {
+      setSelectedOpIdForVale(String(activeStaff[0].id));
+    }
+  }, [activeStaff]);
+
+  const handleUpdateCommissionPercent = async (empId: number, pct: number) => {
+    setCommissionPercentages(prev => ({ ...prev, [empId]: pct }));
+    try {
+      await fetch(`/api/empleados/${empId}/comision?porcentaje_comision=${pct}`, {
+        method: 'POST'
+      });
+      if (onReloadData) onReloadData();
+    } catch (e) {
+      console.error("Error updating commission:", e);
+    }
+  };
+
+  const handleAddValeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = Number(valeAmountInput);
     if (isNaN(amount) || amount <= 0) return;
+    const empId = Number(selectedOpIdForVale);
+    const emp = activeStaff.find(e => e.id === empId);
+    if (!emp) return;
 
-    setVales(prev => ({
+    try {
+      const res = await fetch(`/api/comisiones/vale?empleado_id=${empId}&monto=${amount}&concepto=${encodeURIComponent(valeConceptInput)}&registrar_en_caja=${registerValeInCash}`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        loadComisionesData();
+        if (onReloadData) onReloadData();
+      }
+    } catch (err) {
+      console.error("Error saving vale:", err);
+    }
+
+    setDbVales(prev => ({
       ...prev,
-      [selectedOpForVale]: (prev[selectedOpForVale] || 0) + amount
+      [empId]: (prev[empId] || 0) + amount
     }));
 
     if (onAddLog) {
-      onAddLog(`💸 [SUELDOS] Registrado vale/adelanto de $${amount} para ${selectedOpForVale}. Concepto: ${valeConceptInput}`);
-    }
-
-    if (registerValeInCash && onAddTransaccion) {
-      const newTx: Transaccion = {
-        id: `tx_val_${Date.now()}`,
-        tipo: 'EGRESO',
-        monto: amount,
-        concepto: `Adelanto de Sueldo / Vale: ${selectedOpForVale} - Motivo: ${valeConceptInput}`,
-        origen: 'MANUAL',
-        fecha: new Date().toISOString()
-      };
-      onAddTransaccion(newTx);
+      onAddLog(`💸 [SUELDOS] Registrado vale/adelanto de $${amount} para ${emp.nombre}. Concepto: ${valeConceptInput}`);
     }
 
     setValeAmountInput('');
-    alert(`Vale de $${amount} registrado con éxito para ${selectedOpForVale}.`);
+    alert(`Vale de $${amount} registrado con éxito para ${emp.nombre}.`);
   };
 
-  const handlePayCommissions = (op: string, gross: number, pct: number, comm: number, ded: number, net: number) => {
+  const handlePayCommissions = async (empId: number, name: string, gross: number, pct: number, comm: number, ded: number, net: number) => {
     if (net <= 0) {
       alert('El saldo neto a pagar debe ser mayor a 0.');
       return;
@@ -103,7 +168,7 @@ export default function PlanRoadmap({
     doc.setTextColor(15, 23, 42);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text(`Colaborador: ${op}`, 15, 36);
+    doc.text(`Colaborador: ${name}`, 15, 36);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.text(`Puesto: Lavador / Detallador Especializado`, 15, 41);
@@ -132,7 +197,7 @@ export default function PlanRoadmap({
     doc.text(`SALDO NETO A PAGAR:`, 15, 90);
     doc.text(`$${net.toLocaleString('es-AR')}`, 100, 90, { align: 'right' });
 
-    const opJobs = turnos.filter(t => t.estado === 'COMPLETADO' && t.lavadorAsignado === op);
+    const opJobs = turnos.filter(t => t.estado === 'COMPLETADO' && t.lavadorAsignado === name);
     const tableBody = opJobs.map((t, idx) => [
       `t-${t.id.slice(-3)}`,
       t.servicioNombre.length > 25 ? t.servicioNombre.slice(0, 25) + '...' : t.servicioNombre,
@@ -169,33 +234,33 @@ export default function PlanRoadmap({
 
     doc.setFontSize(7);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Firma Colaborador: ${op}`, 35, signY + 4, { align: 'center' });
+    doc.text(`Firma Colaborador: ${name}`, 35, signY + 4, { align: 'center' });
     doc.text('Firma Albelo Detail', 105, signY + 4, { align: 'center' });
 
-    doc.save(`Recibo_Comision_${op}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Recibo_Comision_${name}_${new Date().toISOString().split('T')[0]}.pdf`);
 
-    setVales(prev => ({
+    try {
+      const res = await fetch(`/api/comisiones/liquidar?empleado_id=${empId}&monto_bruto=${gross}&monto_vales=${ded}&monto_neto=${net}&porcentaje_comision=${pct}&concepto=${encodeURIComponent('Liquidación de Comisiones')}&registrar_en_caja=true`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        loadComisionesData();
+        if (onReloadData) onReloadData();
+      }
+    } catch (err) {
+      console.error("Error registering liquidation:", err);
+    }
+
+    setDbVales(prev => ({
       ...prev,
-      [op]: 0
+      [empId]: 0
     }));
 
-    if (onAddTransaccion) {
-      const newTx: Transaccion = {
-        id: `tx_comm_${Date.now()}`,
-        tipo: 'EGRESO',
-        monto: net,
-        concepto: `Liquidación de Comisiones: ${op} (${pct}%) - Neto Pagado (Deducido vales: $${ded})`,
-        origen: 'MANUAL',
-        fecha: new Date().toISOString()
-      };
-      onAddTransaccion(newTx);
-    }
-
     if (onAddLog) {
-      onAddLog(`✅ [SUELDOS] Liquidado sueldo de ${op} por $${net}. Recibo PDF descargado y egreso registrado en caja.`);
+      onAddLog(`✅ [SUELDOS] Liquidado sueldo de ${name} por $${net}. Recibo PDF descargado y egreso registrado en caja.`);
     }
 
-    alert(`Comisión liquidada para ${op}. Recibo descargado.`);
+    alert(`Comisión liquidada para ${name}. Recibo descargado.`);
   };
 
   // Interactive Pricing Calculator States
@@ -878,18 +943,18 @@ export default function PlanRoadmap({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {['Mateo', 'Enzo', 'Santiago', 'Bautista'].map((op) => {
-                      const completedJobs = turnos.filter(t => t.estado === 'COMPLETADO' && t.lavadorAsignado === op);
+                    {activeStaff.map((emp) => {
+                      const completedJobs = turnos.filter(t => t.estado === 'COMPLETADO' && t.lavadorAsignado === emp.nombre);
                       const grossBilling = completedJobs.reduce((sum, t) => sum + t.precio, 0);
-                      const pct = commissionPercentages[op] || 40;
+                      const pct = commissionPercentages[emp.id] !== undefined ? commissionPercentages[emp.id] : (Number(emp.porcentaje_comision) || 40);
                       const commissionEarned = Math.round(grossBilling * (pct / 100));
-                      const advanceAmount = vales[op] || 0;
+                      const advanceAmount = dbVales[emp.id] || 0;
                       const netPay = Math.max(0, commissionEarned - advanceAmount);
 
                       return (
-                        <tr key={op} className="hover:bg-white/[0.01]">
+                        <tr key={emp.id} className="hover:bg-white/[0.01]">
                           <td className="py-3 pr-2">
-                            <span className="font-bold text-slate-200 block">{op}</span>
+                            <span className="font-bold text-slate-200 block">{emp.nombre}</span>
                             <span className="text-[10px] text-slate-500">{completedJobs.length} servicios completados</span>
                           </td>
                           <td className="py-3 text-center">
@@ -900,7 +965,7 @@ export default function PlanRoadmap({
                               value={pct}
                               onChange={(e) => {
                                 const val = Math.min(100, Math.max(1, Number(e.target.value)));
-                                setCommissionPercentages(prev => ({ ...prev, [op]: val }));
+                                handleUpdateCommissionPercent(emp.id, val);
                               }}
                               className="w-12 bg-black/30 border border-white/[0.08] focus:border-brand-primary/50 text-center font-mono font-bold text-xs text-white rounded px-1.5 py-0.5"
                             />
@@ -919,7 +984,7 @@ export default function PlanRoadmap({
                           </td>
                           <td className="py-3 text-right">
                             <button
-                              onClick={() => handlePayCommissions(op, grossBilling, pct, commissionEarned, advanceAmount, netPay)}
+                              onClick={() => handlePayCommissions(emp.id, emp.nombre, grossBilling, pct, commissionEarned, advanceAmount, netPay)}
                               disabled={netPay <= 0}
                               className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-40 border border-emerald-500/30 text-emerald-400 font-extrabold rounded text-[9px] uppercase tracking-wider transition cursor-pointer"
                             >
@@ -947,12 +1012,12 @@ export default function PlanRoadmap({
                 <div className="space-y-1.5">
                   <label className="block text-[10px] text-slate-400 uppercase tracking-wider">Colaborador</label>
                   <select
-                    value={selectedOpForVale}
-                    onChange={(e) => setSelectedOpForVale(e.target.value)}
+                    value={selectedOpIdForVale}
+                    onChange={(e) => setSelectedOpIdForVale(e.target.value)}
                     className="w-full bg-slate-900 border border-white/[0.08] text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
                   >
-                    {['Mateo', 'Enzo', 'Santiago', 'Bautista'].map(op => (
-                      <option key={op} value={op} className="bg-slate-950">{op}</option>
+                    {activeStaff.map(emp => (
+                      <option key={emp.id} value={emp.id} className="bg-slate-950">{emp.nombre}</option>
                     ))}
                   </select>
                 </div>
