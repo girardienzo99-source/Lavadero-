@@ -48,29 +48,36 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
         console.error(err);
         setError('Error al conectar con el servidor de autenticación.');
       });
-  };
-
-  return (
-    <div className="min-h-screen bg-[#030508] text-slate-100 flex items-center justify-center p-4 relative font-sans">
+  };  return (
+    <div className="min-h-screen bg-[#0d1222] text-slate-100 flex items-center justify-center p-4 relative font-sans">
       {/* Decorative Blur Mesh Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
-          className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[140px] opacity-15"
+          className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[140px] opacity-10"
           style={{ backgroundColor: brandConfig.primaryColor }}
         />
         <div className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] rounded-full blur-[140px] opacity-10 bg-[#00d2ff]" />
       </div>
 
-      <div className="w-full max-w-[850px] bg-black/60 backdrop-blur-3xl border border-red-500/20 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(220,38,38,0.15)] grid grid-cols-1 md:grid-cols-2 relative z-10 card-sport-border">
+      <div 
+        className="w-full max-w-[850px] bg-black/45 backdrop-blur-3xl rounded-2xl overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2 relative z-10 border transition-all duration-300"
+        style={{ 
+          borderColor: `${brandConfig.primaryColor}2e`, 
+          boxShadow: `0 0 50px ${brandConfig.primaryColor}1a` 
+        }}
+      >
         
         {/* Left Side: Branding / Flyer Mockup */}
-        <div className="p-8 lg:p-12 flex flex-col justify-between border-b md:border-b-0 md:border-r border-red-500/10 bg-gradient-to-b from-black/40 via-red-950/5 to-black/60 relative overflow-hidden">
+        <div 
+          className="p-8 lg:p-12 flex flex-col justify-between border-b md:border-b-0 md:border-r bg-gradient-to-b from-black/40 via-white/[0.005] to-black/60 relative overflow-hidden"
+          style={{ borderColor: `${brandConfig.primaryColor}15` }}
+        >
           {/* Subtle grid pattern overlay */}
-          <div className="absolute inset-0 grid-pattern opacity-30 pointer-events-none" />
+          <div className="absolute inset-0 grid-pattern opacity-15 pointer-events-none" />
           
           <div className="relative z-10 flex items-center gap-3">
             <div 
-              className="p-2.5 rounded-xl border flex items-center justify-center shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+              className="p-2.5 rounded-xl border flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.05)]"
               style={{ 
                 backgroundColor: `${brandConfig.primaryColor}15`, 
                 borderColor: `${brandConfig.primaryColor}30`,
@@ -83,7 +90,10 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
               <h1 className="text-sm font-black tracking-wider text-white uppercase font-display">
                 {brandConfig.nombre}
               </h1>
-              <span className="text-[9px] text-red-400 font-mono tracking-widest uppercase block mt-0.5 font-bold">
+              <span 
+                className="text-[9px] font-mono tracking-widest uppercase block mt-0.5 font-bold"
+                style={{ color: brandConfig.primaryColor }}
+              >
                 {brandConfig.tagline}
               </span>
             </div>
@@ -91,7 +101,13 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
 
           {/* Circular Albelo Detailing Flyer Logo Design */}
           <div className="relative z-10 my-8 flex flex-col items-center justify-center text-center">
-            <div className="relative p-2 bg-black/80 rounded-full border-2 border-red-500/30 shadow-[0_0_30px_rgba(220,38,38,0.25)] mb-4">
+            <div 
+              className="relative p-2 bg-black/80 rounded-full border-2 shadow-2xl mb-4"
+              style={{ 
+                borderColor: `${brandConfig.primaryColor}35`,
+                boxShadow: `0 0 30px ${brandConfig.primaryColor}25`
+              }}
+            >
               <svg className="w-28 h-28" viewBox="0 0 100 100">
                 {/* Outer red ring with racing notches */}
                 <circle cx="50" cy="50" r="46" fill="none" stroke={brandConfig.primaryColor} strokeWidth="3.5" strokeDasharray="6 2" />
@@ -115,7 +131,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
             
             <h2 className="text-xl font-extrabold tracking-tight text-white uppercase font-display leading-tight">
               Transformamos <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500 font-black" style={{ backgroundImage: `linear-gradient(to right, ${brandConfig.primaryColor}, #f59e0b)` }}>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r font-black" style={{ backgroundImage: `linear-gradient(to right, ${brandConfig.primaryColor}, #f59e0b)` }}>
                 TU VEHÍCULO
               </span>
             </h2>
@@ -126,14 +142,24 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
 
           {/* Core Flyer Badges */}
           <div className="relative z-10 flex flex-wrap gap-2 justify-center text-[9px] font-bold uppercase tracking-wider text-slate-400">
-            <span className="flex items-center gap-1 bg-red-950/30 border border-red-500/20 px-2 py-1 rounded">🛡️ Calidad Profesional</span>
-            <span className="flex items-center gap-1 bg-red-950/30 border border-red-500/20 px-2 py-1 rounded">⚡ Turnos Rápidos</span>
+            <span 
+              className="flex items-center gap-1 border px-2 py-1 rounded bg-white/[0.01]"
+              style={{ borderColor: `${brandConfig.primaryColor}20`, color: brandConfig.primaryColor }}
+            >
+              🛡️ Calidad Profesional
+            </span>
+            <span 
+              className="flex items-center gap-1 border px-2 py-1 rounded bg-white/[0.01]"
+              style={{ borderColor: `${brandConfig.primaryColor}20`, color: brandConfig.primaryColor }}
+            >
+              ⚡ Turnos Rápidos
+            </span>
           </div>
         </div>
 
         {/* Right Side: Form */}
-        <div className="p-8 lg:p-12 flex flex-col justify-center gap-6 bg-black/40 relative">
-          <div className="absolute inset-0 grid-pattern opacity-10 pointer-events-none" />
+        <div className="p-8 lg:p-12 flex flex-col justify-center gap-6 bg-black/20 relative">
+          <div className="absolute inset-0 grid-pattern opacity-5 pointer-events-none" />
           
           <div className="relative z-10">
             <h3 className="text-base font-black text-white uppercase tracking-wider font-display">Ingreso al Sistema</h3>
@@ -157,9 +183,9 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
                   placeholder="ejemplo@albelo.com"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-white/[0.02] border border-white/[0.08] focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20 focus:outline-none rounded-xl px-3 py-2.5 pl-10 text-xs text-white transition-all placeholder:text-slate-600 font-mono"
+                  className="w-full bg-white/[0.02] border border-white/[0.08] focus:border-brand-primary/60 focus:ring-1 focus:ring-brand-primary/20 focus:outline-none rounded-xl px-3 py-2.5 pl-10 text-xs text-white transition-all placeholder:text-slate-650 font-mono"
                 />
-                <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <User className="w-4 h-4 text-slate-550 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
             </div>
 
@@ -172,17 +198,20 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/[0.02] border border-white/[0.08] focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20 focus:outline-none rounded-xl px-3 py-2.5 pl-10 text-xs text-white transition-all placeholder:text-slate-600 font-mono"
+                  className="w-full bg-white/[0.02] border border-white/[0.08] focus:border-brand-primary/60 focus:ring-1 focus:ring-brand-primary/20 focus:outline-none rounded-xl px-3 py-2.5 pl-10 text-xs text-white transition-all placeholder:text-slate-655 font-mono"
                 />
-                <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <KeyRound className="w-4 h-4 text-slate-550 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-brand-primary hover:bg-brand-hover text-white py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-[0_0_15px_rgba(220,38,38,0.2)] flex items-center justify-center gap-2 cursor-pointer border border-red-500/20"
-              style={{ backgroundColor: brandConfig.primaryColor }}
+              className="w-full text-white py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer border border-white/[0.08] hover:scale-[1.01] active:scale-[0.99]"
+              style={{ 
+                backgroundColor: brandConfig.primaryColor,
+                boxShadow: `0 4px 15px ${brandConfig.primaryColor}33`
+              }}
             >
               {loading ? 'Validando...' : 'Acceder al Cockpit'}
             </button>
@@ -197,7 +226,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
           <div className="relative z-10 grid grid-cols-2 gap-3">
             <button
               onClick={() => loginWith('admin@gmail.com', '1998')}
-              className="py-2 px-3 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 hover:border-red-500/40 rounded-xl text-[10px] font-extrabold text-red-400 hover:text-white transition duration-200 cursor-pointer text-center"
+              className="py-2 px-3 bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/20 hover:border-brand-primary/45 rounded-xl text-[10px] font-extrabold text-brand-primary hover:text-white transition duration-200 cursor-pointer text-center"
             >
               ⚡ Creador (1998)
             </button>
@@ -209,7 +238,6 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

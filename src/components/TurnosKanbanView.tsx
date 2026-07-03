@@ -579,7 +579,7 @@ export default function TurnosKanbanView({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-20">
         
         {/* Column 1: PENDIENTE */}
-        <div className="glass-panel p-4 rounded-xl flex flex-col min-h-[450px] border-amber-500/15 relative">
+        <div className="glass-panel glow-amber p-4 rounded-xl flex flex-col min-h-[450px] relative transition-all duration-300">
           <div className="flex justify-between items-center pb-3 border-b border-white/[0.08] mb-4">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 badge-neon-yellow animate-pulse" />
@@ -596,7 +596,7 @@ export default function TurnosKanbanView({
                 <div key={t.id} id={`turno-card-${t.id}`} className={`p-3.5 rounded-lg space-y-3 relative group transition-all shadow-sm duration-200 ${
                   t.isCeramic
                     ? 'border border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 shadow-[0_0_15px_rgba(245,158,11,0.08)]'
-                    : 'bg-white/[0.02] border border-white/[0.06] hover:border-red-500/40 hover:bg-white/[0.03]'
+                    : 'bg-white/[0.02] border border-white/[0.06] hover:border-amber-500/40 hover:bg-amber-500/[0.02]'
                 }`}>
                   <div className="flex flex-wrap items-center justify-between gap-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -682,13 +682,13 @@ export default function TurnosKanbanView({
         </div>
 
         {/* Column 2: EN PROCESO */}
-        <div className="glass-panel p-4 rounded-xl flex flex-col min-h-[450px] border-red-500/25 shadow-[0_0_20px_rgba(220,38,38,0.06)] relative card-sport-border">
+        <div className="glass-panel glow-cyan p-4 rounded-xl flex flex-col min-h-[450px] relative transition-all duration-300">
           <div className="flex justify-between items-center pb-3 border-b border-white/[0.08] mb-4">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 badge-neon-red animate-ping" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#00d2ff] animate-pulse" />
               <h3 className="font-extrabold text-white text-xs uppercase tracking-widest font-display">En Proceso</h3>
             </div>
-            <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded font-mono font-bold">{enProceso.length}</span>
+            <span className="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded font-mono font-bold">{enProceso.length}</span>
           </div>
 
           <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">
@@ -699,7 +699,7 @@ export default function TurnosKanbanView({
                 <div key={t.id} id={`turno-card-${t.id}`} className={`p-3.5 rounded-lg space-y-3 relative group transition-all shadow-sm duration-200 ${
                   t.isCeramic
                     ? 'border border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 shadow-[0_0_15px_rgba(245,158,11,0.08)]'
-                    : 'bg-white/[0.02] border border-white/[0.06] hover:border-red-500/40 hover:bg-white/[0.03]'
+                    : 'bg-white/[0.02] border border-white/[0.06] hover:border-cyan-500/40 hover:bg-cyan-500/[0.02]'
                 }`}>
                   <div className="flex justify-between items-center flex-wrap gap-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -773,7 +773,7 @@ export default function TurnosKanbanView({
         </div>
 
         {/* Column 3: LISTO PARA ENTREGA / COMPLETADO */}
-        <div className="glass-panel p-4 rounded-xl flex flex-col min-h-[450px] border-emerald-500/15 relative">
+        <div className="glass-panel glow-emerald p-4 rounded-xl flex flex-col min-h-[450px] relative transition-all duration-300">
           <div className="flex justify-between items-center pb-3 border-b border-white/[0.08] mb-4">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 badge-neon-green" />
@@ -790,7 +790,7 @@ export default function TurnosKanbanView({
                 <div key={t.id} id={`turno-card-${t.id}`} className={`p-3.5 rounded-lg space-y-3 relative group transition-all duration-200 ${
                   t.isCeramic
                     ? 'border border-amber-500/20 bg-amber-500/[0.01] hover:border-amber-500/35'
-                    : 'bg-white/[0.01] border border-white/[0.04] hover:border-white/[0.1]'
+                    : 'bg-white/[0.01] border border-white/[0.04] hover:border-emerald-500/40 hover:bg-emerald-500/[0.02]'
                 }`}>
                   <div className="flex justify-between items-center flex-wrap gap-1">
                     <div className="flex items-center gap-1.5 flex-wrap">

@@ -905,14 +905,14 @@ export default function App() {
       </header>
 
       {/* Subheader Toolbar & Tab Selectors */}
-      <section className="bg-black/40 border-b border-red-500/10 backdrop-blur-md px-4 lg:px-8 py-2.5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 relative z-30">
+      <section className="bg-black/45 border-b border-brand-primary/10 backdrop-blur-md px-4 lg:px-8 py-2.5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 relative z-30">
         <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
           <button
             id="btn-nav-overview"
             onClick={() => setActiveTab('overview')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'overview'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -923,7 +923,7 @@ export default function App() {
             onClick={() => setActiveTab('turnos')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'turnos'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -934,7 +934,7 @@ export default function App() {
             onClick={() => setActiveTab('caja')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'caja'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -945,7 +945,7 @@ export default function App() {
             onClick={() => setActiveTab('publicidad')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'publicidad'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -956,7 +956,7 @@ export default function App() {
             onClick={() => setActiveTab('roadmap')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 cursor-pointer ${
               activeTab === 'roadmap'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -967,11 +967,11 @@ export default function App() {
             onClick={() => setActiveTab('public-page')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'public-page'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <Globe className="w-3 h-3 text-red-500" />
+            <Globe className="w-3 h-3 text-brand-primary" />
             Portal Público
           </button>
           <button
@@ -979,11 +979,11 @@ export default function App() {
             onClick={() => setActiveTab('inventario')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'inventario'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <Package className="w-3 h-3 text-red-500" />
+            <Package className="w-3 h-3 text-brand-primary" />
             Inventario & Stock
           </button>
           <button
@@ -991,11 +991,11 @@ export default function App() {
             onClick={() => setActiveTab('ceramic')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'ceramic'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <Sparkles className="w-3 h-3 text-red-500" />
+            <Sparkles className="w-3 h-3 text-brand-primary" />
             Estética & Cerámicos
           </button>
           <button
@@ -1003,11 +1003,11 @@ export default function App() {
             onClick={() => setActiveTab('branding')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'branding'
-                ? 'bg-red-500/15 text-white border border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
-            <Palette className="w-3 h-3 text-red-500" />
+            <Palette className="w-3 h-3 text-brand-primary" />
             Branding
           </button>
         </div>
@@ -1016,9 +1016,9 @@ export default function App() {
         <button
           id="btn-trigger-add-client-modal"
           onClick={() => setShowAddClientForm(!showAddClientForm)}
-          className="flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-200 font-extrabold px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-widest transition-all duration-300 shadow-[0_0_10px_rgba(220,38,38,0.15)] cursor-pointer"
+          className="flex items-center justify-center gap-1.5 bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 text-brand-primary font-extrabold px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-widest transition-all duration-300 shadow-[0_0_10px_var(--brand-glow)] cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
         >
-          <Plus className="w-3 h-3 text-red-500" />
+          <Plus className="w-3 h-3 text-brand-primary" />
           Registrar Cliente
         </button>
       </section>
@@ -1105,55 +1105,61 @@ export default function App() {
         {activeTab === 'overview' && (
           <div className="space-y-6 animate-fade-in relative z-20">
             
-            {/* Bento Grid Metrics Row */}
+             {/* Bento Grid Metrics Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               
-              <div className="glass-panel glass-card-hover p-4 rounded-xl flex justify-between items-start">
+              <div className="glass-panel glass-card-hover glow-emerald p-4 rounded-xl flex justify-between items-start transition duration-300">
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Caja Diaria</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Caja Diaria</span>
                   <span className="text-xl font-extrabold font-mono text-emerald-400 mt-1 block">${totalIncomingsToday.toLocaleString('es-AR')}</span>
                   <span className="text-[10px] text-slate-400 mt-0.5 block">
                     Ticket Prom: <b className="text-white">${Math.round(turnos.filter(t => t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO').reduce((sum, t) => sum + t.precio, 0) / (turnos.filter(t => t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO').length || 1)).toLocaleString('es-AR')}</b>
                   </span>
                 </div>
-                <span className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <span className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
                   <DollarSign className="w-5 h-5" />
                 </span>
               </div>
 
-              <div className="glass-panel glass-card-hover p-4 rounded-xl flex justify-between items-start">
+              <div className="glass-panel glass-card-hover glow-cyan p-4 rounded-xl flex justify-between items-start transition duration-300">
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Turnos en Espera</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Turnos en Espera</span>
                   <span className="text-xl font-extrabold font-mono text-[#00d2ff] mt-1 block">{activeTurnosCount}</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">Pendientes y en proceso</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-medium">Pendientes y en proceso</span>
                 </div>
-                <span className="p-2.5 rounded-lg bg-[#00d2ff]/10 border border-[#00d2ff]/20 text-[#00d2ff]">
+                <span className="p-2.5 rounded-lg bg-[#00d2ff]/10 border border-[#00d2ff]/20 text-[#00d2ff] shadow-[0_0_12px_rgba(6,182,212,0.15)]">
                   <Car className="w-5 h-5" />
                 </span>
               </div>
 
-              <div className="glass-panel glass-card-hover p-4 rounded-xl flex justify-between items-start">
+              <div className="glass-panel glass-card-hover glow-amber p-4 rounded-xl flex justify-between items-start transition duration-300">
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Calidad NPS</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Calidad NPS</span>
                   <span className="text-xl font-extrabold font-mono text-amber-400 mt-1 block flex items-baseline gap-1">
                     {npsAvg} <span className="text-xs text-slate-500 font-normal">/ 5.0</span>
                   </span>
                   <span className="text-[10px] text-slate-400 mt-0.5 block">Estrellas promedio de retiro</span>
                 </div>
-                <span className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <span className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.15)]">
                   <Star className="w-5 h-5 fill-amber-500/10 text-amber-400" />
                 </span>
               </div>
 
-              <div className="glass-panel glass-card-hover p-4 rounded-xl flex justify-between items-start">
+              <div className={`glass-panel glass-card-hover p-4 rounded-xl flex justify-between items-start transition duration-300 ${
+                lowStockInsumosCount > 0 ? 'glow-red animate-pulse' : 'glow-brand'
+              }`}>
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Alertas de Stock</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Alertas de Stock</span>
                   <span className={`text-xl font-extrabold font-mono mt-1 block ${lowStockInsumosCount > 0 ? 'text-red-400' : 'text-slate-300'}`}>
                     {lowStockInsumosCount}
                   </span>
                   <span className="text-[10px] text-slate-400 mt-0.5 block">Insumos críticos bajo mínimo</span>
                 </div>
-                <span className={`p-2.5 rounded-lg border ${lowStockInsumosCount > 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-white/[0.02] border-white/[0.08] text-slate-400'}`}>
+                <span className={`p-2.5 rounded-lg border ${
+                  lowStockInsumosCount > 0 
+                    ? 'bg-red-500/10 border-red-500/20 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.15)]' 
+                    : 'bg-white/[0.02] border-white/[0.08] text-slate-400'
+                }`}>
                   <Package className="w-5 h-5" />
                 </span>
               </div>
@@ -1274,9 +1280,9 @@ export default function App() {
                           {Object.entries(weeklyRevenue).map(([day, val]) => {
                             const barPct = (val / maxWeeklyRevenue) * 80;
                             return (
-                              <div key={day} className="flex-1 flex flex-col items-center gap-1.5 group cursor-pointer">
+                               <div key={day} className="flex-1 h-[120px] flex flex-col justify-end items-center gap-1.5 group cursor-pointer">
                                 <div
-                                  className="w-full rounded-t bg-gradient-to-t from-brand-primary to-brand-primary/20 hover:from-brand-primary hover:to-brand-primary/50 transition-all duration-300 relative border border-brand-primary/10"
+                                  className="w-full rounded-t bg-gradient-to-t from-brand-primary to-brand-primary/20 hover:from-brand-primary hover:to-brand-primary/50 transition-all duration-500 ease-out relative border border-brand-primary/10 shadow-[0_0_12px_var(--brand-hover-card-shadow,rgba(220,38,38,0.1))]"
                                   style={{ height: `${barPct}%` }}
                                 >
                                   <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#06080a]/90 text-[9px] font-mono font-bold py-0.5 px-1.5 rounded border border-white/10 text-white opacity-0 group-hover:opacity-100 transition whitespace-nowrap z-30 shadow-lg">

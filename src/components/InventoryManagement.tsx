@@ -372,16 +372,32 @@ export default function InventoryManagement({
                         {item.stockMinimo} {item.unidad}
                       </td>
                       <td className="py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-[10px] ${
-                          isAgotado 
-                            ? 'bg-red-500/10 text-red-500 border border-red-500/20'
-                            : isCritical
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        }`}>
-                          {item.stockActual} {item.unidad}
-                          {isAgotado && ' (Agotado)'}
-                        </span>
+                        <div className="flex flex-col items-center gap-1 min-w-[90px]">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-[9px] ${
+                            isAgotado 
+                              ? 'bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_8px_rgba(239,68,68,0.08)]'
+                              : isCritical
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.08)]'
+                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.08)]'
+                          }`}>
+                            {item.stockActual} {item.unidad}
+                            {isAgotado && ' (Agotado)'}
+                          </span>
+                          
+                          {/* Mini visual semaphoric level bar */}
+                          <div className="w-16 h-1 bg-white/[0.04] rounded-full overflow-hidden border border-white/[0.04]">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isAgotado 
+                                  ? 'bg-red-500' 
+                                  : isCritical
+                                  ? 'bg-amber-500' 
+                                  : 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                              }`} 
+                              style={{ width: `${Math.min((item.stockActual / (item.stockMinimo * 2 || 1)) * 100, 100)}%` }} 
+                            />
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 text-right font-mono text-slate-300">
                         ${item.precioCosto.toLocaleString('es-AR')}
