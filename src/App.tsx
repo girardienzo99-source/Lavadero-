@@ -715,6 +715,17 @@ export default function App() {
           --brand-primary: ${brandConfig.primaryColor};
           --brand-hover: ${brandConfig.hoverColor};
           --brand-glow: ${brandConfig.primaryColor}30;
+          --brand-glow-neon: ${brandConfig.primaryColor}60;
+          --brand-mesh-1: ${brandConfig.primaryColor}1f;
+          --brand-mesh-2: ${brandConfig.primaryColor}0f;
+          --brand-glass-border: ${brandConfig.primaryColor}2e;
+          --brand-hover-card-bg: ${brandConfig.primaryColor}0f;
+          --brand-hover-card-border: ${brandConfig.primaryColor}66;
+          --brand-hover-card-shadow: ${brandConfig.primaryColor}26;
+          --brand-badge-bg: ${brandConfig.primaryColor}26;
+          --brand-badge-border: ${brandConfig.primaryColor}59;
+          --brand-badge-text: ${brandConfig.primaryColor === '#6b7280' ? '#e2e8f0' : brandConfig.primaryColor};
+          --brand-badge-glow: ${brandConfig.primaryColor}80;
           --font-display: "${brandConfig.fontFamily}", "Outfit", var(--font-sans);
         }
         

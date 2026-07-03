@@ -280,27 +280,39 @@ export default function BrandSettings({
           </h5>
 
           {/* Quick presets list */}
-          <div className="space-y-1.5">
-            <span className="block text-[9px] text-slate-500 uppercase font-mono">Paletas de Colores Sugeridas (Estilos Premium)</span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {PRESET_COLORS.map((p) => (
-                <button
-                  key={p.nombre}
-                  type="button"
-                  onClick={() => handleSelectPreset(p)}
-                  className={`p-2 rounded-lg border text-left transition text-[10px] ${
-                    primaryColor === p.primary
-                      ? 'bg-white/[0.05] border-slate-400'
-                      : 'bg-white/[0.01] border-white/[0.05] hover:border-white/[0.1] hover:bg-white/[0.02]'
-                  }`}
-                >
-                  <div className="flex gap-1 mb-1">
-                    <span className="w-2.5 h-2.5 rounded-full block" style={{ backgroundColor: p.primary }} />
-                    <span className="w-2.5 h-2.5 rounded-full block" style={{ backgroundColor: p.hover }} />
-                  </div>
-                  <span className="font-bold text-white truncate block">{p.nombre}</span>
-                </button>
-              ))}
+          <div className="space-y-2">
+            <span className="block text-[9px] text-slate-500 uppercase font-mono">Temas Preestablecidos para el Lavadero</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {PRESET_COLORS.map((p) => {
+                const isSelected = primaryColor === p.primary;
+                return (
+                  <button
+                    key={p.nombre}
+                    type="button"
+                    onClick={() => handleSelectPreset(p)}
+                    className={`p-3 rounded-xl border text-left transition duration-200 flex items-start gap-3 select-none cursor-pointer ${
+                      isSelected
+                        ? 'bg-white/[0.04] border-slate-400 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                        : 'bg-white/[0.01] border-white/[0.05] hover:border-white/[0.12] hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    {/* Theme Swatch */}
+                    <div className="flex flex-col gap-1 items-center shrink-0 mt-0.5">
+                      <span className="w-5 h-5 rounded-full block border border-white/20 shadow-inner" style={{ backgroundColor: p.primary }} />
+                      <span className="w-4 h-4 rounded-full block border border-white/10 opacity-70" style={{ backgroundColor: p.hover }} />
+                    </div>
+                    
+                    {/* Theme Info */}
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-extrabold text-white text-xs leading-none">{p.nombre}</span>
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />}
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-normal">{p.desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

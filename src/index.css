@@ -39,8 +39,8 @@
   pointer-events: none;
   background-color: #030508;
   background-image: 
-    radial-gradient(circle at 10% 10%, rgba(220, 38, 38, 0.12) 0%, transparent 45%),
-    radial-gradient(circle at 90% 90%, rgba(220, 38, 38, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 10% 10%, var(--brand-mesh-1, rgba(220, 38, 38, 0.12)) 0%, transparent 45%),
+    radial-gradient(circle at 90% 90%, var(--brand-mesh-2, rgba(220, 38, 38, 0.06)) 0%, transparent 45%),
     linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
@@ -50,7 +50,7 @@
   background: rgba(8, 10, 14, 0.85);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(220, 38, 38, 0.18);
+  border: 1px solid var(--brand-glass-border, rgba(220, 38, 38, 0.18));
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
 }
 
@@ -65,15 +65,15 @@
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glass-card-hover:hover {
-  background: rgba(220, 38, 38, 0.06);
-  border-color: rgba(220, 38, 38, 0.4);
-  box-shadow: 0 0 25px rgba(220, 38, 38, 0.15);
+  background: var(--brand-hover-card-bg, rgba(220, 38, 38, 0.06));
+  border-color: var(--brand-hover-card-border, rgba(220, 38, 38, 0.4));
+  box-shadow: 0 0 25px var(--brand-hover-card-shadow, rgba(220, 38, 38, 0.15));
   transform: translateY(-3px) scale(1.01);
 }
 
 /* Custom Albelo Brush effect styled like the flyer */
 .brush-banner-red {
-  background: linear-gradient(90deg, transparent 0%, #dc2626 12%, #b91c1c 88%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, var(--brand-primary, #dc2626) 12%, var(--brand-hover, #b91c1c) 88%, transparent 100%);
   text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
 }
 
@@ -98,10 +98,10 @@
 
 /* Custom glowing badge styling */
 .badge-neon-red {
-  background: rgba(220, 38, 38, 0.15);
-  border: 1px solid rgba(220, 38, 38, 0.35);
-  color: #ff4d4d;
-  text-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
+  background: var(--brand-badge-bg, rgba(220, 38, 38, 0.15));
+  border: 1px solid var(--brand-badge-border, rgba(220, 38, 38, 0.35));
+  color: var(--brand-badge-text, #ff4d4d);
+  text-shadow: 0 0 8px var(--brand-badge-glow, rgba(220, 38, 38, 0.5));
 }
 
 .badge-neon-green {
