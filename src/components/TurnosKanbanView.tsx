@@ -126,12 +126,24 @@ export default function TurnosKanbanView({
   };
 
   const handleSendWhatsApp = (t: Turno) => {
+    const templateReady = localStorage.getItem('albelo_whatsapp_template_ready') ||
+      '¡Hola {{1}}! Te informamos que tu vehículo {{2}} (patente {{3}}) ya se encuentra listo para retirar en Albelo Detail. Servicio: {{4}}. ¡Te esperamos!';
+    const templateConfirm = localStorage.getItem('albelo_whatsapp_template_confirm') ||
+      'Hola {{1}}, te confirmamos el turno en Albelo Detail para tu auto patente {{2}} para el servicio: {{3}}.';
+
     const text = t.estado === 'PENDIENTE' 
-      ? `Hola ${t.clienteNombre}, te confirmamos el turno en Mobile Wash para tu auto patente *${t.vehiculoPatente}* para el servicio: ${t.servicioNombre}.`
-      : `¡Hola ${t.clienteNombre}! Tu vehículo *${t.vehiculoModelo}* (patente *${t.vehiculoPatente}*) ya se encuentra listo para retirar en Mobile Wash Car Wash. ¡Te esperamos!`;
+      ? templateConfirm
+          .replace('{{1}}', t.clienteNombre)
+          .replace('{{2}}', t.vehiculoPatente.toUpperCase())
+          .replace('{{3}}', t.servicioNombre)
+      : templateReady
+          .replace('{{1}}', t.clienteNombre)
+          .replace('{{2}}', t.vehiculoModelo || 'S/D')
+          .replace('{{3}}', t.vehiculoPatente.toUpperCase())
+          .replace('{{4}}', t.servicioNombre);
     
     const encoded = encodeURIComponent(text);
-    const link = `https://api.whatsapp.com/send?phone=${t.telefono.replace('+', '')}&text=${encoded}`;
+    const link = `https://api.whatsapp.com/send?phone=${t.telefono.replace('+', '').replace(/\s/g, '')}&text=${encoded}`;
     
     // Simulate opening link or log
     onAddLog(`📱 WhatsApp enviado a ${t.clienteNombre} (${t.telefono}): "${text}"`);

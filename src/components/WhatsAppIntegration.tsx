@@ -33,12 +33,21 @@ export default function WhatsAppIntegration({
   const [templateName, setTemplateName] = useState('vehiculo_listo_v1');
   
   // Custom templates
-  const [templateReady, setTemplateReady] = useState(
-    '¡Hola {{1}}! Te informamos que tu vehículo {{2}} (patente {{3}}) ya se encuentra listo para retirar en Albelo Detail. Servicio: {{4}}. ¡Te esperamos!'
-  );
-  const [templateConfirm, setTemplateConfirm] = useState(
-    'Hola {{1}}, te confirmamos el turno en Albelo Detail para tu auto patente {{2}} para el servicio: {{3}}.'
-  );
+  const [templateReady, setTemplateReady] = useState(() => {
+    return localStorage.getItem('albelo_whatsapp_template_ready') ||
+      '¡Hola {{1}}! Te informamos que tu vehículo {{2}} (patente {{3}}) ya se encuentra listo para retirar en Albelo Detail. Servicio: {{4}}. ¡Te esperamos!';
+  });
+  const [templateConfirm, setTemplateConfirm] = useState(() => {
+    return localStorage.getItem('albelo_whatsapp_template_confirm') ||
+      'Hola {{1}}, te confirmamos el turno en Albelo Detail para tu auto patente {{2}} para el servicio: {{3}}.';
+  });
+
+  const handleSaveTemplates = () => {
+    localStorage.setItem('albelo_whatsapp_template_ready', templateReady);
+    localStorage.setItem('albelo_whatsapp_template_confirm', templateConfirm);
+    onAddLog('📲 Plantillas de notificaciones de WhatsApp guardadas con éxito.');
+    alert('Plantillas guardadas y aplicadas a los envíos del Kanban.');
+  };
 
   // Active logs state
   const [logs, setLogs] = useState<WhatsAppLog[]>([
@@ -355,6 +364,16 @@ public class WhatsAppNotificationService {
                 rows={3}
                 className="w-full bg-white/[0.01] border border-white/[0.08] rounded-lg p-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-slate-500/50"
               />
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={handleSaveTemplates}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold px-4 py-2 rounded-lg text-xs uppercase tracking-wider transition cursor-pointer"
+              >
+                Guardar Plantillas
+              </button>
             </div>
           </div>
         </div>
