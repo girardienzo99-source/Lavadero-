@@ -8,6 +8,7 @@ import { Turno, Cliente, TipoServicio, VehicleHealthData } from '../types';
 import { LAVADORES_ACTIVOS, SERVICIOS_DISPONIBLES } from '../data/initialData';
 import { generateTicketPDF } from '../utils/ticketGenerator';
 import VehicleHealth from './VehicleHealth';
+import WeeklyCalendar from './WeeklyCalendar';
 
 interface TurnosKanbanViewProps {
   turnos: Turno[];
@@ -30,6 +31,7 @@ export default function TurnosKanbanView({
 }: TurnosKanbanViewProps) {
   // Filters & Tabs
   const [filterType, setFilterType] = useState<TipoServicio | 'ALL'>('ALL');
+  const [viewMode, setViewMode] = useState<'kanban' | 'calendar'>('kanban');
 
   // Form states
   const [selectedClienteId, setSelectedClienteId] = useState(clientes[0]?.id || '');
@@ -42,6 +44,8 @@ export default function TurnosKanbanView({
   const [selectedServicioNombre, setSelectedServicioNombre] = useState(serviciosDeTipo[0]?.nombre || '');
   const [selectedLavador, setSelectedLavador] = useState(LAVADORES_ACTIVOS[0]);
   const [customPriceInput, setCustomPriceInput] = useState('');
+  const [turnoFechaInput, setTurnoFechaInput] = useState(new Date().toISOString().split('T')[0]);
+  const [turnoHoraInput, setTurnoHoraInput] = useState('09:00');
 
   // Active service price helper
   const activeServiceObj = serviciosDeTipo.find((s) => s.nombre === selectedServicioNombre);
@@ -77,6 +81,8 @@ export default function TurnosKanbanView({
 
     const finalPrice = customPriceInput ? Number(customPriceInput) : currentBasePrice;
 
+    const scheduledDateTime = new Date(`${turnoFechaInput}T${turnoHoraInput}:00`);
+
     const newT: Turno = {
       id: `t_${Date.now()}`,
       clienteId: currentCliente.id,
@@ -89,7 +95,7 @@ export default function TurnosKanbanView({
       lavadorAsignado: selectedLavador,
       estado: 'PENDIENTE',
       precio: finalPrice,
-      fechaCreacion: new Date().toISOString(),
+      fechaCreacion: scheduledDateTime.toISOString(),
       healthData: activeInspectionData || undefined,
     };
 
@@ -186,20 +192,46 @@ export default function TurnosKanbanView({
           ))}
         </div>
 
-        <button
-          id="btn-show-add-turno"
-          onClick={() => {
-            setShowAddForm(!showAddForm);
-            // Default to first client to trigger model/patent bindings
-            if (clientes.length > 0) {
-              setSelectedClienteId(clientes[0].id);
-            }
-          }}
-          className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold px-4 py-2 rounded-lg text-xs transition duration-200"
-        >
-          <Plus className="w-4 h-4" />
-          Agendar Nuevo Turno
-        </button>
+        <div className="flex w-full sm:w-auto items-center gap-2">
+          <div className="flex bg-black/40 border border-white/[0.08] p-0.5 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setViewMode('kanban')}
+              className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition cursor-pointer ${
+                viewMode === 'kanban'
+                  ? 'bg-brand-primary text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Tablero Kanban
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition cursor-pointer ${
+                viewMode === 'calendar'
+                  ? 'bg-brand-primary text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Agenda Semanal
+            </button>
+          </div>
+
+          <button
+            id="btn-show-add-turno"
+            onClick={() => {
+              setShowAddForm(!showAddForm);
+              if (clientes.length > 0) {
+                setSelectedClienteId(clientes[0].id);
+              }
+            }}
+            className="flex items-center justify-center gap-1.5 bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold px-4 py-2 rounded-lg text-xs transition duration-200 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Agendar Nuevo Turno
+          </button>
+        </div>
       </div>
 
       {/* Add Turno Form Dropdown Drawer */}
@@ -347,6 +379,29 @@ export default function TurnosKanbanView({
                   ))}
                 </select>
               </div>
+
+              <div className="mt-2.5">
+                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Fecha de Reserva</label>
+                <input
+                  type="date"
+                  value={turnoFechaInput}
+                  onChange={(e) => setTurnoFechaInput(e.target.value)}
+                  className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg px-2.5 py-1.5 text-xs text-white"
+                />
+              </div>
+
+              <div className="mt-2.5">
+                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Hora de Reserva</label>
+                <select
+                  value={turnoHoraInput}
+                  onChange={(e) => setTurnoHoraInput(e.target.value)}
+                  className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg px-2.5 py-1.5 text-xs text-white"
+                >
+                  {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map(h => (
+                    <option key={h} value={h} className="bg-[#0c0f12] text-white">{h} hs</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="pt-4 flex gap-2">
@@ -471,8 +526,8 @@ export default function TurnosKanbanView({
         </div>
       )}
 
-      {/* Kanban Board Columns Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-20">
+      {viewMode === 'kanban' ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-20">
         
         {/* Column 1: PENDIENTE */}
         <div className="glass-panel p-4 rounded-xl flex flex-col min-h-[450px] border-amber-500/15 relative">
@@ -790,6 +845,25 @@ export default function TurnosKanbanView({
         </div>
 
       </div>
+      ) : (
+        <WeeklyCalendar
+          turnos={turnos}
+          clientes={clientes}
+          onUpdateTurnoEstado={onUpdateTurnoEstado}
+          onSelectSlot={(dateKey, hourStr) => {
+            setTurnoFechaInput(dateKey);
+            setTurnoHoraInput(hourStr);
+            setShowAddForm(true);
+            
+            setTimeout(() => {
+              const formElement = document.querySelector('form');
+              if (formElement) {
+                formElement.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 100);
+          }}
+        />
+      )}
 
       {/* NPS Evaluation Popup Dialog */}
       {feedbackTurnoId && (
