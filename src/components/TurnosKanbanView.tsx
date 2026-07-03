@@ -46,6 +46,9 @@ export default function TurnosKanbanView({
   const [customPriceInput, setCustomPriceInput] = useState('');
   const [turnoFechaInput, setTurnoFechaInput] = useState(new Date().toISOString().split('T')[0]);
   const [turnoHoraInput, setTurnoHoraInput] = useState('09:00');
+  const [showVehicleHistoryModal, setShowVehicleHistoryModal] = useState(false);
+  const [searchHistoryPatente, setSearchHistoryPatente] = useState('');
+  const [selectedHistoryPatente, setSelectedHistoryPatente] = useState<string | null>(null);
 
   // Active service price helper
   const activeServiceObj = serviciosDeTipo.find((s) => s.nombre === selectedServicioNombre);
@@ -217,6 +220,22 @@ export default function TurnosKanbanView({
               Agenda Semanal
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowVehicleHistoryModal(true);
+              if (clientes.length > 0) {
+                setSearchHistoryPatente('');
+                setSelectedHistoryPatente(clientes[0].vehiculoPatente);
+              }
+            }}
+            className="flex items-center justify-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] text-slate-300 border border-white/[0.08] font-bold px-3 py-2 rounded-lg text-xs transition duration-200 cursor-pointer"
+            title="Ver Ficha Clínica e Historial por Patente"
+          >
+            <ClipboardList className="w-4 h-4 text-brand-primary" />
+            Historial Clínico
+          </button>
 
           <button
             id="btn-show-add-turno"
@@ -1091,6 +1110,212 @@ export default function TurnosKanbanView({
               initialData={selectedViewHealth}
               onClose={() => setSelectedViewHealth(null)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* VEHICLE CLINICAL HISTORY MODAL */}
+      {showVehicleHistoryModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex justify-center items-center p-4 overflow-y-auto animate-fade-in">
+          <div className="glass-panel p-6 rounded-2xl border border-white/[0.08] w-full max-w-5xl grid grid-cols-1 md:grid-cols-12 gap-6 relative max-h-[90vh] overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
+            
+            <button 
+              type="button"
+              onClick={() => setShowVehicleHistoryModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-black/60 hover:bg-black/95 p-1.5 rounded-full border border-white/[0.08] z-20 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Left Column: Search & Plate Selection */}
+            <div className="md:col-span-4 flex flex-col space-y-4 max-h-[80vh] overflow-hidden">
+              <div>
+                <span className="text-[9px] uppercase tracking-widest text-[#00d2ff] font-bold">CRM VEHICULAR</span>
+                <h3 className="text-sm font-extrabold text-white uppercase tracking-wider font-display mt-0.5">Buscador de Patentes</h3>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar por patente o modelo..."
+                  value={searchHistoryPatente}
+                  onChange={(e) => setSearchHistoryPatente(e.target.value)}
+                  className="w-full bg-black/40 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-white"
+                />
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+              </div>
+
+              {/* Unique plates list */}
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                {Array.from(new Set(turnos.map(t => t.vehiculoPatente))).filter(plate => {
+                  if (!plate) return false;
+                  const search = searchHistoryPatente.toLowerCase();
+                  const tObj = turnos.find(t => t.vehiculoPatente === plate);
+                  return plate.toLowerCase().includes(search) || (tObj && tObj.vehiculoModelo?.toLowerCase().includes(search));
+                }).map((plate) => {
+                  const plateTurnoObj = turnos.find(t => t.vehiculoPatente === plate);
+                  const isSelected = selectedHistoryPatente === plate;
+                  const totalVisitsCount = turnos.filter(t => t.vehiculoPatente === plate).length;
+
+                  return (
+                    <div
+                      key={plate}
+                      onClick={() => setSelectedHistoryPatente(plate)}
+                      className={`p-3 rounded-xl border transition duration-200 cursor-pointer flex justify-between items-center ${
+                        isSelected
+                          ? 'bg-brand-primary/10 border-brand-primary/30 shadow-[0_0_15px_rgba(220,38,38,0.08)]'
+                          : 'bg-[#030406]/30 border-white/[0.04] hover:border-white/[0.08]'
+                      }`}
+                    >
+                      <div>
+                        <span className="font-mono font-bold text-xs uppercase tracking-widest text-[#00d2ff] block">
+                          {plate}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {plateTurnoObj?.vehiculoModelo || 'Modelo Desconocido'}
+                        </span>
+                      </div>
+                      <span className="text-[9px] bg-slate-800 text-slate-300 font-mono font-bold px-2 py-0.5 rounded-full">
+                        {totalVisitsCount} serv.
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right Column: Medical Record Timeline */}
+            <div className="md:col-span-8 flex flex-col space-y-4 max-h-[80vh] overflow-hidden">
+              {selectedHistoryPatente ? (() => {
+                const plateTurnosList = turnos
+                  .filter(t => t.vehiculoPatente.toLowerCase() === selectedHistoryPatente.toLowerCase())
+                  .sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime());
+
+                const completedCount = plateTurnosList.filter(t => t.estado === 'COMPLETADO').length;
+                const totalSpentAmount = plateTurnosList.filter(t => t.estado === 'COMPLETADO').reduce((sum, t) => sum + t.precio, 0);
+                const sampleTurno = plateTurnosList[0];
+
+                return (
+                  <>
+                    {/* Header Summary Card */}
+                    <div className="bg-white/[0.01] border border-white/[0.06] p-4 rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-4 shadow-sm relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-8 bg-brand-primary/5 rounded-full blur-xl pointer-events-none" />
+                      
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Vehículo</span>
+                        <span className="font-bold text-white text-xs truncate block">{sampleTurno?.vehiculoModelo || 'S/D'}</span>
+                        <span className="text-[9px] font-mono text-[#00d2ff] uppercase font-bold tracking-widest">{selectedHistoryPatente}</span>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Propietario</span>
+                        <span className="font-bold text-slate-200 text-xs truncate block">{sampleTurno?.clienteNombre || 'S/D'}</span>
+                        <span className="text-[9px] font-mono text-slate-400 block">{sampleTurno?.telefono || 'S/D'}</span>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Visitas</span>
+                        <span className="font-bold text-white text-xs block">{plateTurnosList.length} Totales</span>
+                        <span className="text-[9px] text-emerald-400 font-bold block">{completedCount} Entregadas</span>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Facturación</span>
+                        <span className="font-bold text-emerald-400 text-xs block">${totalSpentAmount.toLocaleString('es-AR')}</span>
+                        <span className="text-[9px] text-slate-400 block">Inversión Detailing</span>
+                      </div>
+                    </div>
+
+                    {/* Timeline */}
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-widest pb-1 border-b border-white/[0.06]">
+                      Línea de Tiempo de Historial Técnico
+                    </h4>
+
+                    <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
+                      {plateTurnosList.map((t) => {
+                        const dateFormatted = new Date(t.fechaCreacion).toLocaleString('es-AR', {
+                          day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'
+                        });
+
+                        return (
+                          <div key={t.id} className="relative pl-6 border-l border-white/[0.08] last:border-l-0 pb-1">
+                            {/* Bullet */}
+                            <div className={`absolute -left-1.5 top-1.5 w-3 h-3 rounded-full border-2 border-[#090d13] ${
+                              t.estado === 'PENDIENTE' ? 'bg-amber-400' :
+                              t.estado === 'EN_PROCESO' ? 'bg-[#00d2ff]' : 'bg-emerald-500'
+                            }`} />
+
+                            <div className="bg-[#030406]/40 border border-white/[0.04] p-3 rounded-xl space-y-2 hover:border-white/[0.08] transition duration-200">
+                              
+                              <div className="flex flex-wrap justify-between items-center gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[8px] px-1.5 py-0.2 rounded font-extrabold tracking-widest border ${
+                                    t.tipo === 'LAVADO' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                    t.tipo === 'TAPICERIA' ? 'bg-[#9d50bb]/15 text-purple-300 border-[#9d50bb]/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                  }`}>
+                                    {t.tipo}
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-200 font-display">{t.servicioNombre}</span>
+                                </div>
+                                <span className="text-[9px] text-slate-500 font-mono">{dateFormatted} hs</span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 font-mono pt-1">
+                                <span>Operario: <b className="text-slate-300">{t.lavadorAsignado}</b></span>
+                                <span className="text-right">Cobrado: <b className="text-emerald-400">${t.precio.toLocaleString('es-AR')}</b></span>
+                              </div>
+
+                              {/* Satisfaction details */}
+                              {(t.npsScore || t.comentarios) && (
+                                <div className="bg-white/[0.01] border border-white/[0.03] p-2 rounded-lg space-y-1.5 mt-1.5">
+                                  {t.npsScore && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[9px] text-slate-500 font-bold uppercase">Calidad:</span>
+                                      <div className="flex text-yellow-500">
+                                        {Array.from({ length: 5 }).map((_, idx) => (
+                                          <Star key={idx} className={`w-2.5 h-2.5 ${idx < (t.npsScore || 0) ? 'fill-yellow-500' : 'text-slate-800'}`} />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {t.comentarios && (
+                                    <p className="text-[9.5px] text-slate-400 italic">
+                                      "{t.comentarios}"
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Damage Checklist reference */}
+                              {t.healthData && (
+                                <div className="pt-2 flex justify-between items-center border-t border-white/[0.03] mt-2">
+                                  <span className="text-[9px] text-slate-500 flex items-center gap-1">
+                                    ⚠️ {Object.values(t.healthData.checklistDanos).filter(Boolean).length} Daño(s) de ingreso registrados
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedViewHealth(t.healthData!)}
+                                    className="px-2 py-0.5 bg-brand-primary/10 hover:bg-brand-primary/25 border border-brand-primary/30 text-brand-primary font-bold rounded text-[8.5px] uppercase tracking-wider transition cursor-pointer"
+                                  >
+                                    Ver Ficha Daños
+                                  </button>
+                                </div>
+                              )}
+
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })() : (
+                <div className="flex-1 flex flex-col justify-center items-center text-slate-500 text-xs italic py-12">
+                  Selecciona una patente del buscador de la izquierda para desplegar su ficha técnica e historial clínico.
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       )}

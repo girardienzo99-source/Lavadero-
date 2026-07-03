@@ -41,7 +41,52 @@ export default function InventoryManagement({
   const [purchaseQuantity, setPurchaseQuantity] = useState('5');
   const [purchaseCost, setPurchaseCost] = useState('');
   const [purchaseSupplier, setPurchaseSupplier] = useState('Detailers Mayorista');
+  const [purchasePaymentMethod, setPurchasePaymentMethod] = useState<'CONTADO' | 'CREDITO'>('CONTADO');
+  
+  const [supplierDebts, setSupplierDebts] = useState<any[]>([
+    { id: 's1', supplierName: 'Detailers Mayorista', totalDebt: 12500 },
+    { id: 's2', supplierName: 'Toxic Shine Oficial', totalDebt: 0 },
+    { id: 's3', supplierName: 'Químicos Córdoba', totalDebt: 45000 }
+  ]);
+
+  const [selectedSupplierForPayment, setSelectedSupplierForPayment] = useState('Detailers Mayorista');
+  const [supplierPaymentAmount, setSupplierPaymentAmount] = useState('');
   const [registerInCashBook, setRegisterInCashBook] = useState(true);
+
+  const handlePaySupplierDebtSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = Number(supplierPaymentAmount);
+    if (isNaN(amount) || amount <= 0) return;
+
+    const supplierObj = supplierDebts.find(s => s.supplierName === selectedSupplierForPayment);
+    if (!supplierObj) return;
+
+    if (amount > supplierObj.totalDebt) {
+      alert(`El pago ingresado ($${amount}) supera la deuda actual con este proveedor ($${supplierObj.totalDebt}).`);
+      return;
+    }
+
+    setSupplierDebts(prev => prev.map(s => s.supplierName === selectedSupplierForPayment 
+      ? { ...s, totalDebt: Math.max(0, s.totalDebt - amount), lastPaymentDate: new Date().toISOString() } 
+      : s
+    ));
+
+    if (onAddTransaccion) {
+      const newTx: Transaccion = {
+        id: `tx_supp_${Date.now()}`,
+        tipo: 'EGRESO',
+        monto: amount,
+        concepto: `Pago Cuenta Corriente Proveedor: ${selectedSupplierForPayment}`,
+        origen: 'MANUAL',
+        fecha: new Date().toISOString()
+      };
+      onAddTransaccion(newTx);
+    }
+
+    onAddLog(`💸 [PROVEEDORES] Registrado pago de $${amount} a ${selectedSupplierForPayment}. Deuda restante: $${supplierObj.totalDebt - amount}.`);
+    setSupplierPaymentAmount('');
+    alert(`Pago de $${amount} registrado con éxito para ${selectedSupplierForPayment}.`);
+  };
 
   // Manual adjustment modal states
   const [editingInsumo, setEditingInsumo] = useState<Insumo | null>(null);
@@ -138,19 +183,34 @@ export default function InventoryManagement({
 
     onUpdateInsumos(updatedInsumos);
 
-    // Register transaction if checked
     const totalCost = qty * (cost || updatedInsumos.find(i => i.nombre === targetInsumoName)?.precioCosto || 0);
-    if (registerInCashBook && onAddTransaccion && totalCost > 0) {
-      const newTx: Transaccion = {
-        id: `tx_inv_${Date.now()}`,
-        tipo: 'EGRESO',
-        monto: totalCost,
-        concepto: `Compra Insumo: ${targetInsumoName} (${qty} x $${cost || 'Costo Base'}) - Prov: ${purchaseSupplier}`,
-        origen: 'MANUAL',
-        fecha: new Date().toISOString()
-      };
-      onAddTransaccion(newTx);
-      onAddLog(`💸 [CAJA] Registrado egreso automático por $${totalCost} por compra de insumos.`);
+
+    if (purchasePaymentMethod === 'CREDITO') {
+      setSupplierDebts(prev => {
+        const exists = prev.some(s => s.supplierName.toLowerCase() === purchaseSupplier.toLowerCase());
+        if (exists) {
+          return prev.map(s => s.supplierName.toLowerCase() === purchaseSupplier.toLowerCase() 
+            ? { ...s, totalDebt: s.totalDebt + totalCost } 
+            : s
+          );
+        } else {
+          return [...prev, { id: `s_${Date.now()}`, supplierName: purchaseSupplier, totalDebt: totalCost }];
+        }
+      });
+      onAddLog(`💸 [CREDITO] Compra a cuenta corriente de "${targetInsumoName}": Agregados $${totalCost} a la deuda con ${purchaseSupplier}.`);
+    } else {
+      if (registerInCashBook && onAddTransaccion && totalCost > 0) {
+        const newTx: Transaccion = {
+          id: `tx_inv_${Date.now()}`,
+          tipo: 'EGRESO',
+          monto: totalCost,
+          concepto: `Compra Insumo: ${targetInsumoName} (${qty} x $${cost || 'Costo Base'}) - Prov: ${purchaseSupplier}`,
+          origen: 'MANUAL',
+          fecha: new Date().toISOString()
+        };
+        onAddTransaccion(newTx);
+        onAddLog(`💸 [CAJA] Registrado egreso automático por $${totalCost} por compra de insumos.`);
+      }
     }
 
     // Add to local movements log
@@ -536,17 +596,33 @@ export default function InventoryManagement({
               />
             </div>
 
-            <div className="flex items-center gap-2 py-1">
-              <input
-                type="checkbox"
-                id="check-register-cash"
-                checked={registerInCashBook}
-                onChange={(e) => setRegisterInCashBook(e.target.checked)}
-                className="w-4 h-4 accent-emerald-500 rounded bg-slate-900 border-white/[0.08]"
-              />
-              <label htmlFor="check-register-cash" className="text-[10px] text-slate-400 cursor-pointer font-bold select-none">
-                Registrar gasto como EGRESO en Caja Diaria
-              </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Método de Pago</label>
+                <select
+                  value={purchasePaymentMethod}
+                  onChange={(e) => setPurchasePaymentMethod(e.target.value as any)}
+                  className="w-full bg-slate-900 border border-white/[0.08] rounded px-2 py-1 text-xs text-white"
+                >
+                  <option value="CONTADO" className="bg-slate-950">Contado (Efectivo)</option>
+                  <option value="CREDITO" className="bg-slate-950">A Crédito (Cta. Cte.)</option>
+                </select>
+              </div>
+
+              {purchasePaymentMethod === 'CONTADO' && (
+                <div className="flex items-center gap-2 pt-4">
+                  <input
+                    type="checkbox"
+                    id="check-register-cash"
+                    checked={registerInCashBook}
+                    onChange={(e) => setRegisterInCashBook(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-500 rounded bg-slate-900 border-white/[0.08]"
+                  />
+                  <label htmlFor="check-register-cash" className="text-[9px] text-slate-400 cursor-pointer font-bold select-none leading-tight">
+                    Registrar egreso en Caja Diaria
+                  </label>
+                </div>
+              )}
             </div>
 
             <button
@@ -556,6 +632,85 @@ export default function InventoryManagement({
               Confirmar Entrada de Stock
             </button>
           </form>
+        </div>
+
+        {/* Cuentas Corrientes con Proveedores (Credit Accounts payable) */}
+        <div className="glass-panel p-5 rounded-xl space-y-4">
+          <div className="flex justify-between items-center pb-2 border-b border-white/[0.06]">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-display flex items-center gap-1.5">
+              <DollarSign className="w-4 h-4 text-[#00d2ff]" />
+              Saldos Pendientes con Proveedores
+            </h3>
+          </div>
+
+          {/* Debt list */}
+          <div className="space-y-2">
+            {supplierDebts.map((s) => (
+              <div key={s.id} className="flex justify-between items-center bg-white/[0.01] border border-white/[0.04] p-2.5 rounded-lg text-xs">
+                <div>
+                  <span className="font-bold text-slate-200 block">{s.supplierName}</span>
+                  {s.lastPaymentDate && (
+                    <span className="text-[9px] text-slate-500 font-mono">Último Pago: {new Date(s.lastPaymentDate).toLocaleDateString('es-AR')}</span>
+                  )}
+                </div>
+                
+                <div className="text-right">
+                  <span className={`font-mono font-bold block ${s.totalDebt > 0 ? 'text-amber-400' : 'text-emerald-500'}`}>
+                    ${s.totalDebt.toLocaleString('es-AR')}
+                  </span>
+                  <span className="text-[9px] text-slate-500 block">{s.totalDebt > 0 ? 'A pagar' : 'Al día'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pay Off Debt Form */}
+          {supplierDebts.some(s => s.totalDebt > 0) ? (
+            <form onSubmit={handlePaySupplierDebtSubmit} className="bg-white/[0.02] p-3 rounded-lg border border-white/[0.08] space-y-3">
+              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registrar Entrega de Dinero</span>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[8px] text-slate-500 uppercase mb-1">Proveedor</label>
+                  <select
+                    value={selectedSupplierForPayment}
+                    onChange={(e) => setSelectedSupplierForPayment(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/[0.08] rounded px-2 py-1 text-xs text-white"
+                  >
+                    {supplierDebts.filter(s => s.totalDebt > 0).map(s => (
+                      <option key={s.id} value={s.supplierName} className="bg-slate-950">{s.supplierName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[8px] text-slate-500 uppercase mb-1">Monto a Asentar</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      value={supplierPaymentAmount}
+                      onChange={(e) => setSupplierPaymentAmount(e.target.value)}
+                      placeholder="Monto"
+                      className="w-full bg-slate-900 border border-white/[0.08] rounded pl-5 pr-2 py-1 text-xs text-white font-mono"
+                    />
+                    <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none text-slate-500 text-xs">$</div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold py-1.5 rounded text-[10px] uppercase tracking-wider transition duration-200 cursor-pointer"
+              >
+                Registrar Pago de Deuda
+              </button>
+            </form>
+          ) : (
+            <div className="bg-emerald-950/10 text-emerald-400 border border-emerald-900/20 p-2.5 rounded-lg text-center text-[10px]">
+              ✔️ Todas las cuentas corrientes con proveedores se encuentran saldadas y al día.
+            </div>
+          )}
         </div>
 
         {/* Recent stock movements log */}

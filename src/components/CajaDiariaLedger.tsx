@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   DollarSign, ArrowUpRight, ArrowDownRight, Package, AlertTriangle, 
-  Plus, Check, Lock, ShieldAlert, ShoppingBag, RefreshCw, Download 
+  Plus, Check, Lock, ShieldAlert, ShoppingBag, RefreshCw, Download, X 
 } from 'lucide-react';
 import { Insumo, Transaccion, Rol } from '../types';
 import { generateTicketPDF } from '../utils/ticketGenerator';
@@ -49,6 +49,7 @@ export default function CajaDiariaLedger({
 
   // Last POS sale for quick ticket download
   const [lastSale, setLastSale] = useState<{ id: string; concepto: string; monto: number; fecha: string } | null>(null);
+  const [auditResult, setAuditResult] = useState<{ teorico: number; fisico: number; desvio: number; fecha: string } | null>(null);
 
   // Check if current role has access
   const isBlockedByRBAC = role === 'LAVADOR' || role === 'OPERARIO';
@@ -76,6 +77,104 @@ export default function CajaDiariaLedger({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDownloadActaPDF = (teorico: number, fisico: number, desvio: number, fechaStr: string) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a5'
+    });
+
+    // Top banner
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, 148, 15, 'F');
+    doc.setFillColor(220, 38, 38); // Rosso Albelo
+    doc.rect(0, 0, 148, 2, 'F');
+
+    // Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('ALBELO DETAIL - ACTA DE ARQUEO Y CIERRE', 10, 10);
+
+    // Date/Time
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text(`Fecha del Cierre: ${new Date(fechaStr).toLocaleDateString('es-AR')}`, 10, 22);
+    doc.text(`Hora del Cierre: ${new Date(fechaStr).toLocaleTimeString('es-AR')}`, 10, 26);
+
+    // Audit summary card
+    doc.setFillColor(248, 250, 252);
+    doc.rect(10, 30, 128, 22, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(10, 30, 128, 22, 'S');
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('RESULTADO DE AUDITORÍA CONTABLE', 15, 36);
+    
+    doc.setFontSize(8);
+    if (desvio === 0) {
+      doc.setTextColor(22, 163, 74); // Green
+      doc.text('ESTADO: CONFORME - SIN DESVÍOS', 15, 42);
+    } else {
+      doc.setTextColor(220, 38, 38); // Red
+      doc.text(`ESTADO: DIVERGENCIA DETECTADA (${desvio < 0 ? 'FALTANTE' : 'SOBRANTE'})`, 15, 42);
+    }
+    
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Supervisor Auditor: Administrador General`, 15, 47);
+
+    // Details table
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Cómputo de Valores:', 10, 60);
+    doc.line(10, 62, 138, 62);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text('Base de Apertura de Caja:', 15, 68);
+    doc.text(`$${montoApertura.toLocaleString('es-AR')}`, 100, 68, { align: 'right' });
+
+    doc.text('Ingresos de Caja Registrados:', 15, 74);
+    doc.text(`$${totalIngresos.toLocaleString('es-AR')}`, 100, 74, { align: 'right' });
+
+    doc.text('Egresos de Caja Registrados:', 15, 80);
+    doc.text(`-$${totalEgresos.toLocaleString('es-AR')}`, 100, 80, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('SALDO TEÓRICO ESPERADO:', 15, 86);
+    doc.text(`$${teorico.toLocaleString('es-AR')}`, 100, 86, { align: 'right' });
+
+    doc.setTextColor(29, 78, 216); // blue
+    doc.text('EFECTIVO FÍSICO DECLARADO:', 15, 92);
+    doc.text(`$${fisico.toLocaleString('es-AR')}`, 100, 92, { align: 'right' });
+
+    doc.line(10, 96, 138, 96);
+    
+    if (desvio === 0) {
+      doc.setTextColor(22, 163, 74);
+    } else {
+      doc.setTextColor(220, 38, 38);
+    }
+    doc.setFontSize(9);
+    doc.text(`DESVÍO / DIFERENCIA:`, 15, 102);
+    doc.text(`${desvio >= 0 ? '+' : ''}$${desvio.toLocaleString('es-AR')}`, 100, 102, { align: 'right' });
+
+    // Signature lines
+    const signY = 125;
+    doc.setDrawColor(203, 213, 225);
+    doc.line(15, signY, 55, signY);
+    doc.line(85, signY, 125, signY);
+
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Firma Responsable Turno', 35, signY + 4, { align: 'center' });
+    doc.text('Firma Dirección / Auditor', 105, signY + 4, { align: 'center' });
+
+    doc.save(`Acta_Arqueo_Caja_${new Date(fechaStr).toISOString().split('T')[0]}.pdf`);
   };
 
   const handleExportPDF = () => {
@@ -228,9 +327,23 @@ export default function CajaDiariaLedger({
     e.preventDefault();
     const val = Number(closingInput);
     if (!isNaN(val) && val >= 0) {
+      const teorico = montoApertura + totalIngresos - totalEgresos;
+      const desvio = val - teorico;
+      const closingDate = new Date().toISOString();
+
+      setAuditResult({
+        teorico,
+        fisico: val,
+        desvio,
+        fecha: closingDate
+      });
+
       onCloseCaja(val);
       setIsCastingClose(false);
       setClosingInput('');
+
+      // Trigger automatic A5 PDF download
+      handleDownloadActaPDF(teorico, val, desvio, closingDate);
     }
   };
 
@@ -377,7 +490,7 @@ export default function CajaDiariaLedger({
                       </button>
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      El saldo teórico según transacciones es de <b>${saldoActual.toLocaleString('es-AR')}</b>. Por favor, ingresa el dinero físico real contado en el cajón.
+                      ⚠️ <b>Arqueo Ciego Activo:</b> Por favor, realiza el conteo físico del dinero en la caja y asienta el total a continuación. El sistema auditará cualquier desvío.
                     </p>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -387,7 +500,7 @@ export default function CajaDiariaLedger({
                           required
                           value={closingInput}
                           onChange={(e) => setClosingInput(e.target.value)}
-                          placeholder="Monto real en caja"
+                          placeholder="Monto real contado"
                           className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg pl-7 pr-3 py-1.5 text-xs text-white font-mono"
                         />
                         <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-slate-500 text-xs">$</div>
@@ -408,7 +521,7 @@ export default function CajaDiariaLedger({
                       id="btn-trigger-close"
                       onClick={() => {
                         setIsCastingClose(true);
-                        setClosingInput(saldoActual.toString());
+                        setClosingInput('');
                       }}
                       className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold py-1 px-2.5 rounded text-[10px] uppercase tracking-wider transition"
                     >
@@ -786,6 +899,75 @@ export default function CajaDiariaLedger({
 
         </div>
       </div>
+
+      {/* AUDIT CLOSURE RESULTS MODAL */}
+      {auditResult && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex justify-center items-center p-4">
+          <div className="glass-panel p-6 rounded-2xl border border-white/[0.08] w-full max-w-md space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)] animate-fade-in text-center relative">
+            <button 
+              type="button"
+              onClick={() => setAuditResult(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-black/60 hover:bg-black/95 p-1 rounded-full border border-white/[0.08] z-20 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+            
+            <div>
+              <span className="text-[10px] uppercase tracking-widest text-[#00d2ff] font-mono font-bold">AUDITORÍA DE CIERRE</span>
+              <h3 className="text-base font-extrabold text-white mt-1 font-display">Resumen del Arqueo Diario</h3>
+            </div>
+
+            <div className="bg-white/[0.01] border border-white/[0.06] p-4 rounded-xl space-y-2.5 text-xs text-left font-sans">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Total Esperado (Sistema):</span>
+                <span className="text-white font-mono font-bold">${auditResult.teorico.toLocaleString('es-AR')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Efectivo Real Declarado:</span>
+                <span className="text-[#00d2ff] font-mono font-bold">${auditResult.fisico.toLocaleString('es-AR')}</span>
+              </div>
+              <div className="pt-2 border-t border-white/[0.06] flex justify-between items-center">
+                <span className="text-slate-300 font-bold">Desvío Detectado:</span>
+                <span className={`font-mono font-bold text-sm ${
+                  auditResult.desvio === 0 ? 'text-emerald-400' : 'text-red-500 animate-pulse'
+                }`}>
+                  {auditResult.desvio >= 0 ? '+' : ''}${auditResult.desvio.toLocaleString('es-AR')}
+                </span>
+              </div>
+            </div>
+
+            <div className={`p-3 rounded-lg text-xs leading-relaxed border text-center ${
+              auditResult.desvio === 0 
+                ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/30' 
+                : 'bg-red-950/20 text-red-400 border-red-900/30 animate-pulse'
+            }`}>
+              {auditResult.desvio === 0 
+                ? '✔️ El saldo físico coincide perfectamente con el libro contable de transacciones.' 
+                : `⚠️ Alerta: Se detectó una diferencia de $${Math.abs(auditResult.desvio).toLocaleString('es-AR')} en la caja. El desvío ha sido asentado.`
+            }
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => handleDownloadActaPDF(auditResult.teorico, auditResult.fisico, auditResult.desvio, auditResult.fecha)}
+                className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                Descargar Acta de Arqueo PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuditResult(null)}
+                className="w-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-400 font-bold py-1.5 rounded-xl text-[10px] uppercase transition cursor-pointer"
+              >
+                Cerrar Reporte
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
