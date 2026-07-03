@@ -51,6 +51,10 @@ export default function CajaDiariaLedger({
   const [lastSale, setLastSale] = useState<{ id: string; concepto: string; monto: number; fecha: string } | null>(null);
   const [auditResult, setAuditResult] = useState<{ teorico: number; fisico: number; desvio: number; fecha: string } | null>(null);
 
+  // Filter states for transaction ledger history
+  const [txSearch, setTxSearch] = useState('');
+  const [txFilter, setTxFilter] = useState<'TODAS' | 'INGRESOS' | 'EGRESOS' | 'VENTAS_POS'>('TODAS');
+
   // Check if current role has access
   const isBlockedByRBAC = role === 'LAVADOR' || role === 'OPERARIO';
 
@@ -287,6 +291,21 @@ export default function CajaDiariaLedger({
   const saldoActual = totalIngresos - totalEgresos;
   const currentPosInsumo = insumos.find((i) => i.id === posSelectedInsumo);
 
+  // Filtered transactions computed array
+  const filteredTransacciones = transacciones.filter((tx) => {
+    const matchesSearch = tx.concepto.toLowerCase().includes(txSearch.toLowerCase());
+    if (txFilter === 'INGRESOS') {
+      return matchesSearch && tx.tipo === 'INGRESO';
+    }
+    if (txFilter === 'EGRESOS') {
+      return matchesSearch && tx.tipo === 'EGRESO';
+    }
+    if (txFilter === 'VENTAS_POS') {
+      return matchesSearch && tx.origen === 'VENTA_POS';
+    }
+    return matchesSearch;
+  });
+
   const getEgresosByCategory = () => {
     const categories = {
       Quimicos: 0,
@@ -434,9 +453,7 @@ export default function CajaDiariaLedger({
                   <p className="text-xs text-slate-400 text-center mt-2 max-w-xs leading-relaxed">
                     Para comenzar a registrar turnos, ventas de POS o egresos de stock, debes inicializar la caja con un fondo de cambio.
                   </p>
-                </div>
-
-                <div className="flex gap-3 max-w-md mx-auto">
+                      <div className="flex gap-3 max-w-md mx-auto">
                   <div className="relative flex-1">
                     <input
                       id="input-caja-opening"
@@ -445,14 +462,14 @@ export default function CajaDiariaLedger({
                       value={openingInput}
                       onChange={(e) => setOpeningInput(e.target.value)}
                       placeholder="Monto de apertura"
-                      className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg pl-8 pr-3 py-2 text-xs text-white font-mono"
+                      className="w-full bg-black/30 border border-white/[0.1] focus:border-brand-primary/60 focus:outline-none rounded-lg pl-8 pr-3 py-2 text-xs text-white font-mono transition-all"
                     />
                     <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-500 text-xs">$</div>
                   </div>
                   <button
                     id="btn-open-caja"
                     type="submit"
-                    className="bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold py-2 px-4 rounded-lg text-xs transition duration-200"
+                    className="bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary border border-brand-primary/30 font-bold py-2 px-4 rounded-lg text-xs transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                   >
                     Abrir Caja
                   </button>
@@ -462,20 +479,74 @@ export default function CajaDiariaLedger({
               <div className="space-y-4">
                 {/* Financial overview cards */}
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-white/[0.02] p-3 rounded-lg border border-white/[0.06]">
-                    <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Ingresos</span>
+                  <div className="bg-white/[0.02] p-3 rounded-lg border border-white/[0.06] shadow-sm hover:scale-[1.01] transition-transform">
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Ingresos</span>
                     <span className="text-base font-bold text-emerald-400 block font-mono mt-0.5">${totalIngresos.toLocaleString('es-AR')}</span>
                   </div>
-                  <div className="bg-white/[0.02] p-3 rounded-lg border border-white/[0.06]">
-                    <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Egresos</span>
+                  <div className="bg-white/[0.02] p-3 rounded-lg border border-white/[0.06] shadow-sm hover:scale-[1.01] transition-transform">
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Egresos</span>
                     <span className="text-base font-bold text-red-400 block font-mono mt-0.5">${totalEgresos.toLocaleString('es-AR')}</span>
                   </div>
-                  <div className="bg-white/[0.02] p-3 rounded-lg border border-white/[0.06] relative overflow-hidden">
+                  <div className="bg-white/[0.02] p-3 rounded-lg border border-white/[0.06] relative overflow-hidden shadow-sm hover:scale-[1.01] transition-transform">
                     <div className="absolute top-0 right-0 w-8 h-8 bg-[#00d2ff]/5 rounded-full blur-sm" />
-                    <span className="text-[10px] text-[#00d2ff] block uppercase font-bold tracking-wider">Saldo</span>
+                    <span className="text-[10px] text-[#00d2ff] block uppercase font-bold tracking-wider font-mono">Saldo</span>
                     <span className="text-base font-bold text-white block font-mono mt-0.5">${saldoActual.toLocaleString('es-AR')}</span>
                   </div>
                 </div>
+
+                {/* Comparative Cashflow Bar */}
+                {(totalIngresos > 0 || totalEgresos > 0) && (
+                  <div className="bg-white/[0.02] border border-white/[0.06] p-3.5 rounded-lg space-y-2 animate-fade-in">
+                    <div className="flex justify-between text-[9px] uppercase tracking-wider font-extrabold font-mono">
+                      <span className="text-emerald-400">Ingresos ({Math.round(totalIngresos / (totalIngresos + totalEgresos || 1) * 100)}%)</span>
+                      <span className="text-red-400">Egresos ({Math.round(totalEgresos / (totalIngresos + totalEgresos || 1) * 100)}%)</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-white/[0.04] rounded-full overflow-hidden border border-white/[0.04] flex shadow-inner">
+                      {totalIngresos > 0 && (
+                        <div 
+                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.3)] transition-all duration-500 ease-out" 
+                          style={{ width: `${(totalIngresos / (totalIngresos + totalEgresos || 1)) * 100}%` }} 
+                        />
+                      )}
+                      {totalEgresos > 0 && (
+                        <div 
+                          className="h-full bg-gradient-to-r from-red-500 to-amber-500 shadow-[0_0_8px_rgba(239,68,68,0.3)] transition-all duration-500 ease-out" 
+                          style={{ width: `${(totalEgresos / (totalIngresos + totalEgresos || 1)) * 100}%` }} 
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Category breakdown for expenses */}
+                {totalEgresos > 0 && (
+                  <div className="bg-white/[0.01] border border-white/[0.04] p-3 rounded-lg space-y-2.5 animate-fade-in">
+                    <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black block border-b border-white/[0.04] pb-1 font-mono">
+                      Distribución de Gastos (Egresos)
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 pt-1">
+                      {Object.entries(egresosByCat).map(([cat, val]) => {
+                        if (val === 0) return null;
+                        const pct = Math.round((val / totalEgresos) * 100);
+                        return (
+                          <div key={cat} className="space-y-1">
+                            <div className="flex justify-between items-baseline text-[8.5px] font-mono font-bold">
+                              <span className="text-slate-400">{cat}</span>
+                              <span className="text-slate-200">${val.toLocaleString('es-AR')}</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-white/[0.04] rounded-full overflow-hidden border border-white/[0.04]">
+                              <div 
+                                className="h-full bg-amber-500 rounded-full" 
+                                style={{ width: `${pct}%` }} 
+                              />
+                            </div>
+                            <span className="text-[7.5px] text-slate-500 font-mono font-bold block">{pct}% del total</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {isCastingClose ? (
                   <form onSubmit={handleCloseSubmit} className="bg-white/[0.02] p-3.5 rounded-lg border border-white/[0.08] space-y-3">
@@ -501,14 +572,14 @@ export default function CajaDiariaLedger({
                           value={closingInput}
                           onChange={(e) => setClosingInput(e.target.value)}
                           placeholder="Monto real contado"
-                          className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg pl-7 pr-3 py-1.5 text-xs text-white font-mono"
+                          className="w-full bg-black/30 border border-white/[0.1] focus:border-brand-primary/60 focus:outline-none rounded-lg pl-7 pr-3 py-1.5 text-xs text-white font-mono transition-all"
                         />
                         <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-slate-500 text-xs">$</div>
                       </div>
                       <button
                         id="btn-confirm-close-caja"
                         type="submit"
-                        className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold py-1.5 px-3 rounded-lg text-xs transition duration-200"
+                        className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                       >
                         Cerrar Turno
                       </button>
@@ -523,7 +594,7 @@ export default function CajaDiariaLedger({
                         setIsCastingClose(true);
                         setClosingInput('');
                       }}
-                      className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold py-1 px-2.5 rounded text-[10px] uppercase tracking-wider transition"
+                      className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold py-1 px-2.5 rounded text-[10px] uppercase tracking-wider transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                     >
                       Cerrar Caja
                     </button>
@@ -536,7 +607,7 @@ export default function CajaDiariaLedger({
           {/* Card: History Ledger List */}
           <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
             <div className="flex justify-between items-center pb-1.5 border-b border-white/[0.08]">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Historial del Arqueo</h4>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-mono">Historial del Arqueo</h4>
               <div className="flex gap-1.5">
                 <button
                   type="button"
@@ -558,12 +629,59 @@ export default function CajaDiariaLedger({
                 </button>
               </div>
             </div>
+
+            {/* Search & Filter Chips */}
+            <div className="flex flex-col gap-2.5">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar por concepto (ej. Silic, Sueldo, Turno)..."
+                  value={txSearch}
+                  onChange={(e) => setTxSearch(e.target.value)}
+                  className="w-full bg-white/[0.02] border border-white/[0.08] focus:border-brand-primary/50 text-xs text-white rounded-lg pl-8 pr-3 py-1.5 focus:outline-none"
+                />
+                <DollarSign className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                {txSearch && (
+                  <button 
+                    onClick={() => setTxSearch('')} 
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs font-mono"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-1">
+                {(['TODAS', 'INGRESOS', 'EGRESOS', 'VENTAS_POS'] as const).map((filterOpt) => {
+                  const label = 
+                    filterOpt === 'TODAS' ? 'Todas' :
+                    filterOpt === 'INGRESOS' ? 'Ingresos' :
+                    filterOpt === 'EGRESOS' ? 'Egresos' : 'Ventas POS';
+                  
+                  const isActive = txFilter === filterOpt;
+                  return (
+                    <button
+                      key={filterOpt}
+                      type="button"
+                      onClick={() => setTxFilter(filterOpt)}
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded transition cursor-pointer border ${
+                        isActive
+                          ? 'bg-brand-primary/15 text-brand-primary border-brand-primary/30 shadow-[0_0_10px_rgba(220,38,38,0.1)]'
+                          : 'bg-white/[0.02] text-slate-400 border-white/[0.06] hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             
             <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-              {transacciones.length === 0 ? (
-                <div className="text-center py-6 text-xs text-slate-500">Sin transacciones registradas hoy.</div>
+              {filteredTransacciones.length === 0 ? (
+                <div className="text-center py-6 text-xs text-slate-500">No se encontraron movimientos registrados hoy.</div>
               ) : (
-                [...transacciones].reverse().map((tx) => (
+                [...filteredTransacciones].reverse().map((tx) => (
                   <div key={tx.id} className="bg-white/[0.01] p-2.5 rounded-lg border border-white/[0.04] flex justify-between items-center gap-3">
                     <div className="flex items-center gap-2.5">
                       <div className={`p-1.5 rounded ${tx.tipo === 'INGRESO' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
@@ -685,35 +803,6 @@ export default function CajaDiariaLedger({
                     </button>
                   </div>
                 </form>
-
-                {/* Egresos by Category Gauge bars */}
-                {totalEgresos > 0 && (
-                  <div className="pt-2.5 mt-2.5 border-t border-white/[0.06] space-y-1.5 text-[10px]">
-                    <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-bold">Distribución del Gasto de Caja</span>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                      {[
-                        { label: 'Químicos', val: egresosByCat.Quimicos, color: 'bg-red-500' },
-                        { label: 'Insumos', val: egresosByCat.Insumos, color: 'bg-emerald-500' },
-                        { label: 'Servicios', val: egresosByCat.Servicios, color: 'bg-amber-500' },
-                        { label: 'Sueldos', val: egresosByCat.Sueldos, color: 'bg-blue-500' },
-                        { label: 'Otros', val: egresosByCat.Otros, color: 'bg-slate-500' }
-                      ].map((item) => {
-                        const pct = Math.round((item.val / totalEgresos) * 100) || 0;
-                        return (
-                          <div key={item.label} className="space-y-0.5">
-                            <div className="flex justify-between font-mono text-[8px] text-slate-400">
-                              <span className="truncate">{item.label}</span>
-                              <span className="font-bold text-white">${item.val.toLocaleString('es-AR')}</span>
-                            </div>
-                            <div className="w-full bg-white/[0.04] h-1 rounded-full overflow-hidden border border-white/[0.05]">
-                              <div className={`${item.color} h-full rounded-full transition-all duration-300`} style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -742,7 +831,7 @@ export default function CajaDiariaLedger({
                     id="select-pos-insumo"
                     value={posSelectedInsumo}
                     onChange={(e) => setPosSelectedInsumo(e.target.value)}
-                    className="w-full bg-black/40 border border-white/[0.08] focus:border-red-500/60 focus:outline-none rounded-lg px-2.5 py-2 text-xs text-white"
+                    className="w-full bg-black/40 border border-white/[0.08] focus:border-brand-primary/60 focus:outline-none rounded-lg px-2.5 py-2 text-xs text-white"
                   >
                     {insumos.map((i) => {
                       const isLow = i.stockActual <= i.stockMinimo;
@@ -766,7 +855,7 @@ export default function CajaDiariaLedger({
                       min="1"
                       value={posCantidad}
                       onChange={(e) => setPosCantidad(Number(e.target.value))}
-                      className="w-full bg-black/40 border border-white/[0.08] focus:border-red-500/60 focus:outline-none rounded-lg px-3 py-2 text-xs text-white font-mono"
+                      className="w-full bg-black/40 border border-white/[0.08] focus:border-brand-primary/60 focus:outline-none rounded-lg px-3 py-2 text-xs text-white font-mono"
                     />
                   </div>
 
@@ -774,7 +863,7 @@ export default function CajaDiariaLedger({
                     <button
                       id="btn-pos-sell"
                       type="submit"
-                      className="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-200 hover:text-white font-black uppercase tracking-widest py-2 rounded-lg text-[10px] transition duration-200 cursor-pointer shadow-md"
+                      className="w-full bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 text-brand-primary hover:text-white font-black uppercase tracking-widest py-2 rounded-lg text-[10px] transition-all duration-200 cursor-pointer shadow-md hover:scale-[1.01] active:scale-[0.99]"
                     >
                       Registrar Venta
                     </button>
@@ -782,8 +871,8 @@ export default function CajaDiariaLedger({
                 </div>
 
                 {/* Live Ticket Mockup Preview */}
-                <div className="bg-amber-50/5 text-amber-200/90 font-mono text-[10px] p-4 rounded-lg border border-amber-500/20 space-y-2 relative overflow-hidden shadow-inner bg-black/50">
-                  <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/5 rounded-full blur-md" />
+                <div className="bg-amber-50/5 text-amber-200/90 font-mono text-[10px] p-4 rounded-lg border border-white/[0.06] space-y-2 relative overflow-hidden shadow-inner bg-black/50">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-brand-primary/5 rounded-full blur-md" />
                   <div className="text-center font-extrabold border-b border-white/[0.08] pb-1.5 uppercase tracking-wider text-white">
                     *** ALBELO DETAIL ***
                     <span className="text-[7.5px] block text-slate-400 normal-case mt-0.5 tracking-normal">Estética Vehicular & Detailing</span>
@@ -801,7 +890,7 @@ export default function CajaDiariaLedger({
                       <span>PRECIO UNIT:</span>
                       <span className="text-slate-300">${Math.round((currentPosInsumo?.precioCosto || 0) * 1.5)} ARS</span>
                     </div>
-                    <div className="flex justify-between border-t border-white/[0.08] pt-1.5 text-xs font-bold text-red-400">
+                    <div className="flex justify-between border-t border-white/[0.08] pt-1.5 text-xs font-bold text-brand-primary">
                       <span>TOTAL ESTIMADO:</span>
                       <span>${Math.round((currentPosInsumo?.precioCosto || 0) * 1.5 * posCantidad)} ARS</span>
                     </div>
@@ -903,33 +992,58 @@ export default function CajaDiariaLedger({
       {/* AUDIT CLOSURE RESULTS MODAL */}
       {auditResult && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex justify-center items-center p-4">
-          <div className="glass-panel p-6 rounded-2xl border border-white/[0.08] w-full max-w-md space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)] animate-fade-in text-center relative">
+          <div 
+            className={`glass-panel p-6 rounded-2xl w-full max-w-md space-y-5 text-center relative border transition-all duration-500 ${
+              auditResult.desvio === 0 
+                ? 'border-emerald-500/40 shadow-[0_0_40px_rgba(16,185,129,0.18)]' 
+                : 'border-red-500/40 shadow-[0_0_40px_rgba(239,68,68,0.22)] animate-pulse'
+            }`}
+          >
             <button 
               type="button"
               onClick={() => setAuditResult(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-black/60 hover:bg-black/95 p-1 rounded-full border border-white/[0.08] z-20 cursor-pointer"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-black/60 hover:bg-black/95 p-1.5 rounded-full border border-white/[0.08] z-20 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
+
+            {/* Header Icon Indicator */}
+            <div className="flex justify-center pt-2">
+              {auditResult.desvio === 0 ? (
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-bounce">
+                  <Check className="w-8 h-8" />
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.25)]">
+                  <ShieldAlert className="w-8 h-8 text-red-500 animate-pulse" />
+                </div>
+              )}
+            </div>
             
             <div>
-              <span className="text-[10px] uppercase tracking-widest text-[#00d2ff] font-mono font-bold">AUDITORÍA DE CIERRE</span>
-              <h3 className="text-base font-extrabold text-white mt-1 font-display">Resumen del Arqueo Diario</h3>
+              <span className={`text-[10px] uppercase tracking-widest font-mono font-bold ${
+                auditResult.desvio === 0 ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {auditResult.desvio === 0 ? 'AUDITORÍA CONFORME' : 'DIVERGENCIA DE CAJA'}
+              </span>
+              <h3 className="text-base font-extrabold text-white mt-1 font-display">
+                {auditResult.desvio === 0 ? '¡Arqueo Cuadrado Exitosamente!' : 'Diferencia en Arqueo Detectada'}
+              </h3>
             </div>
 
-            <div className="bg-white/[0.01] border border-white/[0.06] p-4 rounded-xl space-y-2.5 text-xs text-left font-sans">
+            <div className="bg-white/[0.01] border border-white/[0.06] p-4 rounded-xl space-y-2.5 text-xs text-left font-sans shadow-inner">
               <div className="flex justify-between">
-                <span className="text-slate-400">Total Esperado (Sistema):</span>
+                <span className="text-slate-400 font-mono">Total Esperado (Sistema):</span>
                 <span className="text-white font-mono font-bold">${auditResult.teorico.toLocaleString('es-AR')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Efectivo Real Declarado:</span>
+                <span className="text-slate-400 font-mono">Efectivo Real Declarado:</span>
                 <span className="text-[#00d2ff] font-mono font-bold">${auditResult.fisico.toLocaleString('es-AR')}</span>
               </div>
               <div className="pt-2 border-t border-white/[0.06] flex justify-between items-center">
-                <span className="text-slate-300 font-bold">Desvío Detectado:</span>
-                <span className={`font-mono font-bold text-sm ${
-                  auditResult.desvio === 0 ? 'text-emerald-400' : 'text-red-500 animate-pulse'
+                <span className="text-slate-300 font-bold font-mono">Desvío / Diferencia:</span>
+                <span className={`font-mono font-bold text-base ${
+                  auditResult.desvio === 0 ? 'text-emerald-400' : 'text-red-400'
                 }`}>
                   {auditResult.desvio >= 0 ? '+' : ''}${auditResult.desvio.toLocaleString('es-AR')}
                 </span>
@@ -938,20 +1052,20 @@ export default function CajaDiariaLedger({
 
             <div className={`p-3 rounded-lg text-xs leading-relaxed border text-center ${
               auditResult.desvio === 0 
-                ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/30' 
-                : 'bg-red-950/20 text-red-400 border-red-900/30 animate-pulse'
+                ? 'bg-emerald-950/20 text-emerald-300 border-emerald-900/30' 
+                : 'bg-red-950/20 text-red-300 border-red-900/30'
             }`}>
               {auditResult.desvio === 0 
-                ? '✔️ El saldo físico coincide perfectamente con el libro contable de transacciones.' 
-                : `⚠️ Alerta: Se detectó una diferencia de $${Math.abs(auditResult.desvio).toLocaleString('es-AR')} en la caja. El desvío ha sido asentado.`
-            }
+                ? '✔️ El efectivo físico declarado coincide perfectamente con el libro contable de ingresos y egresos.' 
+                : `⚠️ Alerta de Auditoría: Se detectó una diferencia de $${Math.abs(auditResult.desvio).toLocaleString('es-AR')} en el arqueo físico. El desvío ha sido asentado en el sistema.`
+              }
             </div>
 
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2 pt-1">
               <button
                 type="button"
                 onClick={() => handleDownloadActaPDF(auditResult.teorico, auditResult.fisico, auditResult.desvio, auditResult.fecha)}
-                className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
               >
                 <Download className="w-3.5 h-3.5 text-emerald-400" />
                 Descargar Acta de Arqueo PDF
@@ -959,7 +1073,7 @@ export default function CajaDiariaLedger({
               <button
                 type="button"
                 onClick={() => setAuditResult(null)}
-                className="w-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-400 font-bold py-1.5 rounded-xl text-[10px] uppercase transition cursor-pointer"
+                className="w-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-400 hover:text-white font-bold py-2 rounded-xl text-[10px] uppercase transition cursor-pointer"
               >
                 Cerrar Reporte
               </button>
