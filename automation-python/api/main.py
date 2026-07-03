@@ -46,21 +46,385 @@ def db_debug_credentials():
 
 
 # Configuración de base de datos
-DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.tqbikenqygnyzrxnabia:Lavadero2026/@aws-0-us-east-2.pooler.supabase.com:6543/postgres")
+DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.tqbikenqygnyzrxnabia:Lavadero2026/@aws-0-us-east-2.pooler.supabase.com:6543/postgres").strip()
+
+# Check database connection mode once on startup
+DB_ONLINE = False
+try:
+    # Try connecting with a tight timeout
+    temp_engine = create_engine(DB_URL, connect_args={"connect_timeout": 1})
+    with temp_engine.connect() as temp_conn:
+        temp_conn.execute(text("SELECT 1;"))
+        DB_ONLINE = True
+        print("[DATABASE] Connection check: ONLINE. Using PostgreSQL direct mode.")
+except Exception as e:
+    print(f"[DATABASE] Connection check: OFFLINE ({e}). Using REST API mode.")
+
+def execute_query_rest(query: str, params: dict = None, fetch_all: bool = False, fetch_one: bool = False):
+    import requests
+    import string
+    import random
+    from datetime import datetime
+    
+    REST_URL = "https://tqbikenqygnyzrxnabia.supabase.co/rest/v1"
+    anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxYmlrZW5xeWdueXpyeG5hYmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjUzOTYsImV4cCI6MjA5ODYwMTM5Nn0.JgadNGVv4XzOw9duUV_v8AE5Fhyi6sQ7nNcqQry1UCI"
+    headers = {
+        "apikey": anon_key,
+        "Authorization": f"Bearer {anon_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    
+    q = query.strip().lower()
+    params = params or {}
+    
+    # 1. Turnos con relaciones (Dashboard)
+    if "select" in q and "turnos" in q and "join" in q:
+        url = f"{REST_URL}/turnos?select=id,fecha_hora,estado,clientes(nombre),vehiculos(patente),servicios(nombre,precio),empleados(nombre)&order=fecha_hora.desc"
+        res = requests.get(url, headers=headers)
+        if res.status_code != 200:
+            raise Exception(f"REST API error fetching turnos: {res.text}")
+        mapped = []
+        for r in res.json():
+            mapped.append({
+                "id": r["id"],
+                "fecha_hora": r["fecha_hora"].replace("T", " ") if r.get("fecha_hora") else None,
+                "estado": r["estado"],
+                "cliente_nombre": r["clientes"]["nombre"] if r.get("clientes") else None,
+                "patente": r["vehiculos"]["patente"] if r.get("vehiculos") else None,
+                "servicio_nombre": r["servicios"]["nombre"] if r.get("servicios") else None,
+                "precio": float(r["servicios"]["precio"]) if r.get("servicios") and r["servicios"].get("precio") is not None else 0.0,
+                "empleado_nombre": r["empleados"]["nombre"] if r.get("empleados") else None
+            })
+        return mapped
+
+    # 2. Caja Movimientos (Dashboard/Lista)
+    elif "select" in q and "caja_movimientos" in q:
+        caja_id = params.get("id")
+        url = f"{REST_URL}/caja_movimientos?caja_id=eq.{caja_id}&order=id.desc"
+        res = requests.get(url, headers=headers)
+        if res.status_code != 200:
+            raise Exception(f"REST API error fetching movements: {res.text}")
+        mapped = []
+        for r in res.json():
+            hora = ""
+            if r.get("fecha"):
+                try:
+                    t_part = r["fecha"].split("T")[-1]
+                    hora = t_part[:5]
+                except Exception:
+                    pass
+            mapped.append({
+                "id": r["id"],
+                "tipo": r["tipo"],
+                "monto": float(r["monto"]) if r.get("monto") is not None else 0.0,
+                "descripcion": r["descripcion"],
+                "hora": hora
+            })
+        return mapped
+
+    # 3. Clientes (List/Order)
+    elif "select" in q and "clientes" in q and "order by nombre" in q:
+        url = f"{REST_URL}/clientes?order=nombre"
+        res = requests.get(url, headers=headers)
+        return res.json() if res.status_code == 200 else []
+
+    # 4. Vehiculos (List/Order)
+    elif "select" in q and "vehiculos" in q and "order by patente" in q:
+        url = f"{REST_URL}/vehiculos?order=patente"
+        res = requests.get(url, headers=headers)
+        return res.json() if res.status_code == 200 else []
+
+    # 5. Productos (List/Order)
+    elif "select" in q and "productos" in q and "order by nombre" in q:
+        url = f"{REST_URL}/productos?order=nombre"
+        res = requests.get(url, headers=headers)
+        return res.json() if res.status_code == 200 else []
+
+    # 6. Servicios (List/Order)
+    elif "select" in q and "servicios" in q and "order by nombre" in q:
+        url = f"{REST_URL}/servicios?order=nombre"
+        res = requests.get(url, headers=headers)
+        return res.json() if res.status_code == 200 else []
+
+    # 7. Empleados (List/Order)
+    elif "select" in q and "empleados" in q and "order by nombre" in q:
+        url = f"{REST_URL}/empleados?order=nombre"
+        res = requests.get(url, headers=headers)
+        return res.json() if res.status_code == 200 else []
+
+    # 8. Caja activa (Dashboard)
+    elif "select" in q and "cajas_diarias" in q and "abierta" in q:
+        url = f"{REST_URL}/cajas_diarias?estado=eq.ABIERTA&order=id.desc&limit=1"
+        res = requests.get(url, headers=headers).json()
+        if fetch_one:
+            return res[0] if res else None
+        return res
+
+    # 9. Usuarios (Login)
+    elif "select" in q and "usuarios" in q:
+        u = params.get("u")
+        url = f"{REST_URL}/usuarios?or=(username.eq.{u},mail.eq.{u})"
+        res = requests.get(url, headers=headers).json()
+        p = params.get("p")
+        user = None
+        for r in res:
+            if r.get("password") == p or r.get("contrasena") == p:
+                user = r
+                break
+        return user
+
+    # 10. Nuevo Cliente (Insert)
+    elif "insert" in q and "clientes" in q:
+        payload = {
+            "nombre": params.get("n"),
+            "telefono": params.get("t"),
+            "email": params.get("e"),
+            "clasificacion": "OCASIONAL"
+        }
+        res = requests.post(f"{REST_URL}/clientes", headers=headers, json=payload).json()
+        if fetch_one:
+            return res[0] if res else None
+        return res
+
+    # 11. Nuevo Vehiculo (Insert)
+    elif "insert" in q and "vehiculos" in q:
+        payload = {
+            "cliente_id": int(params.get("c")),
+            "patente": params.get("p"),
+            "marca": params.get("m"),
+            "modelo": params.get("mo"),
+            "color": params.get("co"),
+            "anio": int(params.get("a")) if params.get("a") is not None else None
+        }
+        res = requests.post(f"{REST_URL}/vehiculos", headers=headers, json=payload).json()
+        if fetch_one:
+            return res[0] if res else None
+        return res
+
+    # 12. Nuevo Movimiento Caja (Insert)
+    elif "insert" in q and "caja_movimientos" in q:
+        payload = {
+            "caja_id": int(params.get("c")),
+            "tipo": params.get("t"),
+            "monto": float(params.get("m")),
+            "descripcion": params.get("d")
+        }
+        res = requests.post(f"{REST_URL}/caja_movimientos", headers=headers, json=payload).json()
+        return res
+
+    # 13. Abrir Caja (Insert)
+    elif "insert" in q and "cajas_diarias" in q:
+        payload = {
+            "monto_apertura": float(params.get("monto")),
+            "saldo_actual": float(params.get("monto")),
+            "estado": "ABIERTA"
+        }
+        res = requests.post(f"{REST_URL}/cajas_diarias", headers=headers, json=payload).json()
+        return res
+
+    # 14. Cerrar Caja (Update)
+    elif "update" in q and "cajas_diarias" in q and "monto_cierre" in q:
+        payload = {
+            "fecha_cierre": datetime.now().isoformat(),
+            "monto_cierre": float(params.get("cierre")),
+            "estado": "CERRADA"
+        }
+        url = f"{REST_URL}/cajas_diarias?id=eq.{params.get('id')}"
+        res = requests.patch(url, headers=headers, json=payload).json()
+        return res
+
+    # 15. Actualizar Saldo Caja (Update)
+    elif "update" in q and "cajas_diarias" in q and "saldo_actual" in q:
+        caja_id = params.get("id")
+        caja = requests.get(f"{REST_URL}/cajas_diarias?id=eq.{caja_id}", headers=headers).json()
+        if caja:
+            curr_saldo = float(caja[0]["saldo_actual"])
+            monto = float(params.get("m"))
+            if "+" in q:
+                new_saldo = curr_saldo + monto
+            else:
+                new_saldo = curr_saldo - monto
+            requests.patch(f"{REST_URL}/cajas_diarias?id=eq.{caja_id}", headers=headers, json={"saldo_actual": new_saldo})
+        return None
+
+    # 16. Nuevo Empleado (Insert)
+    elif "insert" in q and "empleados" in q:
+        payload = {
+            "nombre": params.get("nombre"),
+            "rol": params.get("rol"),
+            "telefono": params.get("telefono", ""),
+            "activo": True
+        }
+        res = requests.post(f"{REST_URL}/empleados", headers=headers, json=payload).json()
+        return res
+
+    # 17. Cambiar Estado Empleado (Update)
+    elif "update" in q and "empleados" in q:
+        payload = {
+            "activo": params.get("activo")
+        }
+        url = f"{REST_URL}/empleados?id=eq.{params.get('id')}"
+        res = requests.patch(url, headers=headers, json=payload).json()
+        return res
+
+    # 18. Agendar Turno (Insert)
+    elif "insert" in q and "turnos" in q:
+        payload = {
+            "cliente_id": int(params.get("c")),
+            "vehiculo_id": int(params.get("v")),
+            "servicio_id": int(params.get("s")),
+            "empleado_id": int(params.get("e")) if params.get("e") is not None else None,
+            "fecha_hora": str(params.get("f")),
+            "estado": "PENDIENTE"
+        }
+        res = requests.post(f"{REST_URL}/turnos", headers=headers, json=payload).json()
+        return res
+
+    # 19. Cambiar Estado Turno (Update)
+    elif "update" in q and "turnos" in q:
+        payload = {
+            "estado": params.get("estado")
+        }
+        url = f"{REST_URL}/turnos?id=eq.{params.get('id')}"
+        res = requests.patch(url, headers=headers, json=payload).json()
+        return res
+
+    # 20. Reabastecer Producto / Actualizar Stock (Update/Select)
+    elif "update" in q and "productos" in q and "stock =" in q:
+        p_id = params.get("id")
+        if "+ :qty" in q or "+ :quantity" in q or "stock +" in q:
+            qty = int(params.get("qty"))
+            res = requests.get(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers).json()
+            if res:
+                curr_stock = int(res[0]["stock"])
+                requests.patch(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers, json={"stock": curr_stock + qty})
+        else:
+            requests.patch(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers, json={"stock": int(params.get("st"))})
+        return None
+
+    # 21. Select Producto por ID
+    elif "select" in q and "productos" in q and "id =" in q:
+        p_id = params.get("id")
+        res = requests.get(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers).json()
+        if fetch_one:
+            return res[0] if res else None
+        return res
+
+    # 22. Nuevo Feedback (Insert)
+    elif "insert" in q and "feedback_clientes" in q:
+        payload = {
+            "cliente_id": int(params.get("c")),
+            "puntuacion": int(params.get("p")),
+            "comentario": params.get("co", "")
+        }
+        res = requests.post(f"{REST_URL}/feedback_clientes", headers=headers, json=payload).json()
+        return res
+
+    # 23. Buscar Cupon
+    elif "select" in q and "cupones_descuento" in q and "codigo =" in q:
+        code = params.get("code")
+        res = requests.get(f"{REST_URL}/cupones_descuento?codigo=eq.{code}", headers=headers).json()
+        if fetch_one:
+            return res[0] if res else None
+        return res
+
+    # 24. Usar Cupon (Update)
+    elif "update" in q and "cupones_descuento" in q:
+        payload = {
+            "usado": True,
+            "fecha_uso": datetime.now().isoformat()
+        }
+        url = f"{REST_URL}/cupones_descuento?id=eq.{params.get('id')}"
+        res = requests.patch(url, headers=headers, json=payload).json()
+        return res
+
+    # 25. Registrar Venta (Insert)
+    elif "insert" in q and "ventas" in q:
+        payload = {
+            "cliente_id": int(params.get("c")) if params.get("c") is not None else None,
+            "total": float(params.get("t")),
+            "metodo_pago": params.get("m")
+        }
+        res = requests.post(f"{REST_URL}/ventas", headers=headers, json=payload).json()
+        return res
+
+    # 26. Obtener Ultima Venta
+    elif "select" in q and "ventas" in q and "order by id desc limit 1" in q:
+        url = f"{REST_URL}/ventas?select=id&order=id.desc&limit=1"
+        res = requests.get(url, headers=headers).json()
+        if fetch_one:
+            return res[0] if res else None
+        return res
+
+    # 27. Registrar Detalle Venta (Insert)
+    elif "insert" in q and "venta_detalles" in q:
+        payload = {
+            "venta_id": int(params.get("v")),
+            "producto_id": int(params.get("p")),
+            "cantidad": int(params.get("q")),
+            "precio_unitario": float(params.get("pr")),
+            "subtotal": float(params.get("sub"))
+        }
+        res = requests.post(f"{REST_URL}/venta_detalles", headers=headers, json=payload).json()
+        return res
+
+    # 28. Clientes Inactivos (Loyalty)
+    elif "select" in q and "clientes" in q and "ultima_visita <=" in q:
+        limite = str(params.get("limite"))
+        url = f"{REST_URL}/clientes?select=id,nombre,telefono&ultima_visita=lte.{limite}"
+        res = requests.get(url, headers=headers).json()
+        return res
+
+    # 29. Buscar Cupon por Cliente
+    elif "select" in q and "cupones_descuento" in q and "cliente_id =" in q:
+        c_id = params.get("id")
+        url = f"{REST_URL}/cupones_descuento?select=id&cliente_id=eq.{c_id}&usado=eq.false"
+        res = requests.get(url, headers=headers).json()
+        if fetch_one:
+            return res[0] if res else None
+        return res
+
+    # 30. Generar Cupon Loyalty (Insert)
+    elif "insert" in q and "cupones_descuento" in q:
+        payload = {
+            "codigo": params.get("code"),
+            "cliente_id": int(params.get("c_id")),
+            "descuento_porcentaje": 15,
+            "fecha_expiracion": str(params.get("exp")),
+            "usado": False
+        }
+        res = requests.post(f"{REST_URL}/cupones_descuento", headers=headers, json=payload).json()
+        return res
+
+    # Default fallback
+    print(f"[REST-FALLBACK-WARNING] Unhandled SQL query: {query}")
+    if fetch_one:
+        return None
+    return []
 
 def execute_query(query: str, params: dict = None, fetch_all: bool = False, fetch_one: bool = False):
     """
-    Función helper para ejecutar consultas en la base de datos Supabase.
+    Función helper para ejecutar consultas en la base de datos Supabase con fallback a REST API.
     """
-    engine = create_engine(DB_URL)
-    with engine.begin() as conn:
-        result = conn.execute(text(query), params or {})
-        if fetch_all:
-            return [dict(row) for row in result.mappings()]
-        if fetch_one:
-            row = result.mappings().first()
-            return dict(row) if row else None
-        return result
+    global DB_ONLINE
+    if DB_ONLINE:
+        try:
+            engine = create_engine(DB_URL)
+            with engine.begin() as conn:
+                result = conn.execute(text(query), params or {})
+                if fetch_all:
+                    return [dict(row) for row in result.mappings()]
+                if fetch_one:
+                    row = result.mappings().first()
+                    return dict(row) if row else None
+                return result
+        except Exception as e:
+            print(f"[DATABASE] Direct connection failed during execution ({e}). Switching to REST API mode.")
+            DB_ONLINE = False
+            
+    # Fallback/Default to REST API
+    return execute_query_rest(query, params, fetch_all, fetch_one)
 
 # ==========================================
 # 📊 ENDPOINT: CONSOLIDADO DE DATOS (DASHBOARD)
@@ -139,15 +503,49 @@ def get_customer_segmentation():
             df = pd.read_sql_query(text(query), conn)
         is_mock = False
     except Exception as e:
-        print(f"[FASTAPI-WARNING] DB Offline. Cargando mock de segmentación: {e}")
-        mock_data = [
-            {"id": 1, "nombre": "Juan Pérez", "telefono": "+5491122334455", "clasificacion_actual": "FRECUENTE", "cantidad_visitas": 6, "total_gastado": 15000.0, "ultima_visita": "2026-05-28"},
-            {"id": 2, "nombre": "María Rodríguez", "telefono": "+5491133445566", "clasificacion_actual": "VIP", "cantidad_visitas": 15, "total_gastado": 45000.0, "ultima_visita": "2026-06-22"},
-            {"id": 3, "nombre": "Carlos Gómez", "telefono": "+5491144556677", "clasificacion_actual": "OCASIONAL", "cantidad_visitas": 2, "total_gastado": 5000.0, "ultima_visita": "2026-06-02"},
-            {"id": 4, "nombre": "Ana López", "telefono": "+5491155667788", "clasificacion_actual": "OCASIONAL", "cantidad_visitas": 1, "total_gastado": 1500.0, "ultima_visita": "2026-06-25"}
-        ]
-        df = pd.DataFrame(mock_data)
-        is_mock = True
+        print(f"[FASTAPI-WARNING] DB Offline. Intentando REST API para segmentación: {e}")
+        try:
+            import requests
+            REST_URL = "https://tqbikenqygnyzrxnabia.supabase.co/rest/v1"
+            anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxYmlrZW5xeWdueXpyeG5hYmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjUzOTYsImV4cCI6MjA5ODYwMTM5Nn0.JgadNGVv4XzOw9duUV_v8AE5Fhyi6sQ7nNcqQry1UCI"
+            headers = {"apikey": anon_key, "Authorization": f"Bearer {anon_key}"}
+            
+            # Fetch clientes
+            clientes = requests.get(f"{REST_URL}/clientes", headers=headers).json()
+            # Fetch COMPLETADO turnos
+            turnos = requests.get(f"{REST_URL}/turnos?estado=eq.COMPLETADO&select=cliente_id,servicios(precio)", headers=headers).json()
+            
+            client_stats = {}
+            for c in clientes:
+                client_stats[c["id"]] = {
+                    "id": c["id"],
+                    "nombre": c["nombre"],
+                    "telefono": c.get("telefono"),
+                    "clasificacion_actual": c.get("clasificacion"),
+                    "ultima_visita": c.get("ultima_visita"),
+                    "cantidad_visitas": 0,
+                    "total_gastado": 0.0
+                }
+            for t in turnos:
+                c_id = t.get("cliente_id")
+                if c_id in client_stats:
+                    client_stats[c_id]["cantidad_visitas"] += 1
+                    precio = 0.0
+                    if t.get("servicios"):
+                        precio = float(t["servicios"].get("precio", 0.0))
+                    client_stats[c_id]["total_gastado"] += precio
+            df = pd.DataFrame(list(client_stats.values()))
+            is_mock = False
+        except Exception as e_rest:
+            print(f"[FASTAPI-WARNING] REST API falló también. Cargando mock de segmentación: {e_rest}")
+            mock_data = [
+                {"id": 1, "nombre": "Juan Pérez", "telefono": "+5491122334455", "clasificacion_actual": "FRECUENTE", "cantidad_visitas": 6, "total_gastado": 15000.0, "ultima_visita": "2026-05-28"},
+                {"id": 2, "nombre": "María Rodríguez", "telefono": "+5491133445566", "clasificacion_actual": "VIP", "cantidad_visitas": 15, "total_gastado": 45000.0, "ultima_visita": "2026-06-22"},
+                {"id": 3, "nombre": "Carlos Gómez", "telefono": "+5491144556677", "clasificacion_actual": "OCASIONAL", "cantidad_visitas": 2, "total_gastado": 5000.0, "ultima_visita": "2026-06-02"},
+                {"id": 4, "nombre": "Ana López", "telefono": "+5491155667788", "clasificacion_actual": "OCASIONAL", "cantidad_visitas": 1, "total_gastado": 1500.0, "ultima_visita": "2026-06-25"}
+            ]
+            df = pd.DataFrame(mock_data)
+            is_mock = True
 
     def categorizar_cliente(row):
         total = float(row['total_gastado'])
@@ -192,8 +590,19 @@ def get_nps_metrics():
         conn.close()
         is_mock = False
     except Exception as e:
-        df = pd.DataFrame({"puntuacion": [5, 5, 4, 2, 5, 4, 5, 3]})
-        is_mock = True
+        print(f"[FASTAPI-WARNING] DB Offline. Intentando REST API para NPS: {e}")
+        try:
+            import requests
+            REST_URL = "https://tqbikenqygnyzrxnabia.supabase.co/rest/v1"
+            anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxYmlrZW5xeWdueXpyeG5hYmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjUzOTYsImV4cCI6MjA5ODYwMTM5Nn0.JgadNGVv4XzOw9duUV_v8AE5Fhyi6sQ7nNcqQry1UCI"
+            headers = {"apikey": anon_key, "Authorization": f"Bearer {anon_key}"}
+            res = requests.get(f"{REST_URL}/feedback_clientes?select=puntuacion", headers=headers).json()
+            df = pd.DataFrame(res)
+            is_mock = False
+        except Exception as e_rest:
+            print(f"[FASTAPI-WARNING] REST API falló para NPS. Usando mock: {e_rest}")
+            df = pd.DataFrame({"puntuacion": [5, 5, 4, 2, 5, 4, 5, 3]})
+            is_mock = True
 
     if df.empty:
         return {"status": "NO_DATA", "nps": 0, "total_respuestas": 0, "promotores": 0, "pasivos": 0, "detractores": 0, "nivel": "SIN DATOS"}
