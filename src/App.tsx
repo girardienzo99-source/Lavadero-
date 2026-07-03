@@ -343,28 +343,48 @@ export default function App() {
             };
             setTransacciones((prevT) => [...prevT, newTx]);
             
-            setInsumos((prevI) => 
-              prevI.map((ins) => {
-                if (t.tipo === 'LAVADO' && (ins.id === 'i1' || ins.id === 'i2')) {
-                  const newStock = Math.max(0, ins.stockActual - 1);
+            setInsumos((prevI) => {
+              const updatedInsumos = prevI.map((ins) => {
+                let qtyDeduction = 0;
+
+                if (t.tipo === 'LAVADO') {
+                  if (ins.id === 'i1') qtyDeduction = 1; // Shampoo pH Neutro
+                  if (ins.id === 'i2') qtyDeduction = 0.5; // Silicona Premium
+                  if (ins.id === 'i3' && (t.servicioNombre.toLowerCase().includes('encerado') || t.servicioNombre.toLowerCase().includes('carnauba') || t.servicioNombre.toLowerCase().includes('premium'))) {
+                    qtyDeduction = 0.2; // Cera líquida Carnauba
+                  }
+                } else if (t.tipo === 'TAPICERIA') {
+                  if (ins.id === 'i4') qtyDeduction = 1; // Limpiador APC
+                  if (ins.id === 'i6') qtyDeduction = 0.5; // Paños de Microfibra
+                } else if (t.tipo === 'ESTETICA') {
+                  const sName = t.servicioNombre.toLowerCase();
+                  if (ins.id === 'i7' && (sName.includes('cerámico') || sName.includes('sio2'))) {
+                    qtyDeduction = 0.2; // Sellador SiO2
+                  }
+                  if (ins.id === 'i5' && (sName.includes('pulido') || sName.includes('corrección') || sName.includes('tratamiento'))) {
+                    qtyDeduction = 0.2; // Compuesto Pulidor
+                  }
+                  if (ins.id === 'i6' && (sName.includes('pulido') || sName.includes('corrección') || sName.includes('tratamiento'))) {
+                    qtyDeduction = 1; // Paños de Microfibra
+                  }
+                }
+
+                if (qtyDeduction > 0) {
+                  const newStock = Math.max(0, Number((ins.stockActual - qtyDeduction).toFixed(2)));
+                  
                   if (newStock === 0) {
-                    addConsoleLog(`⚠️ [ALERTA INVENTARIO] El insumo ${ins.nombre} se ha quedado sin stock.`);
+                    addConsoleLog(`🚨 [ALERTA STOCK] ¡El insumo "${ins.nombre}" se ha AGOTADO por completo!`);
                   } else if (newStock <= ins.stockMinimo) {
-                    addConsoleLog(`⚠️ [BAJO STOCK] El insumo ${ins.nombre} se encuentra bajo el límite mínimo.`);
+                    addConsoleLog(`⚠️ [BAJO STOCK] El insumo "${ins.nombre}" cayó bajo el límite mínimo (${newStock} / ${ins.stockMinimo} ${ins.unidad}).`);
+                  } else {
+                    addConsoleLog(`📉 [INVENTARIO] Deducido automático por servicio: -${qtyDeduction} ${ins.unidad} de "${ins.nombre}".`);
                   }
                   return { ...ins, stockActual: newStock };
                 }
-                if (t.tipo === 'TAPICERIA' && ins.id === 'i4') {
-                  const newStock = Math.max(0, ins.stockActual - 1);
-                  return { ...ins, stockActual: newStock };
-                }
-                if (t.tipo === 'ESTETICA' && (ins.id === 'i5' || ins.id === 'i7')) {
-                  const newStock = Math.max(0, ins.stockActual - 1);
-                  return { ...ins, stockActual: newStock };
-                }
                 return ins;
-              })
-            );
+              });
+              return updatedInsumos;
+            });
           }
           return updated;
         }
@@ -1352,6 +1372,9 @@ export default function App() {
               onUpdateTurnoEstado={handleUpdateTurnoEstado}
               onDeleteTurno={handleDeleteTurno}
               onAddLog={addConsoleLog}
+              onUpdateTurno={(updated) => {
+                setTurnos(prev => prev.map(t => t.id === updated.id ? updated : t));
+              }}
             />
           </div>
         )}

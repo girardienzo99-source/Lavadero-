@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { Insumo, Transaccion, Rol } from '../types';
 import { generateTicketPDF } from '../utils/ticketGenerator';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface CajaDiariaLedgerProps {
   role: Rol;
@@ -50,6 +52,130 @@ export default function CajaDiariaLedger({
 
   // Check if current role has access
   const isBlockedByRBAC = role === 'LAVADOR' || role === 'OPERARIO';
+
+  const handleExportCSV = () => {
+    if (transacciones.length === 0) {
+      alert('No hay transacciones registradas para exportar.');
+      return;
+    }
+
+    let csvContent = '\uFEFF'; // UTF-8 BOM
+    csvContent += 'ID;Fecha;Tipo;Monto;Concepto;Origen\n';
+
+    transacciones.forEach((tx, idx) => {
+      const formattedDate = new Date(tx.fecha).toLocaleString('es-AR');
+      const cleanConcept = tx.concepto.replace(/;/g, ',');
+      csvContent += `TX-${1000 + idx};${formattedDate};${tx.tipo};${tx.monto};${cleanConcept};${tx.origen}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Caja_Diaria_AlbeloDetail_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    if (transacciones.length === 0) {
+      alert('No hay transacciones registradas para exportar.');
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    // Header strip
+    doc.setFillColor(220, 38, 38);
+    doc.rect(0, 0, 210, 8, 'F');
+
+    // Title & Brand
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('ALBELO DETAIL', 15, 22);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('ESTÉTICA VEHICULAR • POLARIZADOS • DETAILING', 15, 28);
+    doc.text(`Fecha del Reporte: ${new Date().toLocaleDateString('es-AR')}`, 150, 22);
+    doc.text(`Hora: ${new Date().toLocaleTimeString('es-AR')}`, 150, 28);
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, 33, 195, 33);
+
+    // Summary Card Box
+    doc.setFillColor(248, 250, 252);
+    doc.rect(15, 38, 180, 28, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(15, 38, 180, 28, 'S');
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('BALANCE GENERAL DE CAJA DIARIA', 20, 44);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Base de Apertura: $${montoApertura.toLocaleString('es-AR')}`, 20, 52);
+    doc.text(`Total Ingresos:  $${totalIngresos.toLocaleString('es-AR')}`, 20, 59);
+
+    doc.text(`Total Egresos:   $${totalEgresos.toLocaleString('es-AR')}`, 110, 52);
+    
+    const balanceNeto = totalIngresos - totalEgresos;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(balanceNeto >= 0 ? 22 : 220, balanceNeto >= 0 ? 163 : 38, balanceNeto >= 0 ? 74 : 38);
+    doc.text(`Saldo Neto Teórico: $${(montoApertura + totalIngresos - totalEgresos).toLocaleString('es-AR')}`, 110, 59);
+
+    // Transactions Table
+    const tableBody = transacciones.map((tx, idx) => [
+      `TX-${1000 + idx}`,
+      new Date(tx.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+      tx.concepto,
+      tx.origen,
+      tx.tipo === 'INGRESO' ? 'INGRESO' : 'EGRESO',
+      `$${tx.monto.toLocaleString('es-AR')}`
+    ]);
+
+    autoTable(doc, {
+      startY: 72,
+      head: [['ID', 'Hora', 'Concepto / Detalle', 'Origen', 'Tipo', 'Monto']],
+      body: tableBody,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 9
+      },
+      columnStyles: {
+        0: { cellWidth: 20 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 80 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 20, halign: 'center' },
+        5: { cellWidth: 25, halign: 'right' }
+      },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 3
+      },
+      didParseCell: (data) => {
+        if (data.column.index === 4 && data.cell.section === 'body') {
+          if (data.cell.text[0] === 'INGRESO') {
+            data.cell.styles.textColor = [22, 163, 74];
+          } else {
+            data.cell.styles.textColor = [220, 38, 38];
+          }
+        }
+      }
+    });
+
+    doc.save(`Reporte_Caja_AlbeloDetail_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
 
   const totalIngresos = transacciones
     .filter((t) => t.tipo === 'INGRESO')
@@ -296,7 +422,29 @@ export default function CajaDiariaLedger({
 
           {/* Card: History Ledger List */}
           <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-1.5 border-b border-white/[0.08]">Historial del Arqueo</h4>
+            <div className="flex justify-between items-center pb-1.5 border-b border-white/[0.08]">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Historial del Arqueo</h4>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="flex items-center gap-1 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] px-2 py-1 rounded text-[9px] text-slate-300 font-bold uppercase transition cursor-pointer"
+                  title="Exportar Libro a Excel/CSV"
+                >
+                  <Download className="w-3 h-3 text-slate-400" />
+                  Excel/CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  className="flex items-center gap-1 bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 px-2 py-1 rounded text-[9px] text-brand-primary font-bold uppercase tracking-wider transition cursor-pointer"
+                  title="Descargar Reporte de Caja en PDF"
+                >
+                  <Download className="w-3 h-3 text-brand-primary" />
+                  PDF
+                </button>
+              </div>
+            </div>
             
             <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
               {transacciones.length === 0 ? (

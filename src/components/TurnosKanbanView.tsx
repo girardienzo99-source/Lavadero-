@@ -16,6 +16,7 @@ interface TurnosKanbanViewProps {
   onUpdateTurnoEstado: (id: string, nuevoEstado: 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO', nps?: number, comentarios?: string) => void;
   onDeleteTurno: (id: string) => void;
   onAddLog: (message: string) => void;
+  onUpdateTurno?: (updatedTurno: Turno) => void;
 }
 
 export default function TurnosKanbanView({
@@ -25,6 +26,7 @@ export default function TurnosKanbanView({
   onUpdateTurnoEstado,
   onDeleteTurno,
   onAddLog,
+  onUpdateTurno,
 }: TurnosKanbanViewProps) {
   // Filters & Tabs
   const [filterType, setFilterType] = useState<TipoServicio | 'ALL'>('ALL');
@@ -150,10 +152,16 @@ export default function TurnosKanbanView({
     window.open(link, '_blank');
   };
 
-  // Kanban Columns
-  const pendientes = turnos.filter((t) => t.estado === 'PENDIENTE' && (filterType === 'ALL' || t.tipo === filterType));
+  // Local state for tracking dropdown selected operators on online pending cards
+  const [assignedOperators, setAssignedOperators] = useState<{ [turnoId: string]: string }>({});
+
+  // Kanban Columns (excluding online approvals pending assignment)
+  const pendientes = turnos.filter((t) => t.estado === 'PENDIENTE' && t.lavadorAsignado !== 'Sin Asignar (Online)' && (filterType === 'ALL' || t.tipo === filterType));
   const enProceso = turnos.filter((t) => t.estado === 'EN_PROCESO' && (filterType === 'ALL' || t.tipo === filterType));
   const completados = turnos.filter((t) => t.estado === 'COMPLETADO' && (filterType === 'ALL' || t.tipo === filterType));
+
+  // Online reservation requests pending approval
+  const solicitudesOnline = turnos.filter((t) => t.lavadorAsignado === 'Sin Asignar (Online)');
 
   return (
     <div className="space-y-6">
@@ -361,6 +369,106 @@ export default function TurnosKanbanView({
           </div>
 
         </form>
+      )}
+
+      {/* Online Reservation Requests Approval Queue */}
+      {solicitudesOnline.length > 0 && (
+        <div className="glass-panel p-5 rounded-xl border border-[#00d2ff]/20 space-y-4 animate-fade-in relative z-20 shadow-[0_4px_25px_rgba(0,210,255,0.05)]">
+          <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 font-display">
+              <span className="w-2 h-2 bg-[#00d2ff] rounded-full animate-ping" />
+              📩 Solicitudes de Reservas Online Pendientes de Asignación
+            </h3>
+            <span className="text-[10px] bg-[#00d2ff]/10 text-[#00d2ff] border border-[#00d2ff]/20 px-2 py-0.5 rounded-full font-mono font-bold uppercase">
+              {solicitudesOnline.length} Por Aprobar
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {solicitudesOnline.map((t) => {
+              const currentAssigned = assignedOperators[t.id] || LAVADORES_ACTIVOS[0];
+
+              return (
+                <div key={t.id} className="bg-white/[0.01] hover:bg-white/[0.02] border border-white/[0.06] hover:border-[#00d2ff]/30 p-4 rounded-xl space-y-3 transition duration-200">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-extrabold text-sm text-slate-200">{t.clienteNombre}</h4>
+                      <span className="text-[10px] text-slate-500 font-mono font-bold block">{t.telefono}</span>
+                    </div>
+                    <span className="font-mono text-emerald-400 font-bold bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 text-xs">
+                      ${t.precio.toLocaleString('es-AR')}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 bg-black/20 p-2.5 rounded-lg border border-white/[0.03]">
+                    <div className="text-[11px] font-bold text-slate-300">
+                      Servicio: <span className="text-[#00d2ff]">{t.servicioNombre}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      Vehículo: {t.vehiculoModelo} <span className="text-slate-500">[{t.vehiculoPatente.toUpperCase()}]</span>
+                    </div>
+                    {t.comentarios && (
+                      <p className="text-[10px] text-slate-500 italic leading-relaxed pt-1 border-t border-white/[0.04] mt-1">
+                        {t.comentarios}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1 border-t border-white/[0.04]">
+                    {/* Operator selector */}
+                    <div className="flex-1 space-y-1">
+                      <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Asignar Técnico Especialista</label>
+                      <select
+                        value={currentAssigned}
+                        onChange={(e) => {
+                          setAssignedOperators(prev => ({ ...prev, [t.id]: e.target.value }));
+                        }}
+                        className="w-full bg-slate-900 border border-white/[0.08] focus:border-[#00d2ff]/40 rounded px-2 py-1 text-xs text-white"
+                      >
+                        {LAVADORES_ACTIVOS.map((lav) => (
+                          <option key={lav} value={lav} className="bg-slate-950 text-white">{lav}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-end gap-1.5 shrink-0 self-end sm:self-auto">
+                      <button
+                        onClick={() => {
+                          if (onUpdateTurno) {
+                            const updated = {
+                              ...t,
+                              lavadorAsignado: currentAssigned,
+                              estado: 'PENDIENTE' as const
+                            };
+                            onUpdateTurno(updated);
+                            onAddLog(`✅ [TIENDA] Turno online de ${t.clienteNombre} (${t.vehiculoPatente}) aprobado y asignado a ${currentAssigned} para ${t.servicioNombre}.`);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold rounded-lg text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-1"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Aprobar
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`¿Rechazar y eliminar la solicitud de reserva de ${t.clienteNombre}?`)) {
+                            onDeleteTurno(t.id);
+                            onAddLog(`❌ [TIENDA] Solicitud de reserva online de ${t.clienteNombre} (${t.vehiculoPatente}) rechazada.`);
+                          }
+                        }}
+                        className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg transition cursor-pointer"
+                        title="Rechazar y Eliminar"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* Kanban Board Columns Grid */}
