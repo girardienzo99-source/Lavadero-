@@ -73,6 +73,12 @@ export default function CeramicServices({
     { tipo: 'CAMIONETA', nombre: 'Camioneta / Pick-up / Utilitario Grande', multiplicador: 1.45, adicional: 50000 }
   ]);
 
+  // Simulator States
+  const [simColor, setSimColor] = useState<'red' | 'orange' | 'black' | 'cyan'>('red');
+  const [simLevel, setSimLevel] = useState<'express' | 'premium' | 'elite'>('premium');
+  const [simLightAngle, setSimLightAngle] = useState(50);
+  const [isWaterTestActive, setIsWaterTestActive] = useState(false);
+
   // Form states for adding/editing Treatment Levels
   const [newNombre, setNewNombre] = useState('');
   const [newDurabilidad, setNewDurabilidad] = useState('3 Años');
@@ -215,6 +221,17 @@ export default function CeramicServices({
           >
             <Settings className="w-3.5 h-3.5" />
             Configurar Tarifas y Niveles
+          </button>
+          <button
+            onClick={() => setActiveSubTab('simulator')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 ${
+              activeSubTab === 'simulator'
+                ? 'bg-red-600/20 text-red-500 border border-red-600/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            Simulador de Brillo y Curado
           </button>
         </div>
         
@@ -725,6 +742,258 @@ export default function CeramicServices({
 
           </div>
 
+        </div>
+      )}
+
+      {/* Sub-Tab 3: Gloss & Hydrophobicity Simulator */}
+      {activeSubTab === 'simulator' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in relative z-20">
+          
+          {/* Controls Column */}
+          <div className="lg:col-span-5 space-y-5">
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+              <div className="pb-2 border-b border-white/[0.08]">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Ajustes de Simulación
+                </h4>
+                <span className="text-[10px] text-slate-500">Configura las condiciones del ensayo óptico</span>
+              </div>
+
+              {/* Color Selector */}
+              <div className="space-y-2">
+                <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold">1. Color de Pintura</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { id: 'red', label: 'Rosso Corsa', color: 'bg-red-600' },
+                    { id: 'orange', label: 'Cyber Orange', color: 'bg-orange-500' },
+                    { id: 'black', label: 'Carbon Black', color: 'bg-neutral-900' },
+                    { id: 'cyan', label: 'Ceramic Cyan', color: 'bg-cyan-500' }
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSimColor(c.id as any)}
+                      className={`p-2 rounded-lg border text-center transition flex flex-col items-center gap-1.5 cursor-pointer ${
+                        simColor === c.id
+                          ? 'border-red-500/50 bg-red-500/10'
+                          : 'border-white/[0.06] bg-black/20 hover:border-white/[0.12]'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded-full ${c.color} border border-white/20`} />
+                      <span className="text-[8px] text-slate-400 font-bold truncate max-w-full">{c.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Treatment Level Selector */}
+              <div className="space-y-2">
+                <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold">2. Nivel de Protección</label>
+                <div className="space-y-2">
+                  {[
+                    { id: 'express', label: 'SiO2 Express (1 Año)', desc: 'Brillo húmedo y repelencia básica' },
+                    { id: 'premium', label: 'Premium 9H Gyeon (3 Años)', desc: 'Profundidad de color, anti-swirl y dureza' },
+                    { id: 'elite', label: 'Elite Grafeno (5 Años)', desc: 'Brillo tridimensional y repelencia extrema' }
+                  ].map((l) => (
+                    <div
+                      key={l.id}
+                      onClick={() => setSimLevel(l.id as any)}
+                      className={`p-3 rounded-lg border cursor-pointer transition text-left ${
+                        simLevel === l.id
+                          ? 'bg-amber-500/10 border-amber-500/40'
+                          : 'bg-white/[0.01] border-white/[0.06] hover:border-white/[0.1]'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-white">{l.label}</div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">{l.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Slider for Light Angle */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  <span>3. Ángulo de Luz Analítico</span>
+                  <span className="font-mono text-amber-400">{simLightAngle}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={simLightAngle}
+                  onChange={(e) => setSimLightAngle(Number(e.target.value))}
+                  className="w-full h-1 bg-white/[0.08] rounded-lg appearance-none cursor-pointer accent-red-600"
+                />
+                <span className="text-[9px] text-slate-500 block">Desliza la luz para comprobar los reflejos y el brillo especular.</span>
+              </div>
+            </div>
+
+            {/* Test Evaporation & Water button */}
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Prueba Hidrofóbica
+              </h4>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Comprueba la repelencia al agua y capacidad de escurrimiento (Efecto Loto) del nivel de tratamiento seleccionado.
+              </p>
+              <button
+                type="button"
+                disabled={isWaterTestActive}
+                onClick={() => {
+                  setIsWaterTestActive(true);
+                  setTimeout(() => {
+                    setIsWaterTestActive(false);
+                  }, 2500);
+                }}
+                className={`w-full py-2.5 rounded-lg text-xs font-extrabold uppercase tracking-wider transition ${
+                  isWaterTestActive
+                    ? 'bg-slate-800 text-slate-500 border border-white/[0.04]'
+                    : 'bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 cursor-pointer'
+                }`}
+              >
+                {isWaterTestActive ? '💧 Escurriendo agua...' : '💦 Disparar Test de Repelencia'}
+              </button>
+            </div>
+          </div>
+
+          {/* Interactive Screen Column */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Visualizer Frame */}
+            <div className="glass-panel p-6 rounded-xl border border-white/[0.08] bg-black/60 flex flex-col justify-center items-center relative overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
+              {/* Decorative Carbon grid for mockup */}
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:12px_12px] pointer-events-none opacity-40" />
+              
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 z-10">MÓDULO DE INSPECCIÓN ÓPTICA DE BRILLO</span>
+              
+              {/* Dynamic Sphere representing Paint */}
+              <div className="relative w-64 h-64 flex items-center justify-center z-10">
+                {/* SVG Metallic Sphere */}
+                <svg width="240" height="240" viewBox="0 0 100 100" className="drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]">
+                  <defs>
+                    {/* Dynamic Base Gradient */}
+                    <radialGradient id="sphere-base" cx="40%" cy="40%" r="60%">
+                      {simColor === 'red' && (
+                        <>
+                          <stop offset="0%" stopColor="#ff4d4d" />
+                          <stop offset="70%" stopColor="#990000" />
+                          <stop offset="100%" stopColor="#330000" />
+                        </>
+                      )}
+                      {simColor === 'orange' && (
+                        <>
+                          <stop offset="0%" stopColor="#ffb366" />
+                          <stop offset="70%" stopColor="#e67300" />
+                          <stop offset="100%" stopColor="#4d2600" />
+                        </>
+                      )}
+                      {simColor === 'black' && (
+                        <>
+                          <stop offset="0%" stopColor="#555555" />
+                          <stop offset="70%" stopColor="#1a1a1a" />
+                          <stop offset="100%" stopColor="#000000" />
+                        </>
+                      )}
+                      {simColor === 'cyan' && (
+                        <>
+                          <stop offset="0%" stopColor="#66ffff" />
+                          <stop offset="70%" stopColor="#00b3b3" />
+                          <stop offset="100%" stopColor="#003333" />
+                        </>
+                      )}
+                    </radialGradient>
+
+                    {/* Specular Highlight Gradient */}
+                    <radialGradient id="specular-highlight" cx={`${simLightAngle}%`} cy="30%" r="25%">
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity={simLevel === 'elite' ? '0.95' : simLevel === 'premium' ? '0.75' : '0.45'} />
+                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </radialGradient>
+
+                    {/* Reflection Highlight Gradient (Elite coating gets deep mirror reflection) */}
+                    <linearGradient id="mirror-reflection" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity={simLevel === 'elite' ? '0.2' : simLevel === 'premium' ? '0.1' : '0'} />
+                      <stop offset="40%" stopColor="#ffffff" stopOpacity="0" />
+                      <stop offset="100%" stopColor="#ffffff" stopOpacity={simLevel === 'elite' ? '0.15' : '0'} />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Base Paint Sphere */}
+                  <circle cx="50" cy="50" r="42" fill="url(#sphere-base)" />
+
+                  {/* Swirl simulations if level is low (Express has slight swirls under light) */}
+                  {simLevel === 'express' && (
+                    <g opacity="0.15" stroke="#ffffff" strokeWidth="0.2" fill="none">
+                      <path d="M42 35 C 48 38, 52 38, 58 35" />
+                      <path d="M40 38 C 48 41, 52 41, 60 38" />
+                      <path d="M38 42 C 48 45, 52 45, 62 42" />
+                    </g>
+                  )}
+
+                  {/* Mirror Reflection Overlay */}
+                  <circle cx="50" cy="50" r="42" fill="url(#mirror-reflection)" />
+
+                  {/* Specular Light Reflection (Dynamic spot) */}
+                  <circle cx="50" cy="50" r="42" fill="url(#specular-highlight)" />
+
+                  {/* Hydrophobic Water Droplet Animation */}
+                  {isWaterTestActive && (
+                    <g>
+                      <circle cx="50" cy="30" r="2.5" fill="#38bdf8" className="animate-bounce" />
+                    </g>
+                  )}
+                </svg>
+
+                {/* Evaporation effect sparkles (Elite gets little neon stars) */}
+                {simLevel === 'elite' && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <Sparkles className="w-6 h-6 text-amber-400 absolute top-12 left-16 animate-pulse" />
+                    <Sparkles className="w-5 h-5 text-cyan-300 absolute bottom-16 right-20 animate-pulse" />
+                  </div>
+                )}
+              </div>
+
+              {/* Water test physics indicator overlay */}
+              {isWaterTestActive && (
+                <div className="absolute bottom-20 bg-cyan-950/85 border border-cyan-500/30 text-cyan-300 font-mono text-[9px] px-3 py-1 rounded uppercase tracking-wider animate-pulse z-20">
+                  Velocidad de Escurrimiento: {simLevel === 'elite' ? '180 cm/s (Extrema)' : simLevel === 'premium' ? '95 cm/s (Rápida)' : '42 cm/s (Lenta)'}
+                </div>
+              )}
+
+              {/* Specifications Matrix Card */}
+              <div className="w-full mt-4 bg-black/40 rounded-xl border border-white/[0.08] p-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                <div className="space-y-0.5">
+                  <span className="text-[8px] text-slate-500 uppercase font-black">Brillo Especular</span>
+                  <span className="text-sm font-extrabold font-mono text-white block">
+                    {simLevel === 'elite' ? '99.2 GU' : simLevel === 'premium' ? '95.8 GU' : '88.5 GU'}
+                  </span>
+                  <span className="text-[7.5px] text-slate-400 block">Gloss Units (Espejo)</span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[8px] text-slate-500 uppercase font-black">Ángulo de Contacto</span>
+                  <span className="text-sm font-extrabold font-mono text-cyan-400 block">
+                    {simLevel === 'elite' ? '122°' : simLevel === 'premium' ? '112°' : '92°'}
+                  </span>
+                  <span className="text-[7.5px] text-slate-400 block">Repelencia al Agua</span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[8px] text-slate-500 uppercase font-black">Dureza Mohs</span>
+                  <span className="text-sm font-extrabold font-mono text-amber-500 block">
+                    {simLevel === 'elite' ? '9H+ Real' : simLevel === 'premium' ? '9H Gyeon' : '5H Acrílico'}
+                  </span>
+                  <span className="text-[7.5px] text-slate-400 block">Escala Mineral</span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[8px] text-slate-500 uppercase font-black">Curado Térmico</span>
+                  <span className="text-sm font-extrabold font-mono text-red-400 block">
+                    {simLevel === 'elite' ? '18 hs' : simLevel === 'premium' ? '12 hs' : '6 hs'}
+                  </span>
+                  <span className="text-[7.5px] text-slate-400 block">Tiempo de reposo</span>
+                </div>
+              </div>
+            </div>
+            
+          </div>
         </div>
       )}
 
