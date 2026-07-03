@@ -71,8 +71,17 @@ export default function WeeklyCalendar({
     });
   };
 
+  // Find index of today in weekDays to select it by default on mobile
+  const getTodayIdx = () => {
+    const todayStr = new Date().toDateString();
+    const idx = weekDays.findIndex(d => d.toDateString() === todayStr);
+    return idx === -1 ? 0 : idx;
+  };
+
+  const [selectedDayIndex, setSelectedDayIndex] = useState(getTodayIdx);
+
   return (
-    <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)] animate-fade-in">
+    <div className="glass-panel p-4 md:p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)] animate-fade-in">
       
       {/* Calendar Header with Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pb-3 border-b border-white/[0.08]">
@@ -123,8 +132,35 @@ export default function WeeklyCalendar({
         </div>
       </div>
 
-      {/* Grid wrapper */}
-      <div className="overflow-x-auto min-w-0">
+      {/* Mobile Day Selector Tabs (Visible only on mobile/tablet) */}
+      <div className="md:hidden flex gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-white/[0.04]">
+        {weekDays.map((day, idx) => {
+          const isSelected = selectedDayIndex === idx;
+          const dayName = day.toLocaleDateString('es-AR', { weekday: 'short' });
+          const dateStr = day.toLocaleDateString('es-AR', { day: '2-digit' });
+          const isToday = new Date().toDateString() === day.toDateString();
+          return (
+            <button
+              key={day.toISOString()}
+              type="button"
+              onClick={() => setSelectedDayIndex(idx)}
+              className={`flex-1 min-w-[55px] py-1.5 px-1 rounded-lg border text-center transition flex flex-col items-center justify-center ${
+                isSelected
+                  ? 'bg-[#00d2ff]/20 border-[#00d2ff] text-white shadow-[0_0_10px_rgba(0,210,255,0.15)]'
+                  : 'bg-black/30 border-white/[0.06] text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span className={`text-[8px] font-black uppercase ${isToday && !isSelected ? 'text-[#00d2ff]' : ''}`}>
+                {dayName}
+              </span>
+              <span className="text-xs font-black mt-0.5">{dateStr}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* DESKTOP VIEW: Full 7-column week grid */}
+      <div className="hidden md:block overflow-x-auto min-w-0">
         <div className="min-w-[800px] border border-white/[0.06] rounded-xl overflow-hidden bg-slate-950/40">
           
           {/* Header Row */}
@@ -249,12 +285,96 @@ export default function WeeklyCalendar({
                     </div>
                   );
                 })}
-
               </div>
             ))}
           </div>
-
         </div>
+      </div>
+
+      {/* MOBILE VIEW: Single day vertical view */}
+      <div className="md:hidden border border-white/[0.06] rounded-xl overflow-hidden bg-slate-950/40 divide-y divide-white/[0.04]">
+        {hours.map((hour) => {
+          const selectedDay = weekDays[selectedDayIndex];
+          const dateKey = formatDateKey(selectedDay);
+          const cellTurnos = getTurnosForSlot(dateKey, hour);
+          return (
+            <div key={hour} className="flex hover:bg-white/[0.005] transition duration-150 p-2 items-center gap-3">
+              {/* Hour Column */}
+              <div className="w-16 shrink-0 text-center font-mono font-bold text-slate-400 text-xs py-2 bg-white/[0.005] rounded-lg border border-white/[0.04]">
+                {hour}
+              </div>
+              
+              {/* Content Column */}
+              <div 
+                onClick={() => cellTurnos.length === 0 && onSelectSlot(dateKey, hour)}
+                className={`flex-1 min-h-[50px] relative flex flex-col gap-1.5 justify-center transition duration-150 rounded-lg p-1 ${
+                  cellTurnos.length === 0 ? 'hover:bg-[#00d2ff]/[0.02] cursor-pointer' : ''
+                }`}
+              >
+                {cellTurnos.length === 0 ? (
+                  <div className="text-[10px] text-slate-600 font-medium italic pl-1 flex items-center gap-1">
+                    <Plus className="w-3 h-3 text-slate-600" />
+                    <span>Disponible</span>
+                  </div>
+                ) : (
+                  cellTurnos.map((t) => (
+                    <div 
+                      key={t.id}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all duration-200 select-none ${
+                        t.estado === 'PENDIENTE' 
+                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15'
+                          : t.estado === 'EN_PROCESO'
+                          ? 'bg-[#00d2ff]/10 border-[#00d2ff]/30 text-cyan-200 hover:bg-[#00d2ff]/15'
+                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/15'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start gap-1">
+                        <span className="font-bold text-xs font-display leading-tight">
+                          {t.clienteNombre}
+                        </span>
+                        <span className="text-[7.5px] shrink-0 bg-black/40 px-1.5 py-0.5 rounded font-mono uppercase tracking-widest text-slate-400">
+                          {t.tipo}
+                        </span>
+                      </div>
+
+                      <span className="text-[9px] text-slate-400 font-mono mt-1">
+                        🚗 {t.vehiculoModelo} [{t.vehiculoPatente}]
+                      </span>
+
+                      <div className="flex justify-between items-center text-[9px] font-mono mt-2 pt-2 border-t border-white/[0.04]">
+                        <span className="text-slate-500">Operario: {t.lavadorAsignado}</span>
+                        
+                        <div className="flex gap-1">
+                          {t.estado === 'PENDIENTE' && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateTurnoEstado(t.id, 'EN_PROCESO')}
+                              className="px-2 py-0.5 bg-cyan-900/30 border border-cyan-500/30 rounded text-cyan-400 hover:bg-cyan-500/20 flex items-center gap-1 text-[8px] uppercase tracking-wider font-bold"
+                            >
+                              <Play className="w-2.5 h-2.5" />
+                              <span>Iniciar</span>
+                            </button>
+                          )}
+                          {t.estado === 'EN_PROCESO' && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateTurnoEstado(t.id, 'COMPLETADO')}
+                              className="px-2 py-0.5 bg-emerald-950/30 border border-emerald-500/30 rounded text-emerald-400 hover:bg-emerald-500/20 flex items-center gap-1 text-[8px] uppercase tracking-wider font-bold"
+                            >
+                              <Check className="w-2.5 h-2.5" />
+                              <span>Listo</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
     </div>

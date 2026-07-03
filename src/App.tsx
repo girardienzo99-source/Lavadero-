@@ -266,11 +266,11 @@ export default function App() {
     if (dbOnline && rawDbData) {
       const clienteObj = rawDbData.clientes?.find((c: any) => c.nombre === newT.clienteNombre);
       const vehiculoObj = rawDbData.vehiculos?.find((v: any) => v.patente === newT.vehiculoPatente);
-      const servicioObj = rawDbData.servicios?.find((s: any) => s.nombre === newT.servicioNombre);
+      const servicioObj = rawDbData.servicios?.find((s: any) => s.nombre === newT.servicioNombre || newT.servicioNombre.includes(s.nombre));
       const empleadoObj = rawDbData.empleados?.find((e: any) => e.nombre === newT.lavadorAsignado);
 
-      if (clienteObj && vehiculoObj && servicioObj) {
-        let url = `/api/turnos/agendar?clienteId=${clienteObj.id}&vehiculoId=${vehiculoObj.id}&servicioId=${servicioObj.id}&fechaHora=${newT.fechaCreacion.replace('T', ' ').slice(0, 19)}`;
+      const insertTurno = (cId: number | string, vId: number | string, sId: number | string) => {
+        let url = `/api/turnos/agendar?clienteId=${cId}&vehiculoId=${vId}&servicioId=${sId}&fechaHora=${newT.fechaCreacion.replace('T', ' ').slice(0, 19)}`;
         if (empleadoObj) {
           url += `&empleadoId=${empleadoObj.id}`;
         }
@@ -286,6 +286,48 @@ export default function App() {
             }
           })
           .catch(() => showToast('Error de red al agendar turno.', 'warning'));
+      };
+
+      if (clienteObj && vehiculoObj && servicioObj) {
+        insertTurno(clienteObj.id, vehiculoObj.id, servicioObj.id);
+        return;
+      }
+
+      if (servicioObj) {
+        // Step 1: Create client if missing
+        const getOrCreateClient = (): Promise<number | string> => {
+          if (clienteObj) return Promise.resolve(clienteObj.id);
+          const cliUrl = `/api/clientes/nuevo?nombre=${encodeURIComponent(newT.clienteNombre)}&telefono=${encodeURIComponent(newT.telefono || '+549261000000')}`;
+          return fetch(cliUrl, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if (data.status === 'success') return data.id;
+              throw new Error('Failed to create client');
+            });
+        };
+
+        // Step 2: Create vehicle if missing
+        const getOrCreateVehicle = (cId: number | string): Promise<number | string> => {
+          if (vehiculoObj) return Promise.resolve(vehiculoObj.id);
+          const vehUrl = `/api/vehiculos/nuevo?clienteId=${cId}&patente=${encodeURIComponent(newT.vehiculoPatente.toUpperCase())}&marca=Auto&modelo=${encodeURIComponent(newT.vehiculoModelo || 'Vehículo Cliente Online')}`;
+          return fetch(vehUrl, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if (data.status === 'success') return data.id;
+              throw new Error('Failed to create vehicle');
+            });
+        };
+
+        getOrCreateClient()
+          .then(cId => {
+            return getOrCreateVehicle(cId).then(vId => {
+              insertTurno(cId, vId, servicioObj.id);
+            });
+          })
+          .catch(err => {
+            console.error(err);
+            showToast('Error al registrar cliente/vehículo para el turno.', 'warning');
+          });
         return;
       }
     }
