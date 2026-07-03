@@ -1445,6 +1445,20 @@ export default function App() {
               onAddLog={addConsoleLog}
               onUpdateTurno={(updated) => {
                 setTurnos(prev => prev.map(t => t.id === updated.id ? updated : t));
+                if (dbOnline && !updated.id.startsWith('t_')) {
+                  const url = `/api/turnos/${updated.id}/reprogramar?lavador=${encodeURIComponent(updated.lavadorAsignado)}&fechaHora=${updated.fechaCreacion}`;
+                  fetch(url, { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                      if (data.status === 'success') {
+                        addConsoleLog(`🔄 [REST] Turno #${updated.id} reprogramado en Supabase.`);
+                        loadDashboardData();
+                      } else {
+                        showToast('Error al reprogramar turno.', 'warning');
+                      }
+                    })
+                    .catch(() => showToast('Error de red al reprogramar.', 'warning'));
+                }
               }}
             />
           </div>

@@ -948,6 +948,27 @@ def update_appointment_status(id: int, estado: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al actualizar estado del turno: {e}")
 
+@app.post("/api/turnos/{id}/reprogramar")
+def reprogramar_turno(id: int, lavador: str, fechaHora: str):
+    try:
+        # fechaHora viene como YYYY-MM-DDTHH:MM
+        fecha_parsed = datetime.strptime(fechaHora.replace("T", " "), "%Y-%m-%d %H:%M:%S" if len(fechaHora) > 16 else "%Y-%m-%d %H:%M")
+        
+        # Buscar empleado por nombre
+        emp_res = execute_query("SELECT id FROM empleados WHERE nombre = :n LIMIT 1;", {"n": lavador}, fetch_one=True)
+        empleado_id = None
+        if emp_res:
+            empleado_id = emp_res["id"]
+            
+        # Actualizar turno
+        execute_query(
+            "UPDATE turnos SET empleado_id = :e, fecha_hora = :f WHERE id = :id;",
+            {"e": empleado_id, "f": fecha_parsed, "id": id}
+        )
+        return {"status": "success", "message": "Turno reprogramado correctamente."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al reprogramar turno: {e}")
+
 # ==========================================
 # 💵 ENDPOINTS: CAJA DIARIA
 # ==========================================

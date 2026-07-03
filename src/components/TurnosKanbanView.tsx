@@ -908,6 +908,9 @@ export default function TurnosKanbanView({
           turnos={turnos}
           clientes={clientes}
           onUpdateTurnoEstado={onUpdateTurnoEstado}
+          onDeleteTurno={onDeleteTurno}
+          onUpdateTurno={onUpdateTurno}
+          onSendWhatsApp={handleSendWhatsApp}
           onSelectSlot={(dateKey, hourStr) => {
             setTurnoFechaInput(dateKey);
             setTurnoHoraInput(hourStr);

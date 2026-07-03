@@ -1,25 +1,41 @@
 import React, { useState } from 'react';
 import { 
   Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, 
-  Plus, Check, Play, User, Car, AlertTriangle 
+  Plus, Check, Play, User, Car, AlertTriangle, X, Trash2, MessageSquare, Save, ArrowRight, UserCheck, DollarSign
 } from 'lucide-react';
 import { Turno, Cliente, TipoServicio } from '../types';
+import { LAVADORES_ACTIVOS } from '../data/initialData';
 
 interface WeeklyCalendarProps {
   turnos: Turno[];
   clientes: Cliente[];
   onSelectSlot: (date: string, hour: string) => void;
-  onUpdateTurnoEstado: (id: string, nuevoEstado: 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO') => void;
+  onUpdateTurnoEstado: (id: string, nuevoEstado: any, nps?: number, comentarios?: string) => void;
+  onDeleteTurno: (id: string) => void;
+  onUpdateTurno?: (updatedTurno: Turno) => void;
+  onSendWhatsApp?: (turno: Turno) => void;
 }
 
 export default function WeeklyCalendar({
   turnos,
   clientes,
   onSelectSlot,
-  onUpdateTurnoEstado
+  onUpdateTurnoEstado,
+  onDeleteTurno,
+  onUpdateTurno,
+  onSendWhatsApp
 }: WeeklyCalendarProps) {
   // Week navigation offset (0 = current week, 1 = next week, -1 = previous week)
   const [weekOffset, setWeekOffset] = useState(0);
+  
+  // Selected turno for detail popup modal
+  const [selectedTurno, setSelectedTurno] = useState<Turno | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Edit states for rescheduling
+  const [editWasher, setEditWasher] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editHour, setEditHour] = useState('');
   
   // Hours to show in agenda (08:00 to 20:00)
   const hours = [
@@ -80,20 +96,61 @@ export default function WeeklyCalendar({
 
   const [selectedDayIndex, setSelectedDayIndex] = useState(getTodayIdx);
 
+  const handleCardClick = (t: Turno) => {
+    setSelectedTurno(t);
+    setConfirmDelete(false);
+    setEditWasher(t.lavadorAsignado);
+    
+    try {
+      const d = new Date(t.fechaCreacion);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      setEditDate(`${year}-${month}-${day}`);
+      
+      const hourVal = String(d.getHours()).padStart(2, '0') + ':00';
+      setEditHour(hourVal);
+    } catch (e) {
+      setEditDate('');
+      setEditHour('');
+    }
+  };
+
+  const handleSaveChanges = () => {
+    if (!selectedTurno || !onUpdateTurno) return;
+    
+    const newDateTime = `${editDate}T${editHour}:00`;
+    
+    const updated: Turno = {
+      ...selectedTurno,
+      lavadorAsignado: editWasher,
+      fechaCreacion: newDateTime
+    };
+    
+    onUpdateTurno(updated);
+    setSelectedTurno(null);
+  };
+
+  const handleStateTransition = (newState: any) => {
+    if (!selectedTurno) return;
+    onUpdateTurnoEstado(selectedTurno.id, newState);
+    setSelectedTurno(prev => prev ? { ...prev, estado: newState } : null);
+  };
+
   return (
-    <div className="glass-panel p-4 md:p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)] animate-fade-in">
+    <div className="glass-panel p-4 md:p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)] animate-fade-in relative z-20">
       
       {/* Calendar Header with Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pb-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
           <CalendarIcon className="w-5 h-5 text-[#00d2ff]" />
-          <h3 className="font-bold text-white text-sm font-display uppercase tracking-wider">
-            Agenda Semanal de Servicios
+          <h3 className="font-extrabold text-white text-xs uppercase tracking-widest font-display">
+            Agenda Semanal
           </h3>
         </div>
 
         {/* Navigation */}
-        <div className="flex items-center gap-2 bg-black/30 border border-white/[0.06] p-1 rounded-lg">
+        <div className="flex items-center gap-2 bg-black/30 border border-white/[0.06] p-1 rounded-lg font-mono">
           <button
             type="button"
             onClick={() => setWeekOffset(prev => prev - 1)}
@@ -102,8 +159,8 @@ export default function WeeklyCalendar({
             <ChevronLeft className="w-4 h-4" />
           </button>
           
-          <span className="text-[10px] font-bold text-slate-300 px-2 uppercase tracking-wide">
-            {weekOffset === 0 ? 'Semana Actual' : weekOffset === 1 ? 'Próxima Semana' : `Hace ${Math.abs(weekOffset)} Semana(s)`}
+          <span className="text-[10px] font-bold text-slate-300 px-2.5 uppercase tracking-wider font-mono">
+            {weekOffset === 0 ? 'Semana Actual' : weekOffset === 1 ? 'Próxima Semana' : `Semana Offset: ${weekOffset}`}
           </span>
 
           <button
@@ -116,18 +173,22 @@ export default function WeeklyCalendar({
         </div>
 
         {/* Legend */}
-        <div className="flex gap-3 text-[9px] uppercase tracking-wider font-bold text-slate-400">
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded bg-amber-400" />
+        <div className="flex gap-3 text-[9px] uppercase tracking-wider font-bold text-slate-400 font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded bg-amber-400/20 border border-amber-400/50" />
             <span>Pendiente</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded bg-[#00d2ff]" />
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded bg-cyan-500/20 border border-cyan-500/50" />
             <span>Proceso</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded bg-emerald-500" />
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded bg-emerald-500/20 border border-emerald-500/50" />
             <span>Listo</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded bg-slate-500/20 border border-slate-500/50" />
+            <span>Entregado</span>
           </div>
         </div>
       </div>
@@ -144,13 +205,13 @@ export default function WeeklyCalendar({
               key={day.toISOString()}
               type="button"
               onClick={() => setSelectedDayIndex(idx)}
-              className={`flex-1 min-w-[55px] py-1.5 px-1 rounded-lg border text-center transition flex flex-col items-center justify-center ${
+              className={`flex-1 min-w-[60px] py-2 px-1 rounded-lg border text-center transition flex flex-col items-center justify-center cursor-pointer ${
                 isSelected
-                  ? 'bg-[#00d2ff]/20 border-[#00d2ff] text-white shadow-[0_0_10px_rgba(0,210,255,0.15)]'
+                  ? 'bg-brand-primary/10 border-brand-primary text-white shadow-[0_0_10px_rgba(220,38,38,0.15)]'
                   : 'bg-black/30 border-white/[0.06] text-slate-400 hover:text-slate-200'
               }`}
             >
-              <span className={`text-[8px] font-black uppercase ${isToday && !isSelected ? 'text-[#00d2ff]' : ''}`}>
+              <span className={`text-[8.5px] font-black uppercase ${isToday && !isSelected ? 'text-brand-primary' : ''}`}>
                 {dayName}
               </span>
               <span className="text-xs font-black mt-0.5">{dateStr}</span>
@@ -161,12 +222,12 @@ export default function WeeklyCalendar({
 
       {/* DESKTOP VIEW: Full 7-column week grid */}
       <div className="hidden md:block overflow-x-auto min-w-0">
-        <div className="min-w-[800px] border border-white/[0.06] rounded-xl overflow-hidden bg-slate-950/40">
+        <div className="min-w-[950px] border border-white/[0.06] rounded-xl overflow-hidden bg-slate-950/40 shadow-inner">
           
           {/* Header Row */}
-          <div className="grid grid-cols-7 border-b border-white/[0.08] bg-white/[0.02]">
-            <div className="py-3 px-3 text-center border-r border-white/[0.06] flex items-center justify-center gap-1.5 text-slate-500 font-bold uppercase text-[9px] tracking-wider">
-              <Clock className="w-3.5 h-3.5" />
+          <div className="grid grid-cols-7 border-b border-white/[0.08] bg-white/[0.02] sticky top-0 backdrop-blur-sm z-10">
+            <div className="py-3 px-3 text-center border-r border-white/[0.06] flex items-center justify-center gap-1.5 text-slate-500 font-bold uppercase text-[9px] tracking-wider font-mono">
+              <Clock className="w-3.5 h-3.5 text-slate-500" />
               <span>Hora</span>
             </div>
 
@@ -185,7 +246,7 @@ export default function WeeklyCalendar({
                   <span className={`text-[10px] font-black uppercase tracking-wider ${isToday ? 'text-brand-primary' : 'text-slate-300'}`}>
                     {dayName}
                   </span>
-                  <span className="text-[9px] font-mono text-slate-500 font-semibold mt-0.5">
+                  <span className="text-[9px] font-mono text-slate-500 font-bold mt-0.5">
                     {dateStr}
                   </span>
                 </div>
@@ -212,10 +273,10 @@ export default function WeeklyCalendar({
                     <div 
                       key={dateKey} 
                       onClick={() => cellTurnos.length === 0 && onSelectSlot(dateKey, hour)}
-                      className={`p-1.5 border-r border-white/[0.06] last:border-r-0 min-h-[70px] relative flex flex-col gap-1 justify-center transition duration-150 group ${
+                      className={`p-1.5 border-r border-white/[0.06] last:border-r-0 min-h-[75px] relative flex flex-col gap-1.5 justify-start overflow-y-auto max-h-[140px] transition duration-150 group scrollbar-thin ${
                         cellTurnos.length === 0 
-                          ? 'hover:bg-[#00d2ff]/[0.02] cursor-pointer' 
-                          : ''
+                          ? 'hover:bg-brand-primary/[0.02] cursor-pointer' 
+                          : 'bg-white/[0.002]'
                       }`}
                     >
                       {/* Plus icon on hover for empty slots */}
@@ -227,58 +288,39 @@ export default function WeeklyCalendar({
                         </div>
                       )}
 
-                      {/* Display scheduled turnos */}
+                      {/* Display scheduled turnos in compact badges */}
                       {cellTurnos.map((t) => (
                         <div 
                           key={t.id}
-                          onClick={(e) => e.stopPropagation()} // prevent triggering slot click
-                          className={`p-2 rounded-lg border text-left flex flex-col justify-between transition-all duration-200 select-none ${
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCardClick(t);
+                          }}
+                          className={`p-1.5 rounded-lg border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] select-none ${
                             t.estado === 'PENDIENTE' 
-                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15'
+                              ? 'bg-amber-500/10 hover:bg-amber-500/15 border-amber-500/30 text-amber-200'
                               : t.estado === 'EN_PROCESO'
-                              ? 'bg-[#00d2ff]/10 border-[#00d2ff]/30 text-cyan-200 hover:bg-[#00d2ff]/15'
-                              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/15'
+                              ? 'bg-[#00d2ff]/10 hover:bg-[#00d2ff]/15 border-[#00d2ff]/30 text-cyan-200 shadow-[0_0_8px_rgba(0,210,255,0.08)]'
+                              : t.estado === 'ENTREGADO'
+                              ? 'bg-slate-500/10 hover:bg-slate-500/15 border-slate-500/30 text-slate-400 line-through'
+                              : 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/30 text-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.08)]'
                           }`}
                         >
-                          <div className="flex justify-between items-start gap-1">
-                            <span className="font-bold text-[9.5px] truncate font-display leading-tight">
+                          <div className="flex justify-between items-center gap-1">
+                            <span className="font-bold text-[9.5px] truncate font-display leading-tight flex items-center gap-1">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                t.estado === 'PENDIENTE' ? 'bg-amber-400' : t.estado === 'EN_PROCESO' ? 'bg-cyan-400' : t.estado === 'ENTREGADO' ? 'bg-slate-500' : 'bg-emerald-400'
+                              }`} />
                               {t.clienteNombre.split(' ')[0]}
                             </span>
-                            <span className="text-[7.5px] shrink-0 bg-black/40 px-1 py-0.2 rounded font-mono uppercase tracking-widest text-slate-400">
+                            <span className="text-[7.5px] shrink-0 bg-black/45 px-1 py-0.2 rounded font-mono uppercase tracking-widest text-slate-400">
                               {t.tipo.slice(0,3)}
                             </span>
                           </div>
 
-                          <span className="text-[7.5px] text-slate-400 font-mono truncate leading-none mt-1">
-                            {t.vehiculoModelo} [{t.vehiculoPatente.slice(0,4)}]
-                          </span>
-
-                          <div className="flex justify-between items-center text-[7.5px] font-mono mt-1.5 pt-1.5 border-t border-white/[0.04]">
-                            <span className="text-slate-500 truncate max-w-[50px]">{t.lavadorAsignado}</span>
-                            
-                            {/* Action Buttons to update state directly from cell */}
-                            <div className="flex gap-1">
-                              {t.estado === 'PENDIENTE' && (
-                                <button
-                                  type="button"
-                                  onClick={() => onUpdateTurnoEstado(t.id, 'EN_PROCESO')}
-                                  className="p-0.5 bg-cyan-900/30 border border-cyan-500/30 rounded text-cyan-400 hover:bg-cyan-500/20"
-                                  title="Iniciar servicio"
-                                >
-                                  <Play className="w-2 h-2" />
-                                </button>
-                              )}
-                              {t.estado === 'EN_PROCESO' && (
-                                <button
-                                  type="button"
-                                  onClick={() => onUpdateTurnoEstado(t.id, 'COMPLETADO')}
-                                  className="p-0.5 bg-emerald-950/30 border border-emerald-500/30 rounded text-emerald-400 hover:bg-emerald-500/20"
-                                  title="Finalizar servicio"
-                                >
-                                  <Check className="w-2 h-2" />
-                                </button>
-                              )}
-                            </div>
+                          <div className="flex justify-between items-end mt-1 text-[7.5px] font-mono text-slate-400 font-semibold">
+                            <span className="truncate max-w-[90px]">{t.vehiculoModelo}</span>
+                            <span className="text-[7px] text-slate-500">[{t.vehiculoPatente.slice(-4).toUpperCase()}]</span>
                           </div>
                         </div>
                       ))}
@@ -312,7 +354,7 @@ export default function WeeklyCalendar({
                 }`}
               >
                 {cellTurnos.length === 0 ? (
-                  <div className="text-[10px] text-slate-600 font-medium italic pl-1 flex items-center gap-1">
+                  <div className="text-[10px] text-slate-600 font-medium italic pl-1 flex items-center gap-1 font-mono">
                     <Plus className="w-3 h-3 text-slate-600" />
                     <span>Disponible</span>
                   </div>
@@ -320,17 +362,25 @@ export default function WeeklyCalendar({
                   cellTurnos.map((t) => (
                     <div 
                       key={t.id}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all duration-200 select-none ${
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCardClick(t);
+                      }}
+                      className={`p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer select-none ${
                         t.estado === 'PENDIENTE' 
-                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15'
+                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
                           : t.estado === 'EN_PROCESO'
-                          ? 'bg-[#00d2ff]/10 border-[#00d2ff]/30 text-cyan-200 hover:bg-[#00d2ff]/15'
-                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/15'
+                          ? 'bg-[#00d2ff]/10 border-[#00d2ff]/30 text-cyan-200'
+                          : t.estado === 'ENTREGADO'
+                          ? 'bg-slate-500/10 border-slate-500/30 text-slate-400 line-through'
+                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
                       }`}
                     >
                       <div className="flex justify-between items-start gap-1">
-                        <span className="font-bold text-xs font-display leading-tight">
+                        <span className="font-bold text-xs font-display leading-tight flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            t.estado === 'PENDIENTE' ? 'bg-amber-400' : t.estado === 'EN_PROCESO' ? 'bg-cyan-400' : t.estado === 'ENTREGADO' ? 'bg-slate-500' : 'bg-emerald-400'
+                          }`} />
                           {t.clienteNombre}
                         </span>
                         <span className="text-[7.5px] shrink-0 bg-black/40 px-1.5 py-0.5 rounded font-mono uppercase tracking-widest text-slate-400">
@@ -342,31 +392,9 @@ export default function WeeklyCalendar({
                         🚗 {t.vehiculoModelo} [{t.vehiculoPatente}]
                       </span>
 
-                      <div className="flex justify-between items-center text-[9px] font-mono mt-2 pt-2 border-t border-white/[0.04]">
-                        <span className="text-slate-500">Operario: {t.lavadorAsignado}</span>
-                        
-                        <div className="flex gap-1">
-                          {t.estado === 'PENDIENTE' && (
-                            <button
-                              type="button"
-                              onClick={() => onUpdateTurnoEstado(t.id, 'EN_PROCESO')}
-                              className="px-2 py-0.5 bg-cyan-900/30 border border-cyan-500/30 rounded text-cyan-400 hover:bg-cyan-500/20 flex items-center gap-1 text-[8px] uppercase tracking-wider font-bold"
-                            >
-                              <Play className="w-2.5 h-2.5" />
-                              <span>Iniciar</span>
-                            </button>
-                          )}
-                          {t.estado === 'EN_PROCESO' && (
-                            <button
-                              type="button"
-                              onClick={() => onUpdateTurnoEstado(t.id, 'COMPLETADO')}
-                              className="px-2 py-0.5 bg-emerald-950/30 border border-emerald-500/30 rounded text-emerald-400 hover:bg-emerald-500/20 flex items-center gap-1 text-[8px] uppercase tracking-wider font-bold"
-                            >
-                              <Check className="w-2.5 h-2.5" />
-                              <span>Listo</span>
-                            </button>
-                          )}
-                        </div>
+                      <div className="flex justify-between items-center text-[9px] font-mono mt-2 pt-2 border-t border-white/[0.04] text-slate-500">
+                        <span>Operario: {t.lavadorAsignado}</span>
+                        <span className="font-extrabold text-emerald-400">${t.precio.toLocaleString('es-AR')}</span>
                       </div>
                     </div>
                   ))
@@ -376,6 +404,216 @@ export default function WeeklyCalendar({
           );
         })}
       </div>
+
+      {/* APPOINTMENT INTERACTIVE DETAIL & RESCHEDULE MODAL */}
+      {selectedTurno && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex justify-center items-center p-4 overflow-y-auto animate-fade-in">
+          <div className="glass-panel p-6 rounded-2xl border border-white/[0.08] w-full max-w-lg space-y-5 relative shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
+            
+            <button 
+              type="button" 
+              onClick={() => setSelectedTurno(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-black/50 hover:bg-black/80 p-1.5 rounded-full border border-white/[0.08] cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header */}
+            <div>
+              <span className="text-[9px] uppercase tracking-widest text-[#00d2ff] font-bold font-mono">Detalle del Turno</span>
+              <h3 className="text-base font-extrabold text-white uppercase tracking-wider font-display mt-0.5">
+                {selectedTurno.clienteNombre}
+              </h3>
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {selectedTurno.id}</p>
+            </div>
+
+            {/* Client & Car Card */}
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3.5 grid grid-cols-2 gap-4 text-xs">
+              <div className="space-y-2">
+                <div>
+                  <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Vehículo</span>
+                  <span className="font-bold text-white flex items-center gap-1.5 mt-0.5">
+                    <Car className="w-3.5 h-3.5 text-brand-primary" />
+                    {selectedTurno.vehiculoModelo}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Patente / Placa</span>
+                  <span className="font-mono text-[#00d2ff] uppercase font-bold tracking-widest block mt-0.5">
+                    {selectedTurno.vehiculoPatente}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Servicio Solicitado</span>
+                  <span className="font-bold text-slate-200 block mt-0.5">{selectedTurno.servicioNombre}</span>
+                </div>
+                <div>
+                  <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Precio de Lista</span>
+                  <span className="font-mono font-bold text-emerald-400 flex items-center gap-0.5 mt-0.5">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    {selectedTurno.precio.toLocaleString('es-AR')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action State Transition Buttons */}
+            <div className="space-y-1.5">
+              <label className="block text-[9px] text-slate-500 uppercase tracking-widest font-bold">Estado del Vehículo</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(['PENDIENTE', 'EN_PROCESO', 'COMPLETADO', 'ENTREGADO'] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => handleStateTransition(st)}
+                    className={`py-1.5 text-[9px] font-black uppercase rounded-lg border transition cursor-pointer ${
+                      selectedTurno.estado === st
+                        ? st === 'PENDIENTE'
+                          ? 'bg-amber-500/20 border-amber-500 text-amber-200'
+                          : st === 'EN_PROCESO'
+                          ? 'bg-cyan-500/20 border-cyan-500 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
+                          : st === 'ENTREGADO'
+                          ? 'bg-slate-500/20 border-slate-500 text-slate-400'
+                          : 'bg-emerald-500/20 border-emerald-500 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+                        : 'bg-black/35 border-white/[0.06] text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {st === 'PENDIENTE' ? 'Pendiente' : st === 'EN_PROCESO' ? 'Proceso' : st === 'COMPLETADO' ? 'Listo' : 'Entregado'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-white/[0.06] pt-4 grid grid-cols-2 gap-4">
+              {/* Reschedule fields */}
+              <div className="space-y-3.5">
+                <h4 className="text-[10px] font-black text-[#00d2ff] uppercase tracking-wider flex items-center gap-1 border-b border-white/[0.04] pb-1">
+                  <UserCheck className="w-3.5 h-3.5" />
+                  Operador & Fecha
+                </h4>
+
+                <div className="space-y-1">
+                  <label className="block text-[8px] text-slate-400 uppercase tracking-widest font-bold">Asignar Operario</label>
+                  <select
+                    value={editWasher}
+                    onChange={(e) => setEditWasher(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/[0.1] focus:outline-none rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  >
+                    {LAVADORES_ACTIVOS.map((lav) => (
+                      <option key={lav} value={lav} className="bg-slate-950 text-white">{lav}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[8px] text-slate-400 uppercase tracking-widest font-bold">Día de Reserva</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/[0.1] focus:outline-none rounded-lg px-2.5 py-1 text-xs text-white font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[8px] text-slate-400 uppercase tracking-widest font-bold">Hora de Reserva</label>
+                  <select
+                    value={editHour}
+                    onChange={(e) => setEditHour(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/[0.1] focus:outline-none rounded-lg px-2.5 py-1 text-xs text-white font-mono"
+                  >
+                    {hours.map(h => (
+                      <option key={h} value={h} className="bg-slate-950 text-white">{h} hs</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* CRM / Notification actions */}
+              <div className="space-y-3.5 flex flex-col justify-between">
+                <div>
+                  <h4 className="text-[10px] font-black text-[#00d2ff] uppercase tracking-wider flex items-center gap-1 border-b border-white/[0.04] pb-1">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Notificaciones
+                  </h4>
+                  
+                  <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                    Envía avisos de turno directamente al WhatsApp del cliente registrado en el sistema.
+                  </p>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  {onSendWhatsApp && (
+                    <button
+                      type="button"
+                      onClick={() => onSendWhatsApp(selectedTurno)}
+                      className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 active:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 font-extrabold py-2 rounded-lg text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      Avisar por WhatsApp
+                    </button>
+                  )}
+
+                  {confirmDelete ? (
+                    <div className="flex gap-1.5 animate-pulse">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDeleteTurno(selectedTurno.id);
+                          setSelectedTurno(null);
+                        }}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider cursor-pointer"
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(false)}
+                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(true)}
+                      className="w-full bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 border border-red-500/30 text-red-400 font-extrabold py-2 rounded-lg text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Eliminar Turno
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer buttons */}
+            <div className="border-t border-white/[0.06] pt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedTurno(null)}
+                className="px-4 py-2 bg-slate-850 hover:bg-slate-800 border border-white/[0.08] text-slate-300 font-bold rounded-lg text-[10px] uppercase tracking-wider cursor-pointer"
+              >
+                Cerrar
+              </button>
+              {onUpdateTurno && (
+                <button
+                  type="button"
+                  onClick={handleSaveChanges}
+                  className="px-4 py-2 bg-brand-primary hover:bg-brand-hover text-white font-black rounded-lg text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-[0_2px_10px_rgba(220,38,38,0.25)]"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Guardar Cambios
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
