@@ -25,17 +25,9 @@ app.add_middleware(
 # Configuración de base de datos
 DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.tqbikenqygnyzrxnabia:Lavadero2026/@aws-0-us-east-2.pooler.supabase.com:6543/postgres").strip()
 
-# Check database connection mode once on startup
+# Forzar el modo REST API de manera permanente para evitar fallos del pooler directo de Supabase
 DB_ONLINE = False
-try:
-    # Try connecting with a tight timeout
-    temp_engine = create_engine(DB_URL, connect_args={"connect_timeout": 1})
-    with temp_engine.connect() as temp_conn:
-        temp_conn.execute(text("SELECT 1;"))
-        DB_ONLINE = True
-        print("[DATABASE] Connection check: ONLINE. Using PostgreSQL direct mode.")
-except Exception as e:
-    print(f"[DATABASE] Connection check: OFFLINE ({e}). Using REST API mode.")
+print("[DATABASE] Direct connection check bypassed. Running in 100% REST API mode for maximum reliability.")
 
 def execute_query_rest(query: str, params: dict = None, fetch_all: bool = False, fetch_one: bool = False):
     import requests
@@ -55,8 +47,27 @@ def execute_query_rest(query: str, params: dict = None, fetch_all: bool = False,
     q = query.strip().lower()
     params = params or {}
     
+    # 1a. Obtener un turno específico por ID con relaciones
+    if "select" in q and "turnos" in q and "t.id =" in q:
+        t_id = params.get("id")
+        url = f"{REST_URL}/turnos?id=eq.{t_id}&select=id,fecha_hora,estado,clientes(nombre),vehiculos(patente),servicios(nombre,precio),empleados(nombre)"
+        res = requests.get(url, headers=headers).json()
+        if res:
+            r = res[0]
+            return {
+                "id": r["id"],
+                "fecha_hora": r["fecha_hora"].replace("T", " ") if r.get("fecha_hora") else None,
+                "estado": r["estado"],
+                "cliente_nombre": r["clientes"]["nombre"] if r.get("clientes") else None,
+                "patente": r["vehiculos"]["patente"] if r.get("vehiculos") else None,
+                "servicio_nombre": r["servicios"]["nombre"] if r.get("servicios") else None,
+                "precio": float(r["servicios"]["precio"]) if r.get("servicios") and r["servicios"].get("precio") is not None else 0.0,
+                "empleado_nombre": r["empleados"]["nombre"] if r.get("empleados") else None
+            }
+            return None
+
     # 1. Turnos con relaciones (Dashboard)
-    if "select" in q and "turnos" in q and "join" in q:
+    elif "select" in q and "turnos" in q and "join" in q:
         url = f"{REST_URL}/turnos?select=id,fecha_hora,estado,clientes(nombre),vehiculos(patente),servicios(nombre,precio),empleados(nombre)&order=fecha_hora.desc"
         res = requests.get(url, headers=headers)
         if res.status_code != 200:
@@ -113,7 +124,7 @@ def execute_query_rest(query: str, params: dict = None, fetch_all: bool = False,
         return res.json() if res.status_code == 200 else []
 
     # 5. Productos (List/Order)
-    elif "select" in q and "productos" in q and "order by nombre" in q:
+    elif "select" in q and "productos" in q:
         url = f"{REST_URL}/productos?order=nombre"
         res = requests.get(url, headers=headers)
         return res.json() if res.status_code == 200 else []
@@ -181,9 +192,17 @@ def execute_query_rest(query: str, params: dict = None, fetch_all: bool = False,
 
     # 12. Nuevo Movimiento Caja (Insert)
     elif "insert" in q and "caja_movimientos" in q:
+        t_val = params.get("t")
+        if not t_val:
+            if "'ingreso'" in q or '"ingreso"' in q:
+                t_val = "INGRESO"
+            elif "'egreso'" in q or '"egreso"' in q:
+                t_val = "EGRESO"
+            else:
+                t_val = "INGRESO"
         payload = {
             "caja_id": int(params.get("c")),
-            "tipo": params.get("t"),
+            "tipo": t_val,
             "monto": float(params.get("m")),
             "descripcion": params.get("d")
         }
@@ -271,13 +290,14 @@ def execute_query_rest(query: str, params: dict = None, fetch_all: bool = False,
     elif "update" in q and "productos" in q and "stock =" in q:
         p_id = params.get("id")
         if "+ :qty" in q or "+ :quantity" in q or "stock +" in q:
-            qty = int(params.get("qty"))
+            qty = float(params.get("qty"))
             res = requests.get(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers).json()
             if res:
-                curr_stock = int(res[0]["stock"])
-                requests.patch(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers, json={"stock": curr_stock + qty})
+                curr_stock = float(res[0]["stock"])
+                requests.patch(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers, json={"stock": int(round(curr_stock + qty))})
         else:
-            requests.patch(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers, json={"stock": int(params.get("st"))})
+            st_val = params.get("st") if params.get("st") is not None else params.get("new_stock")
+            requests.patch(f"{REST_URL}/productos?id=eq.{p_id}", headers=headers, json={"stock": int(round(float(st_val)))})
         return None
 
     # 21. Select Producto por ID
@@ -465,6 +485,8 @@ def get_dashboard_data():
 @app.get("/segmentacion")
 def get_customer_segmentation():
     try:
+        if not DB_ONLINE:
+            raise Exception("Direct connection disabled by policy. Using REST API fallback.")
         engine = create_engine(DB_URL)
         query = """
             SELECT 
@@ -562,6 +584,8 @@ def get_customer_segmentation():
 @app.get("/nps")
 def get_nps_metrics():
     try:
+        if not DB_ONLINE:
+            raise Exception("Direct connection disabled by policy. Using REST API fallback.")
         engine = create_engine(DB_URL)
         df = pd.read_sql_query(text("SELECT puntuacion FROM feedback_clientes;"), conn := engine.connect())
         conn.close()
@@ -711,27 +735,27 @@ def update_appointment_status(id: int, estado: str):
                         if 'shampoo' in p_name:
                             qty_deduction = 1.0
                         elif 'silicona' in p_name:
-                            qty_deduction = 0.5
+                            qty_deduction = 1.0
                         elif 'cera' in p_name and ('encerado' in servicio_lower or 'carnauba' in servicio_lower or 'premium' in servicio_lower):
-                            qty_deduction = 0.2
+                            qty_deduction = 1.0
                     elif cat == 'TAPICERIA':
                         if 'apc' in p_name or 'limpiador' in p_name:
                             qty_deduction = 1.0
                         elif 'microfibra' in p_name or 'paño' in p_name:
-                            qty_deduction = 0.5
+                            qty_deduction = 1.0
                     elif cat == 'ESTETICA':
                         if 'sellador' in p_name or 'sio2' in p_name:
                             if 'cerámico' in servicio_lower or 'sio2' in servicio_lower:
-                                qty_deduction = 0.2
+                                qty_deduction = 1.0
                         elif 'pulidor' in p_name or 'compuesto' in p_name:
                             if 'pulido' in servicio_lower or 'corrección' in servicio_lower or 'tratamiento' in servicio_lower:
-                                qty_deduction = 0.2
+                                qty_deduction = 1.0
                         elif 'microfibra' in p_name or 'paño' in p_name:
                             if 'pulido' in servicio_lower or 'corrección' in servicio_lower or 'tratamiento' in servicio_lower:
                                 qty_deduction = 1.0
                     
                     if qty_deduction > 0.0:
-                        new_stock = max(0.0, round(stock - qty_deduction, 2))
+                        new_stock = max(0, int(round(stock - qty_deduction)))
                         execute_query(
                             "UPDATE productos SET stock = :new_stock WHERE id = :id;",
                             {"new_stock": new_stock, "id": p_id}
