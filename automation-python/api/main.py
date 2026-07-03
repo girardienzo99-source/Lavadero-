@@ -22,29 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/api/db-debug-credentials")
-def db_debug_credentials():
-    import os
-    db_url = os.getenv("DATABASE_URL", "NOT_SET")
-    # Return masked password but show rest of URL
-    parts = db_url.split("@")
-    if len(parts) > 1:
-        prefix = parts[0].split(":")
-        if len(prefix) > 2:
-            masked_prefix = f"{prefix[0]}:{prefix[1]}:{prefix[2][:3]}...{prefix[2][-2:] if len(prefix[2]) > 5 else ''}"
-            masked_url = f"{masked_prefix}@{parts[1]}"
-        else:
-            masked_url = f"MASKED_AUTH@{parts[1]}"
-    else:
-        masked_url = db_url
-    return {
-        "database_url_raw": db_url,
-        "database_url_masked": masked_url,
-        "database_url_env_exists": "DATABASE_URL" in os.environ,
-        "supabase_db_password": os.getenv("SUPABASE_DB_PASSWORD", "NOT_SET")
-    }
-
-
 # Configuración de base de datos
 DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.tqbikenqygnyzrxnabia:Lavadero2026/@aws-0-us-east-2.pooler.supabase.com:6543/postgres").strip()
 
