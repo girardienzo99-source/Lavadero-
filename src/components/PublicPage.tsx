@@ -255,16 +255,24 @@ export default function PublicPage({
     }
   ]);
 
+  const ADDONS_DISPONIBLES = [
+    { id: 'addon_motor', nombre: 'Limpieza de Motor Detallada', precio: 15000, desc: 'Lavado manual desengrasante seguro' },
+    { id: 'addon_llantas', nombre: 'Acondicionado de Llantas', precio: 5000, desc: 'Sellado hidrofóbico y brillo de cubiertas' },
+    { id: 'addon_opticas', nombre: 'Restauración de Ópticas', precio: 12000, desc: 'Lijado multi-paso y sellado UV' },
+    { id: 'addon_cera', nombre: 'Encerado de Carnauba Extra', precio: 8000, desc: 'Profundidad de brillo de exhibición' }
+  ];
+
   // Client booking Form state
   const [bookingName, setBookingName] = useState('');
   const [bookingPhone, setBookingPhone] = useState('');
   const [bookingPatente, setBookingPatente] = useState('');
   const [bookingModelo, setBookingModelo] = useState('');
   const [selectedPromoId, setSelectedPromoId] = useState(promociones[0]?.id || '');
-  const [bookingFecha, setBookingFecha] = useState('2026-07-03');
-  const [bookingHora, setBookingHora] = useState('09:00');
+  const [bookingFecha, setBookingFecha] = useState(() => new Date().toISOString().split('T')[0]);
+  const [bookingHora, setBookingHora] = useState('09:30');
   const [bookingCompleted, setBookingCompleted] = useState(false);
   const [lastBookedTurnoId, setLastBookedTurnoId] = useState('');
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
 
   // Admin New Promo state
   const [newPromoTitulo, setNewPromoTitulo] = useState('');
@@ -284,6 +292,17 @@ export default function PublicPage({
     const chosenPromo = promociones.find((p) => p.id === selectedPromoId);
     if (!chosenPromo) return;
 
+    const addonsPrice = selectedAddons.reduce((sum, id) => {
+      const addon = ADDONS_DISPONIBLES.find(a => a.id === id);
+      return sum + (addon ? addon.precio : 0);
+    }, 0);
+    const totalRaw = chosenPromo.precioOferta + addonsPrice;
+    const comboDiscount = selectedAddons.length >= 2 ? Math.round(totalRaw * 0.1) : 0;
+    const finalPrice = totalRaw - comboDiscount;
+
+    const addonsNames = selectedAddons.map(id => ADDONS_DISPONIBLES.find(a => a.id === id)?.nombre).filter(Boolean);
+    const addonsLabel = addonsNames.length > 0 ? ` + Aditivos: [${addonsNames.join(', ')}]` : '';
+
     const newTurnoId = `t_pub_${Date.now()}`;
     const newTurno: Turno = {
       id: newTurnoId,
@@ -293,19 +312,19 @@ export default function PublicPage({
       vehiculoPatente: bookingPatente.toUpperCase(),
       vehiculoModelo: bookingModelo || 'Vehículo Cliente Online',
       tipo: chosenPromo.servicio,
-      servicioNombre: `PROMO: ${chosenPromo.titulo}`,
+      servicioNombre: `PROMO: ${chosenPromo.titulo}${addonsLabel}`,
       lavadorAsignado: 'Sin Asignar (Online)',
       estado: 'PENDIENTE',
-      precio: chosenPromo.precioOferta,
+      precio: finalPrice,
       fechaCreacion: new Date().toISOString(),
-      comentarios: `Reserva Online de Tienda Digital para el día ${bookingFecha} a las ${bookingHora}. Pago pendiente.`
+      comentarios: `Reserva Online de Tienda Digital para el día ${bookingFecha} a las ${bookingHora}. Adicionales: ${addonsNames.join(', ') || 'Ninguno'}. Descuento Combo aplicado: $${comboDiscount}. Pago pendiente.`
     };
 
     onAddTurno(newTurno);
     setLastBookedTurnoId(newTurnoId);
     setBookingCompleted(true);
     
-    onAddLog(`📲 [TIENDA DIGITAL] Nueva reserva recibida online: ${bookingName} (${bookingPatente.toUpperCase()}) solicitó "${chosenPromo.titulo}" para el ${bookingFecha} a las ${bookingHora}.`);
+    onAddLog(`📲 [TIENDA DIGITAL] Nueva reserva recibida online: ${bookingName} (${bookingPatente.toUpperCase()}) solicitó "${chosenPromo.titulo}" con adicionales [${addonsNames.join(', ') || 'ninguno'}] para el ${bookingFecha} a las ${bookingHora}.`);
   };
 
   // Add custom promotion (Admin panel)
@@ -817,9 +836,9 @@ export default function PublicPage({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-1">
-                      <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-bold">Seleccionar Promo</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">1. Seleccionar Promo Base</label>
                       <select
                         value={selectedPromoId}
                         onChange={(e) => setSelectedPromoId(e.target.value)}
@@ -835,19 +854,8 @@ export default function PublicPage({
                       </select>
                     </div>
 
-                    <div className="sm:col-span-1">
-                      <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-bold">Fecha del Turno</label>
-                      <input
-                        type="date"
-                        required
-                        value={bookingFecha}
-                        onChange={(e) => setBookingFecha(e.target.value)}
-                        className="w-full bg-[#030406] border border-white/[0.08] focus:border-red-500/50 focus:outline-none rounded-lg px-3 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-1">
-                      <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-bold">Hora Preferida</label>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">2. Hora Preferida</label>
                       <select
                         value={bookingHora}
                         onChange={(e) => setBookingHora(e.target.value)}
@@ -863,15 +871,127 @@ export default function PublicPage({
                     </div>
                   </div>
 
+                  {/* Interactive Booking Calendar Strip */}
+                  <div className="space-y-1.5 col-span-full">
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">3. Seleccionar Fecha del Turno</label>
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                      {Array.from({ length: 7 }).map((_, i) => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + i);
+                        const isoStr = d.toISOString().split('T')[0];
+                        const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                        const isSunday = d.getDay() === 0;
+                        const isSelected = bookingFecha === isoStr;
+                        return (
+                          <div
+                            key={isoStr}
+                            onClick={() => {
+                              if (!isSunday) setBookingFecha(isoStr);
+                            }}
+                            className={`p-3.5 rounded-xl border text-center cursor-pointer transition flex flex-col justify-between items-center w-20 shrink-0 select-none ${
+                              isSunday ? 'border-white/[0.02] bg-white/[0.01] opacity-40 cursor-not-allowed' :
+                              isSelected
+                                ? 'bg-red-500/10 border-red-500/35 shadow-[0_0_12px_rgba(220,38,38,0.12)]'
+                                : 'bg-black/40 border-white/[0.08] hover:border-white/20'
+                            }`}
+                          >
+                            <span className="text-[8px] font-black uppercase text-slate-500">{dayNames[d.getDay()]}</span>
+                            <span className="text-lg font-black text-white my-0.5">{d.getDate()}</span>
+                            <span className="text-[7.5px] text-slate-400 font-bold uppercase">{monthNames[d.getMonth()]}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Interactive Service Combo Builder */}
+                  <div className="space-y-2 col-span-full">
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">
+                      4. Agregar Aditivos / Combo Builder (10% OFF al elegir 2 o más)
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {ADDONS_DISPONIBLES.map((addon) => {
+                        const isChecked = selectedAddons.includes(addon.id);
+                        return (
+                          <div
+                            key={addon.id}
+                            onClick={() => {
+                              if (isChecked) {
+                                setSelectedAddons(selectedAddons.filter(id => id !== addon.id));
+                              } else {
+                                setSelectedAddons([...selectedAddons, addon.id]);
+                              }
+                            }}
+                            className={`p-2.5 rounded-lg border text-left cursor-pointer transition flex justify-between items-center select-none ${
+                              isChecked
+                                ? 'bg-red-500/5 border-red-500/35 text-red-200 shadow-[0_0_10px_rgba(220,38,38,0.05)]'
+                                : 'bg-black/30 border-white/[0.06] text-slate-400 hover:border-white/[0.12]'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="text-[10px] font-extrabold text-white leading-tight">{addon.nombre}</div>
+                              <div className="text-[8px] text-slate-500 truncate mt-0.5">{addon.desc}</div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-[9px] font-bold font-mono text-red-400">+${addon.precio.toLocaleString('es-AR')}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Dynamic Pricing Summary */}
+                  {selectedPromoId && (
+                    <div className="bg-black/50 p-4 rounded-xl border border-white/[0.06] space-y-1.5 text-[10px] font-sans">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Promo Base:</span>
+                        <span className="text-white font-mono font-bold">
+                          ${(promociones.find(p => p.id === selectedPromoId)?.precioOferta || 0).toLocaleString('es-AR')} ARS
+                        </span>
+                      </div>
+                      {selectedAddons.length > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Adicionales Seleccionados:</span>
+                          <span className="text-red-400 font-mono font-bold">
+                            +${selectedAddons.reduce((sum, id) => sum + (ADDONS_DISPONIBLES.find(a => a.id === id)?.precio || 0), 0).toLocaleString('es-AR')} ARS
+                          </span>
+                        </div>
+                      )}
+                      {selectedAddons.length >= 2 && (
+                        <div className="flex justify-between text-emerald-400 font-bold uppercase tracking-wider">
+                          <span>Descuento Combo (10% OFF):</span>
+                          <span>
+                            -${Math.round(
+                              ((promociones.find(p => p.id === selectedPromoId)?.precioOferta || 0) + 
+                              selectedAddons.reduce((sum, id) => sum + (ADDONS_DISPONIBLES.find(a => a.id === id)?.precio || 0), 0)) * 0.1
+                            ).toLocaleString('es-AR')} ARS
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-white/[0.08] pt-2 text-xs font-black text-white">
+                        <span className="uppercase tracking-wider">Total Final Congelado:</span>
+                        <span className="text-red-500 font-mono">
+                          ${Math.round(
+                            ((promociones.find(p => p.id === selectedPromoId)?.precioOferta || 0) + 
+                            selectedAddons.reduce((sum, id) => sum + (ADDONS_DISPONIBLES.find(a => a.id === id)?.precio || 0), 0)) * 
+                            (selectedAddons.length >= 2 ? 0.9 : 1.0)
+                          ).toLocaleString('es-AR')} ARS
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
-                    <div className="text-[10px] text-slate-500">
-                      *Al enviar el formulario, recibirás una confirmación manual de nuestros operadores.
+                    <div className="text-[10px] text-slate-500 max-w-[200px]">
+                      *Al enviar, recibirás una confirmación manual por WhatsApp.
                     </div>
                     <button
                       type="submit"
-                      className="bg-red-600 hover:bg-red-700 text-white font-extrabold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-[0_0_15px_rgba(220,38,38,0.25)]"
+                      className="bg-red-600 hover:bg-red-700 text-white font-extrabold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-[0_0_15px_rgba(220,38,38,0.25)] cursor-pointer"
                     >
-                      Confirmar Reserva de Oferta
+                      Reservar Promo
                     </button>
                   </div>
                 </form>
