@@ -453,7 +453,9 @@ export default function CajaDiariaLedger({
                   <p className="text-xs text-slate-400 text-center mt-2 max-w-xs leading-relaxed">
                     Para comenzar a registrar turnos, ventas de POS o egresos de stock, debes inicializar la caja con un fondo de cambio.
                   </p>
-                      <div className="flex gap-3 max-w-md mx-auto">
+                </div>
+
+                <div className="flex gap-3 max-w-md mx-auto">
                   <div className="relative flex-1">
                     <input
                       id="input-caja-opening"
