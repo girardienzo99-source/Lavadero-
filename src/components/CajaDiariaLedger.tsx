@@ -62,6 +62,34 @@ export default function CajaDiariaLedger({
   const saldoActual = totalIngresos - totalEgresos;
   const currentPosInsumo = insumos.find((i) => i.id === posSelectedInsumo);
 
+  const getEgresosByCategory = () => {
+    const categories = {
+      Quimicos: 0,
+      Insumos: 0,
+      Servicios: 0,
+      Sueldos: 0,
+      Otros: 0
+    };
+    transacciones
+      .filter(t => t.tipo === 'EGRESO')
+      .forEach(t => {
+        const conc = t.concepto.toLowerCase();
+        if (conc.includes('quim') || conc.includes('quím')) {
+          categories.Quimicos += t.monto;
+        } else if (conc.includes('insum') || conc.includes('trapo') || conc.includes('microfibra') || conc.includes('shampoo')) {
+          categories.Insumos += t.monto;
+        } else if (conc.includes('luz') || conc.includes('agua') || conc.includes('alquiler') || conc.includes('servici')) {
+          categories.Servicios += t.monto;
+        } else if (conc.includes('sueldo') || conc.includes('comisi') || conc.includes('comisió') || conc.includes('operar')) {
+          categories.Sueldos += t.monto;
+        } else {
+          categories.Otros += t.monto;
+        }
+      });
+    return categories;
+  };
+  const egresosByCat = getEgresosByCategory();
+
   const handleOpenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const val = Number(openingInput);
@@ -321,11 +349,34 @@ export default function CajaDiariaLedger({
               )}
             </div>
 
-            {/* Quick manual cash transaction entry */}
+            {/* Quick manual cash transaction entry with categories */}
             {cajaAbierta && (
-              <form onSubmit={handleManualTxSubmit} className="bg-white/[0.01] p-3 rounded-lg border border-white/[0.06] space-y-3 pt-3 mt-4">
-                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Agregar Movimiento Manual</span>
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              <div className="bg-white/[0.01] p-3.5 rounded-lg border border-white/[0.06] space-y-3 pt-3 mt-4">
+                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Gestor de Egresos y Caja</span>
+                
+                {/* Category Preset buttons for quick filling */}
+                <div className="flex flex-wrap gap-1.5 pb-1">
+                  {[
+                    { label: '🧪 Químicos', prefix: '[Químicos] Compra de ' },
+                    { label: '🧽 Insumos', prefix: '[Insumos] Limpieza ' },
+                    { label: '⚡ Servicios', prefix: '[Servicios] Pago de ' },
+                    { label: '💼 Sueldos', prefix: '[Sueldos] Comisión de ' }
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setManualConcepto(preset.prefix);
+                        setManualTipo('EGRESO');
+                      }}
+                      className="px-2 py-1 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.05] rounded text-[9px] text-slate-300 font-bold uppercase transition cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <form onSubmit={handleManualTxSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                   <div className="sm:col-span-5">
                     <input
                       id="input-manual-concept"
@@ -334,7 +385,7 @@ export default function CajaDiariaLedger({
                       value={manualConcepto}
                       onChange={(e) => setManualConcepto(e.target.value)}
                       placeholder="Concepto (ej: Compra trapos)"
-                      className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded px-2.5 py-1.5 text-xs text-white"
+                      className="w-full bg-black/30 border border-white/[0.1] focus:border-brand-primary/60 focus:outline-none rounded px-2.5 py-1.5 text-xs text-white"
                     />
                   </div>
                   <div className="sm:col-span-3">
@@ -347,7 +398,7 @@ export default function CajaDiariaLedger({
                         value={manualMonto}
                         onChange={(e) => setManualMonto(e.target.value)}
                         placeholder="Monto"
-                        className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded pl-5 pr-1.5 py-1.5 text-xs text-white font-mono"
+                        className="w-full bg-black/30 border border-white/[0.1] focus:border-brand-primary/60 focus:outline-none rounded pl-5 pr-1.5 py-1.5 text-xs text-white font-mono"
                       />
                       <span className="absolute left-2 inset-y-0 flex items-center text-slate-500 text-xs">$</span>
                     </div>
@@ -357,7 +408,7 @@ export default function CajaDiariaLedger({
                       id="select-manual-type"
                       value={manualTipo}
                       onChange={(e) => setManualTipo(e.target.value as 'INGRESO' | 'EGRESO')}
-                      className="w-full bg-[#0c0f12] border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded px-1 py-1.5 text-xs text-white"
+                      className="w-full bg-[#0c0f12] border border-white/[0.1] focus:border-brand-primary/60 focus:outline-none rounded px-1 py-1.5 text-xs text-white"
                     >
                       <option value="EGRESO" className="bg-[#0c0f12]">Egreso</option>
                       <option value="INGRESO" className="bg-[#0c0f12]">Ingreso</option>
@@ -367,13 +418,42 @@ export default function CajaDiariaLedger({
                     <button
                       id="btn-add-manual-tx"
                       type="submit"
-                      className="w-full bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/20 py-1.5 rounded text-xs font-bold transition"
+                      className="w-full bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary border border-brand-primary/30 py-1.5 rounded text-xs font-bold transition cursor-pointer"
                     >
                       Cargar
                     </button>
                   </div>
-                </div>
-              </form>
+                </form>
+
+                {/* Egresos by Category Gauge bars */}
+                {totalEgresos > 0 && (
+                  <div className="pt-2.5 mt-2.5 border-t border-white/[0.06] space-y-1.5 text-[10px]">
+                    <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-bold">Distribución del Gasto de Caja</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {[
+                        { label: 'Químicos', val: egresosByCat.Quimicos, color: 'bg-red-500' },
+                        { label: 'Insumos', val: egresosByCat.Insumos, color: 'bg-emerald-500' },
+                        { label: 'Servicios', val: egresosByCat.Servicios, color: 'bg-amber-500' },
+                        { label: 'Sueldos', val: egresosByCat.Sueldos, color: 'bg-blue-500' },
+                        { label: 'Otros', val: egresosByCat.Otros, color: 'bg-slate-500' }
+                      ].map((item) => {
+                        const pct = Math.round((item.val / totalEgresos) * 100) || 0;
+                        return (
+                          <div key={item.label} className="space-y-0.5">
+                            <div className="flex justify-between font-mono text-[8px] text-slate-400">
+                              <span className="truncate">{item.label}</span>
+                              <span className="font-bold text-white">${item.val.toLocaleString('es-AR')}</span>
+                            </div>
+                            <div className="w-full bg-white/[0.04] h-1 rounded-full overflow-hidden border border-white/[0.05]">
+                              <div className={`${item.color} h-full rounded-full transition-all duration-300`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
