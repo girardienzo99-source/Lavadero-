@@ -28,8 +28,12 @@ export default function WhatsAppIntegration({
 }: WhatsAppIntegrationProps) {
   // Config state
   const [gatewayMode, setGatewayMode] = useState<'DIRECT_LINK' | 'META_API'>('DIRECT_LINK');
-  const [phoneNumberId, setPhoneNumberId] = useState('109847253841920');
-  const [accessToken, setAccessToken] = useState('EAAGx9388... (Simulado para pruebas)');
+  const [phoneNumberId, setPhoneNumberId] = useState(() => {
+    return localStorage.getItem('albelo_whatsapp_phone_id') || '109847253841920';
+  });
+  const [accessToken, setAccessToken] = useState(() => {
+    return localStorage.getItem('albelo_whatsapp_access_token') || 'EAAGx9388... (Simulado para pruebas)';
+  });
   const [templateName, setTemplateName] = useState('vehiculo_listo_v1');
   
   // Custom templates
@@ -47,6 +51,13 @@ export default function WhatsAppIntegration({
     localStorage.setItem('albelo_whatsapp_template_confirm', templateConfirm);
     onAddLog('📲 Plantillas de notificaciones de WhatsApp guardadas con éxito.');
     alert('Plantillas guardadas y aplicadas a los envíos del Kanban.');
+  };
+
+  const handleSaveAPIConfig = () => {
+    localStorage.setItem('albelo_whatsapp_phone_id', phoneNumberId);
+    localStorage.setItem('albelo_whatsapp_access_token', accessToken);
+    onAddLog('⚙️ Configuración de API de Meta guardada.');
+    alert('Configuración de API de Meta guardada con éxito.');
   };
 
   // Active logs state
@@ -93,47 +104,68 @@ export default function WhatsAppIntegration({
       .replace('{{4}}', item.servicioNombre);
   };
 
-  // Simulated API endpoint test
-  const [simPhone, setSimPhone] = useState('+549261000000');
+  // Real WhatsApp manual sending console states
+  const [simPhone, setSimPhone] = useState('+5493584226415');
   const [simName, setSimName] = useState('Mariano López');
   const [simCar, setSimCar] = useState('Ford Focus');
   const [simService, setSimService] = useState('Lavado Premium');
+  const [customMsgText, setCustomMsgText] = useState(
+    '¡Hola Mariano López! Te informamos que tu vehículo Ford Focus ya se encuentra listo para retirar en Albelo Detail. Servicio: Lavado Premium. ¡Te esperamos!'
+  );
   const [simulating, setSimulating] = useState(false);
 
-  const triggerSimulatedAPI = (e: React.FormEvent) => {
+  const handleManualSend = (e: React.FormEvent) => {
     e.preventDefault();
-    setSimulating(true);
-    
-    setTimeout(() => {
-      const simulatedText = templateReady
-        .replace('{{1}}', simName)
-        .replace('{{2}}', simCar)
-        .replace('{{3}}', 'AB111CD')
-        .replace('{{4}}', simService);
+    if (!simPhone.trim() || !customMsgText.trim()) return;
 
-      const newL: WhatsAppLog = {
-        id: `w_sim_${Date.now()}`,
+    setSimulating(true);
+    const cleanPhone = simPhone.replace('+', '').replace(/\s/g, '');
+    const encoded = encodeURIComponent(customMsgText);
+
+    setTimeout(() => {
+      if (gatewayMode === 'META_API' && !accessToken.includes('Simulado')) {
+        onAddLog(`📡 Despachando llamada POST API Meta Cloud para: ${simPhone}`);
+        fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: cleanPhone,
+            type: 'text',
+            text: { body: customMsgText }
+          })
+        }).then(res => {
+          if (res.ok) {
+            onAddLog(`✅ Mensaje enviado con éxito vía API Meta Cloud a ${simPhone}`);
+          } else {
+            onAddLog(`⚠️ Error al enviar mensaje vía API Meta Cloud (Código HTTP: ${res.status})`);
+          }
+        }).catch(err => {
+          onAddLog(`❌ Error de conexión con API Meta Cloud: ${err.message}`);
+        });
+      } else {
+        // Direct Link redirect
+        const link = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
+        window.open(link, '_blank');
+        onAddLog(`📱 Abierto enlace de WhatsApp Direct Link para enviar mensaje a ${simName} (${simPhone})`);
+      }
+
+      const newLog: WhatsAppLog = {
+        id: `w_manual_${Date.now()}`,
         clienteNombre: simName,
         telefono: simPhone,
-        mensaje: simulatedText,
+        mensaje: customMsgText,
         fecha: new Date().toISOString(),
         estado: 'ENVIADO',
-        tipo: 'RETIRO'
+        tipo: 'CONFIRMACION'
       };
 
-      setLogs(prev => [newL, ...prev]);
+      setLogs(prev => [newLog, ...prev]);
       setSimulating(false);
-      onAddLog(`⚡ [Python Microservice] Recibida petición POST en /api/notificar-entrega. Despachado WhatsApp a ${simName} (${simPhone})`);
-      
-      // Simulate delivery update
-      setTimeout(() => {
-        setLogs(prev => prev.map(item => item.id === newL.id ? { ...item, estado: 'ENTREGADO' } : item));
-      }, 3000);
-      setTimeout(() => {
-        setLogs(prev => prev.map(item => item.id === newL.id ? { ...item, estado: 'LEIDO' } : item));
-      }, 7000);
-
-    }, 1200);
+    }, 800);
   };
 
   // FastAPI Python Code template
@@ -328,6 +360,15 @@ public class WhatsAppNotificationService {
                   className="w-full bg-white/[0.02] disabled:opacity-50 border border-white/[0.08] rounded-lg px-2 py-1 text-xs text-white font-mono"
                 />
               </div>
+
+              <button
+                type="button"
+                disabled={gatewayMode === 'DIRECT_LINK'}
+                onClick={handleSaveAPIConfig}
+                className="w-full mt-2 bg-brand-primary/10 hover:bg-brand-primary/20 disabled:opacity-40 border border-brand-primary/30 text-brand-primary font-bold py-1.5 rounded text-[10px] uppercase tracking-wider transition cursor-pointer"
+              >
+                Guardar Credenciales
+              </button>
             </div>
           </div>
         </div>
@@ -471,24 +512,11 @@ public class WhatsAppNotificationService {
                 
                 {/* Chat bubble */}
                 <div className="bg-[#054d44] text-[#e1f3fc] p-2 rounded-lg text-[9px] max-w-[85%] self-end shadow-sm relative border border-emerald-900/40">
+                  <span className="text-[7px] text-[#80bfb4] block font-bold mb-0.5">Mensaje a Enviar:</span>
                   <p className="whitespace-pre-wrap leading-relaxed">
-                    {previewClient 
-                      ? getRenderedMessage(templateReady, previewClient)
-                      : '¡Hola Carlos! Tu vehículo Corolla ya se encuentra listo para retirar en Albelo Detail.'
-                    }
+                    {customMsgText}
                   </p>
-                  <span className="text-[7px] text-[#80bfb4] block text-right mt-1 font-mono">10:04 AM</span>
-                </div>
-
-                {/* Confirm bubble preview */}
-                <div className="bg-[#1f2c34] text-slate-300 p-2 rounded-lg text-[9px] max-w-[85%] self-start shadow-sm border border-slate-800">
-                  <p className="leading-relaxed">
-                    {previewClient
-                      ? getRenderedMessage(templateConfirm, previewClient)
-                      : 'Hola, te confirmamos el turno en Albelo Detail...'
-                    }
-                  </p>
-                  <span className="text-[7px] text-slate-500 block text-right mt-1 font-mono">9:15 AM</span>
+                  <span className="text-[7.5px] text-[#80bfb4] block text-right mt-1 font-mono">Ahora</span>
                 </div>
 
               </div>
@@ -513,9 +541,22 @@ public class WhatsAppNotificationService {
               value={previewClient?.id || ''}
               onChange={(e) => {
                 const found = turnos.find(t => t.id === e.target.value);
-                if (found) setPreviewClient(found);
+                if (found) {
+                  setPreviewClient(found);
+                  setSimName(found.clienteNombre);
+                  setSimCar(found.vehiculoModelo || 'S/D');
+                  setSimPhone(found.telefono);
+                  setSimService(found.servicioNombre);
+                  const baseTemplate = found.estado === 'PENDIENTE' ? templateConfirm : templateReady;
+                  const rendered = baseTemplate
+                    .replace('{{1}}', found.clienteNombre)
+                    .replace('{{2}}', found.vehiculoModelo || 'S/D')
+                    .replace('{{3}}', found.vehiculoPatente.toUpperCase())
+                    .replace('{{4}}', found.servicioNombre);
+                  setCustomMsgText(rendered);
+                }
               }}
-              className="w-full bg-white/[0.02] border border-white/[0.08] text-xs text-white rounded-lg px-2 py-1.5"
+              className="w-full bg-white/[0.02] border border-white/[0.08] text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-brand-primary/50"
             >
               {turnos.map(t => (
                 <option key={t.id} value={t.id} className="bg-slate-900">
@@ -526,14 +567,14 @@ public class WhatsAppNotificationService {
           </div>
         </div>
 
-        {/* Microservice endpoint tester simulator */}
+        {/* Manual Message Sender Console */}
         <div className="glass-panel p-5 rounded-xl space-y-4">
           <div className="flex items-center gap-1.5 pb-2 border-b border-white/[0.06]">
-            <Play className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-display">Probador del Endpoint de Notificación</h3>
+            <Send className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-display">Consola de Envío de Mensajes Manual</h3>
           </div>
 
-          <form onSubmit={triggerSimulatedAPI} className="space-y-3">
+          <form onSubmit={handleManualSend} className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[8px] text-slate-400 uppercase tracking-wider">Cliente</label>
@@ -580,14 +621,56 @@ public class WhatsAppNotificationService {
               </div>
             </div>
 
+            {/* Quick Template Loading Buttons */}
+            <div className="flex gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const rendered = templateConfirm
+                    .replace('{{1}}', simName)
+                    .replace('{{2}}', 'AB123CD')
+                    .replace('{{3}}', simService);
+                  setCustomMsgText(rendered);
+                }}
+                className="flex-1 py-1 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.05] rounded text-[8px] text-slate-300 font-bold uppercase transition cursor-pointer"
+              >
+                Cargar Confirmación
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const rendered = templateReady
+                    .replace('{{1}}', simName)
+                    .replace('{{2}}', simCar)
+                    .replace('{{3}}', 'AB123CD')
+                    .replace('{{4}}', simService);
+                  setCustomMsgText(rendered);
+                }}
+                className="flex-1 py-1 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.05] rounded text-[8px] text-slate-300 font-bold uppercase transition cursor-pointer"
+              >
+                Cargar Listo
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-[8px] text-slate-400 uppercase tracking-wider mb-1">Cuerpo del Mensaje</label>
+              <textarea
+                required
+                rows={3}
+                value={customMsgText}
+                onChange={(e) => setCustomMsgText(e.target.value)}
+                className="w-full bg-white/[0.02] border border-white/[0.08] text-xs text-white rounded p-2 focus:outline-none focus:border-brand-primary/50"
+              />
+            </div>
+
             <button
               id="btn-simulate-whatsapp-post"
               type="submit"
               disabled={simulating}
-              className="w-full bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold py-2 rounded-lg text-xs transition duration-200 flex items-center justify-center gap-1.5"
+              className="w-full bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary border border-brand-primary/30 font-bold py-2 rounded-lg text-xs transition duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               {simulating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-              POST a /api/notificar-entrega
+              {gatewayMode === 'DIRECT_LINK' ? 'Enviar por WhatsApp Web' : 'Despachar vía API Meta'}
             </button>
           </form>
         </div>
