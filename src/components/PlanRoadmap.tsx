@@ -1,8 +1,202 @@
 import React, { useState } from 'react';
-import { Shield, Sparkles, Droplet, CheckCircle, HelpCircle, DollarSign, ArrowRight, Sliders, Briefcase, Award, TrendingUp } from 'lucide-react';
+import { Shield, Sparkles, Droplet, CheckCircle, HelpCircle, DollarSign, ArrowRight, Sliders, Briefcase, Award, TrendingUp, Award as PaySlipIcon, Plus } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Turno, Transaccion } from '../types';
 
-export default function PlanRoadmap() {
-  const [activeTab, setActiveTab] = useState<'blueprint' | 'calculator' | 'equipment' | 'roi'>('blueprint');
+interface PlanRoadmapProps {
+  turnos?: Turno[];
+  onAddLog?: (message: string) => void;
+  onAddTransaccion?: (tx: Transaccion) => void;
+}
+
+export default function PlanRoadmap({
+  turnos = [],
+  onAddLog,
+  onAddTransaccion
+}: PlanRoadmapProps) {
+  const [activeTab, setActiveTab] = useState<'blueprint' | 'calculator' | 'equipment' | 'roi' | 'comisiones'>('blueprint');
+
+  // Commissions states
+  const [commissionPercentages, setCommissionPercentages] = useState<{ [op: string]: number }>({
+    Mateo: 40,
+    Enzo: 45,
+    Santiago: 50,
+    Bautista: 40
+  });
+
+  const [vales, setVales] = useState<{ [op: string]: number }>({
+    Mateo: 5000,
+    Enzo: 0,
+    Santiago: 8000,
+    Bautista: 0
+  });
+
+  const [selectedOpForVale, setSelectedOpForVale] = useState('Mateo');
+  const [valeAmountInput, setValeAmountInput] = useState('');
+  const [valeConceptInput, setValeConceptInput] = useState('Adelanto de sueldo semanal');
+  const [registerValeInCash, setRegisterValeInCash] = useState(true);
+
+  const handleAddValeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = Number(valeAmountInput);
+    if (isNaN(amount) || amount <= 0) return;
+
+    setVales(prev => ({
+      ...prev,
+      [selectedOpForVale]: (prev[selectedOpForVale] || 0) + amount
+    }));
+
+    if (onAddLog) {
+      onAddLog(`💸 [SUELDOS] Registrado vale/adelanto de $${amount} para ${selectedOpForVale}. Concepto: ${valeConceptInput}`);
+    }
+
+    if (registerValeInCash && onAddTransaccion) {
+      const newTx: Transaccion = {
+        id: `tx_val_${Date.now()}`,
+        tipo: 'EGRESO',
+        monto: amount,
+        concepto: `Adelanto de Sueldo / Vale: ${selectedOpForVale} - Motivo: ${valeConceptInput}`,
+        origen: 'MANUAL',
+        fecha: new Date().toISOString()
+      };
+      onAddTransaccion(newTx);
+    }
+
+    setValeAmountInput('');
+    alert(`Vale de $${amount} registrado con éxito para ${selectedOpForVale}.`);
+  };
+
+  const handlePayCommissions = (op: string, gross: number, pct: number, comm: number, ded: number, net: number) => {
+    if (net <= 0) {
+      alert('El saldo neto a pagar debe ser mayor a 0.');
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a5'
+    });
+
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 148, 15, 'F');
+    doc.setFillColor(220, 38, 38);
+    doc.rect(0, 0, 148, 2, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('ALBELO DETAIL - RECIBO DE PAGO DE COMISIONES', 10, 10);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text(`Fecha de Liquidación: ${new Date().toLocaleDateString('es-AR')}`, 10, 22);
+    doc.text(`Hora: ${new Date().toLocaleTimeString('es-AR')}`, 10, 26);
+
+    doc.setFillColor(248, 250, 252);
+    doc.rect(10, 30, 128, 20, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(10, 30, 128, 20, 'S');
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(`Colaborador: ${op}`, 15, 36);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Puesto: Lavador / Detallador Especializado`, 15, 41);
+    doc.text(`Régimen: Comisión Variable (${pct}%)`, 15, 46);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detalle de Liquidación:', 10, 58);
+    doc.line(10, 60, 138, 60);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total Facturado por Trabajos:`, 15, 66);
+    doc.text(`$${gross.toLocaleString('es-AR')}`, 100, 66, { align: 'right' });
+
+    doc.text(`Comisión Ganada (${pct}%):`, 15, 72);
+    doc.text(`$${comm.toLocaleString('es-AR')}`, 100, 72, { align: 'right' });
+
+    doc.setTextColor(220, 38, 38);
+    doc.text(`Menos Vales / Adelantos entregados:`, 15, 78);
+    doc.text(`-$${ded.toLocaleString('es-AR')}`, 100, 78, { align: 'right' });
+
+    doc.setTextColor(15, 23, 42);
+    doc.line(10, 84, 138, 84);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(`SALDO NETO A PAGAR:`, 15, 90);
+    doc.text(`$${net.toLocaleString('es-AR')}`, 100, 90, { align: 'right' });
+
+    const opJobs = turnos.filter(t => t.estado === 'COMPLETADO' && t.lavadorAsignado === op);
+    const tableBody = opJobs.map((t, idx) => [
+      `t-${t.id.slice(-3)}`,
+      t.servicioNombre.length > 25 ? t.servicioNombre.slice(0, 25) + '...' : t.servicioNombre,
+      t.vehiculoModelo || 'S/D',
+      `$${t.precio.toLocaleString('es-AR')}`
+    ]);
+
+    autoTable(doc, {
+      startY: 96,
+      margin: { left: 10, right: 10 },
+      head: [['ID', 'Servicio', 'Vehículo', 'Precio']],
+      body: tableBody,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontSize: 7.5
+      },
+      styles: {
+        fontSize: 7,
+        cellPadding: 1.5
+      }
+    });
+
+    let signY = (doc as any).lastAutoTable.finalY + 18;
+    if (signY > 185) {
+      doc.addPage();
+      signY = 30;
+    }
+
+    doc.setDrawColor(203, 213, 225);
+    doc.line(15, signY, 55, signY);
+    doc.line(85, signY, 125, signY);
+
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Firma Colaborador: ${op}`, 35, signY + 4, { align: 'center' });
+    doc.text('Firma Albelo Detail', 105, signY + 4, { align: 'center' });
+
+    doc.save(`Recibo_Comision_${op}_${new Date().toISOString().split('T')[0]}.pdf`);
+
+    setVales(prev => ({
+      ...prev,
+      [op]: 0
+    }));
+
+    if (onAddTransaccion) {
+      const newTx: Transaccion = {
+        id: `tx_comm_${Date.now()}`,
+        tipo: 'EGRESO',
+        monto: net,
+        concepto: `Liquidación de Comisiones: ${op} (${pct}%) - Neto Pagado (Deducido vales: $${ded})`,
+        origen: 'MANUAL',
+        fecha: new Date().toISOString()
+      };
+      onAddTransaccion(newTx);
+    }
+
+    if (onAddLog) {
+      onAddLog(`✅ [SUELDOS] Liquidado sueldo de ${op} por $${net}. Recibo PDF descargado y egreso registrado en caja.`);
+    }
+
+    alert(`Comisión liquidada para ${op}. Recibo descargado.`);
+  };
 
   // Interactive Pricing Calculator States
   const [vehicleSize, setVehicleSize] = useState<'small' | 'medium' | 'large'>('medium');
@@ -124,6 +318,18 @@ export default function PlanRoadmap() {
         >
           <TrendingUp className="w-4 h-4" />
           Calculadora de ROI
+        </button>
+        <button
+          id="btn-tab-comisiones"
+          onClick={() => setActiveTab('comisiones')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
+            activeTab === 'comisiones'
+              ? 'border-red-500 text-white bg-white/[0.02]'
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+          }`}
+        >
+          <DollarSign className="w-4 h-4" />
+          Liquidación de Comisiones
         </button>
       </div>
 
@@ -643,6 +849,157 @@ export default function PlanRoadmap() {
             <div className="pt-4 border-t border-white/[0.06] text-[10px] text-slate-500 leading-relaxed flex items-start gap-1.5">
               <DollarSign className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
               <span>Cálculos proyectados en base a 30 días laborables. El ROI real puede variar en función de las comisiones operarias acordadas.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commissions & Salaries Tab */}
+      {activeTab === 'comisiones' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in relative z-20">
+          {/* Column 1: Operators Ledger */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+              <h3 className="font-bold text-white text-sm font-display uppercase tracking-wider pb-2 border-b border-white/[0.06]">
+                Registro de Comisiones y Liquidaciones
+              </h3>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-slate-400 uppercase text-[9px] tracking-wider">
+                      <th className="py-2.5 font-bold">Colaborador</th>
+                      <th className="py-2.5 font-bold text-center">Comisión %</th>
+                      <th className="py-2.5 font-bold text-right">Facturado</th>
+                      <th className="py-2.5 font-bold text-right">Comisión Bruta</th>
+                      <th className="py-2.5 font-bold text-right text-red-400">Vales (Adelantos)</th>
+                      <th className="py-2.5 font-bold text-right text-emerald-400">Saldo Neto</th>
+                      <th className="py-2.5 font-bold text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {['Mateo', 'Enzo', 'Santiago', 'Bautista'].map((op) => {
+                      const completedJobs = turnos.filter(t => t.estado === 'COMPLETADO' && t.lavadorAsignado === op);
+                      const grossBilling = completedJobs.reduce((sum, t) => sum + t.precio, 0);
+                      const pct = commissionPercentages[op] || 40;
+                      const commissionEarned = Math.round(grossBilling * (pct / 100));
+                      const advanceAmount = vales[op] || 0;
+                      const netPay = Math.max(0, commissionEarned - advanceAmount);
+
+                      return (
+                        <tr key={op} className="hover:bg-white/[0.01]">
+                          <td className="py-3 pr-2">
+                            <span className="font-bold text-slate-200 block">{op}</span>
+                            <span className="text-[10px] text-slate-500">{completedJobs.length} servicios completados</span>
+                          </td>
+                          <td className="py-3 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              value={pct}
+                              onChange={(e) => {
+                                const val = Math.min(100, Math.max(1, Number(e.target.value)));
+                                setCommissionPercentages(prev => ({ ...prev, [op]: val }));
+                              }}
+                              className="w-12 bg-black/30 border border-white/[0.08] focus:border-brand-primary/50 text-center font-mono font-bold text-xs text-white rounded px-1.5 py-0.5"
+                            />
+                          </td>
+                          <td className="py-3 text-right font-mono text-slate-400">
+                            ${grossBilling.toLocaleString('es-AR')}
+                          </td>
+                          <td className="py-3 text-right font-mono text-slate-300">
+                            ${commissionEarned.toLocaleString('es-AR')}
+                          </td>
+                          <td className="py-3 text-right font-mono text-red-400">
+                            -${advanceAmount.toLocaleString('es-AR')}
+                          </td>
+                          <td className="py-3 text-right font-mono font-bold text-emerald-400">
+                            ${netPay.toLocaleString('es-AR')}
+                          </td>
+                          <td className="py-3 text-right">
+                            <button
+                              onClick={() => handlePayCommissions(op, grossBilling, pct, commissionEarned, advanceAmount, netPay)}
+                              disabled={netPay <= 0}
+                              className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-40 border border-emerald-500/30 text-emerald-400 font-extrabold rounded text-[9px] uppercase tracking-wider transition cursor-pointer"
+                            >
+                              Liquidar
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Column 2: Add Vale Form */}
+          <div className="space-y-6">
+            <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+              <h3 className="font-bold text-white text-sm font-display uppercase tracking-wider pb-2 border-b border-white/[0.06] flex items-center gap-1.5">
+                <Plus className="w-4 h-4 text-brand-primary" />
+                Registrar Vale / Adelanto
+              </h3>
+
+              <form onSubmit={handleAddValeSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] text-slate-400 uppercase tracking-wider">Colaborador</label>
+                  <select
+                    value={selectedOpForVale}
+                    onChange={(e) => setSelectedOpForVale(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/[0.08] text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
+                  >
+                    {['Mateo', 'Enzo', 'Santiago', 'Bautista'].map(op => (
+                      <option key={op} value={op} className="bg-slate-950">{op}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] text-slate-400 uppercase tracking-wider">Monto del Adelanto ($)</label>
+                  <input
+                    type="number"
+                    required
+                    value={valeAmountInput}
+                    onChange={(e) => setValeAmountInput(e.target.value)}
+                    placeholder="Ej. 5000"
+                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] text-slate-400 uppercase tracking-wider">Concepto / Motivo</label>
+                  <input
+                    type="text"
+                    required
+                    value={valeConceptInput}
+                    onChange={(e) => setValeConceptInput(e.target.value)}
+                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 py-1">
+                  <input
+                    type="checkbox"
+                    id="vale-register-cash"
+                    checked={registerValeInCash}
+                    onChange={(e) => setRegisterValeInCash(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-500 rounded bg-slate-900 border-white/[0.08]"
+                  />
+                  <label htmlFor="vale-register-cash" className="text-[10px] text-slate-400 cursor-pointer font-bold select-none">
+                    Registrar adelanto como EGRESO en Caja
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-brand-primary hover:bg-brand-hover text-white font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition cursor-pointer"
+                >
+                  Registrar Adelanto
+                </button>
+              </form>
             </div>
           </div>
         </div>

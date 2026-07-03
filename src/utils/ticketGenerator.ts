@@ -371,37 +371,96 @@ export function generateInspectionPDF(data: InspectionInput) {
     interior: 'Interior y Tapizado'
   };
 
+  const tableStartY = y;
+
   const checklistRows = Object.entries(data.checklistDanos).map(([key, value]) => {
     const label = checklistMap[key] || key;
-    const status = value ? '❌ REGISTRADO (Daño / Detalle)' : '✔️ Sin Novedad';
-    const classStyle = value ? 'Daño en Sector' : 'Conforme';
-    return [label, status, classStyle];
+    const status = value ? '❌ DAÑADO' : '✔️ Conforme';
+    return [label, status];
   });
 
+  // Table on the left
   autoTable(doc, {
-    startY: y,
-    margin: { left: 15, right: 15 },
-    head: [['Componente / Sector', 'Estado Evaluado', 'Observación']],
+    startY: tableStartY,
+    margin: { left: 15, right: 105 },
+    head: [['Sector del Vehículo', 'Estado']],
     body: checklistRows,
     theme: 'striped',
     headStyles: {
       fillColor: [30, 41, 59],
       textColor: [255, 255, 255],
-      fontSize: 9,
+      fontSize: 8.5,
       fontStyle: 'bold'
     },
     styles: {
-      fontSize: 8.5,
-      cellPadding: 2.5
+      fontSize: 8,
+      cellPadding: 1.8
     },
     columnStyles: {
-      0: { cellWidth: 60 },
-      1: { cellWidth: 65, fontStyle: 'bold' },
-      2: { cellWidth: 55 }
+      0: { cellWidth: 50 },
+      1: { cellWidth: 40, fontStyle: 'bold' }
     }
   });
 
-  y = (doc as any).lastAutoTable.finalY + 8;
+  // Draw the car blueprint on the right
+  const drawCarLayout = (startX: number, startY: number) => {
+    doc.setLineWidth(0.35);
+    doc.setDrawColor(71, 85, 105); // slate-600
+    
+    // Front bumper
+    doc.setFillColor(data.checklistDanos.paragolpesDelantero ? 220 : 241, data.checklistDanos.paragolpesDelantero ? 38 : 245, data.checklistDanos.paragolpesDelantero ? 38 : 249);
+    doc.rect(startX, startY + 10, 8, 25, 'FD');
+    doc.setFontSize(6.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text('Front', startX + 1, startY + 23);
+
+    // Hood (Capot)
+    doc.setFillColor(data.checklistDanos.capot ? 220 : 241, data.checklistDanos.capot ? 38 : 245, data.checklistDanos.capot ? 38 : 249);
+    doc.rect(startX + 8, startY + 7, 18, 31, 'FD');
+    doc.text('Capot', startX + 13, startY + 23);
+
+    // Left Door (top)
+    doc.setFillColor(data.checklistDanos.puertaIzquierda ? 220 : 241, data.checklistDanos.puertaIzquierda ? 38 : 245, data.checklistDanos.puertaIzquierda ? 38 : 249);
+    doc.rect(startX + 26, startY + 4, 26, 6, 'FD');
+    doc.text('Izq', startX + 37, startY + 8);
+
+    // Right Door (bottom)
+    doc.setFillColor(data.checklistDanos.puertaDerecha ? 220 : 241, data.checklistDanos.puertaDerecha ? 38 : 245, data.checklistDanos.puertaDerecha ? 38 : 249);
+    doc.rect(startX + 26, startY + 35, 26, 6, 'FD');
+    doc.text('Der', startX + 37, startY + 39);
+
+    // Roof (Techo)
+    doc.setFillColor(data.checklistDanos.techo ? 220 : 241, data.checklistDanos.techo ? 38 : 245, data.checklistDanos.techo ? 38 : 249);
+    doc.rect(startX + 30, startY + 12, 20, 21, 'FD');
+    doc.text('Techo', startX + 37, startY + 23);
+
+    // Rear Bumper
+    doc.setFillColor(data.checklistDanos.paragolpesTrasero ? 220 : 241, data.checklistDanos.paragolpesTrasero ? 38 : 245, data.checklistDanos.paragolpesTrasero ? 38 : 249);
+    doc.rect(startX + 62, startY + 10, 8, 25, 'FD');
+    doc.text('Tras', startX + 63, startY + 23);
+
+    // Wheels
+    doc.setFillColor(data.checklistDanos.llantas ? 220 : 15, data.checklistDanos.llantas ? 38 : 23, data.checklistDanos.llantas ? 38 : 42);
+    doc.rect(startX + 10, startY, 7, 4, 'FD');
+    doc.rect(startX + 10, startY + 41, 7, 4, 'FD');
+    doc.rect(startX + 52, startY, 7, 4, 'FD');
+    doc.rect(startX + 52, startY + 41, 7, 4, 'FD');
+
+    // Indicators for glass and interior
+    doc.setFontSize(7);
+    doc.setTextColor(30, 41, 59);
+    doc.setFillColor(data.checklistDanos.vidrios ? 220 : 241, data.checklistDanos.vidrios ? 38 : 245, data.checklistDanos.vidrios ? 38 : 249);
+    doc.circle(startX + 78, startY + 14, 2.5, 'FD');
+    doc.text('Vidrios', startX + 83, startY + 16);
+
+    doc.setFillColor(data.checklistDanos.interior ? 220 : 241, data.checklistDanos.interior ? 38 : 245, data.checklistDanos.interior ? 38 : 249);
+    doc.circle(startX + 78, startY + 24, 2.5, 'FD');
+    doc.text('Interior', startX + 83, startY + 26);
+  };
+
+  drawCarLayout(115, tableStartY + 5);
+
+  y = Math.max((doc as any).lastAutoTable.finalY, tableStartY + 52) + 8;
 
   // Observations Section
   doc.setFont('helvetica', 'bold');

@@ -10,6 +10,7 @@ import {
   INITIAL_CLIENTES, INITIAL_TURNOS, INITIAL_INSUMOS, INITIAL_TRANSACCIONES 
 } from './data/initialData';
 import PromoPosterCreator from './components/PromoPosterCreator';
+import LoyaltyCampaigns from './components/LoyaltyCampaigns';
 import PlanRoadmap from './components/PlanRoadmap';
 import CajaDiariaLedger from './components/CajaDiariaLedger';
 import TurnosKanbanView from './components/TurnosKanbanView';
@@ -25,6 +26,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'overview' | 'turnos' | 'caja' | 'publicidad' | 'roadmap' | 'public-page' | 'inventario' | 'ceramic' | 'branding'>('overview');
   const [cajaSubTab, setCajaSubTab] = useState<'pos' | 'facturacion'>('pos');
   const [statsSubTab, setStatsSubTab] = useState<'semanal' | 'mix' | 'lavadores'>('semanal');
+  const [subTabPublicidad, setSubTabPublicidad] = useState<'flyers' | 'loyalty'>('flyers');
 
   // Session state
   const [session, setSession] = useState<{ nombre: string; rol: string } | null>(() => {
@@ -1451,14 +1453,53 @@ export default function App() {
         {/* TAB: PUBLICIDAD & CAMPAÑAS */}
         {activeTab === 'publicidad' && (
           <div className="space-y-6 animate-fade-in">
-            <div className="glass-panel p-5 rounded-xl space-y-2">
-              <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">Diseñador de Publicidades y Promociones</h3>
-              <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                Utiliza esta herramienta interactiva para crear flyers digitales diseñados para promocionar servicios de <b>lavado premium, tapicería húmeda, tratamientos cerámicos o pulido de ópticas</b>. Podrás lanzar la campaña dinámicamente o descargar la imagen en formato óptimo.
-              </p>
+            {/* Sub-tab navigation */}
+            <div className="flex border-b border-white/[0.08] relative z-20 overflow-x-auto scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setSubTabPublicidad('flyers')}
+                className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
+                  subTabPublicidad === 'flyers'
+                    ? 'border-brand-primary text-white bg-white/[0.02]'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+                }`}
+              >
+                Diseñador de Flyers
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubTabPublicidad('loyalty')}
+                className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
+                  subTabPublicidad === 'loyalty'
+                    ? 'border-brand-primary text-white bg-white/[0.02]'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+                }`}
+              >
+                CRM & Cupones VIP
+              </button>
             </div>
 
-            <PromoPosterCreator onAddPromotionToConsole={addConsoleLog} />
+            {subTabPublicidad === 'flyers' ? (
+              <>
+                <div className="glass-panel p-5 rounded-xl space-y-2">
+                  <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">Diseñador de Publicidades y Promociones</h3>
+                  <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+                    Utiliza esta herramienta interactiva para crear flyers digitales diseñados para promocionar servicios de <b>lavado premium, tapicería húmeda, tratamientos cerámicos o pulido de ópticas</b>. Podrás lanzar la campaña dinámicamente o descargar la imagen en formato óptimo.
+                  </p>
+                </div>
+                <PromoPosterCreator onAddPromotionToConsole={addConsoleLog} />
+              </>
+            ) : (
+              <>
+                <div className="glass-panel p-5 rounded-xl space-y-2">
+                  <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">CRM & Campañas de Fidelización</h3>
+                  <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+                    Segmenta automáticamente tu base de clientes para identificar vehículos inactivos o clientes VIP fieles. Crea cupones digitales personalizados y copia plantillas de mensajes listas para WhatsApp.
+                  </p>
+                </div>
+                <LoyaltyCampaigns clientes={clientes} onAddLog={addConsoleLog} />
+              </>
+            )}
           </div>
         )}
 
@@ -1472,7 +1513,11 @@ export default function App() {
               </p>
             </div>
 
-            <PlanRoadmap />
+            <PlanRoadmap 
+              turnos={turnos}
+              onAddLog={addConsoleLog}
+              onAddTransaccion={(tx) => setTransacciones(prev => [...prev, tx])}
+            />
           </div>
         )}
 
