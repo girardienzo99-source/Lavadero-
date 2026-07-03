@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Shield, Sparkles, Droplet, CheckCircle, HelpCircle, DollarSign, ArrowRight, Sliders, Briefcase, Award } from 'lucide-react';
+import { Shield, Sparkles, Droplet, CheckCircle, HelpCircle, DollarSign, ArrowRight, Sliders, Briefcase, Award, TrendingUp } from 'lucide-react';
 
 export default function PlanRoadmap() {
-  const [activeTab, setActiveTab] = useState<'blueprint' | 'calculator' | 'equipment'>('blueprint');
+  const [activeTab, setActiveTab] = useState<'blueprint' | 'calculator' | 'equipment' | 'roi'>('blueprint');
 
   // Interactive Pricing Calculator States
   const [vehicleSize, setVehicleSize] = useState<'small' | 'medium' | 'large'>('medium');
@@ -13,6 +13,13 @@ export default function PlanRoadmap() {
   const [equippedItems, setEquippedItems] = useState<string[]>([
     'hidro', 'aspi', 'extractora'
   ]);
+
+  // ROI Calculator States
+  const [roiTurnosDiarios, setRoiTurnosDiarios] = useState(6);
+  const [roiPrecioPromedio, setRoiPrecioPromedio] = useState(48000);
+  const [roiCostoInsumos, setRoiCostoInsumos] = useState(8);
+  const [roiComisionOperario, setRoiComisionOperario] = useState(30);
+  const [roiCostosFijos, setRoiCostosFijos] = useState(650000);
 
   const toggleEquipment = (id: string) => {
     if (equippedItems.includes(id)) {
@@ -69,42 +76,54 @@ export default function PlanRoadmap() {
   return (
     <div className="space-y-6">
       {/* Visual Tab Selection */}
-      <div className="flex border-b border-white/[0.08] relative z-20">
+      <div className="flex border-b border-white/[0.08] relative z-20 overflow-x-auto scrollbar-none">
         <button
           id="btn-tab-blueprint"
           onClick={() => setActiveTab('blueprint')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 ${
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
             activeTab === 'blueprint'
-              ? 'border-[#00d2ff] text-[#00d2ff] bg-white/[0.02]'
+              ? 'border-red-500 text-white bg-white/[0.02]'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
           }`}
         >
           <Briefcase className="w-4 h-4" />
-          Plan de Negocios y Estructura
+          Plan de Negocios
         </button>
         <button
           id="btn-tab-calculator"
           onClick={() => setActiveTab('calculator')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 ${
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
             activeTab === 'calculator'
-              ? 'border-[#00d2ff] text-[#00d2ff] bg-white/[0.02]'
+              ? 'border-red-500 text-white bg-white/[0.02]'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
           }`}
         >
           <Sliders className="w-4 h-4" />
-          Calculador de Tarifas Inteligente
+          Cotizador Inteligente
         </button>
         <button
           id="btn-tab-equipment"
           onClick={() => setActiveTab('equipment')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 ${
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
             activeTab === 'equipment'
-              ? 'border-[#00d2ff] text-[#00d2ff] bg-white/[0.02]'
+              ? 'border-red-500 text-white bg-white/[0.02]'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
           }`}
         >
           <Award className="w-4 h-4" />
-          Checklist de Equipamiento ({equippedItems.length}/{allEquipment.length})
+          Checklist Equipamiento
+        </button>
+        <button
+          id="btn-tab-roi"
+          onClick={() => setActiveTab('roi')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
+            activeTab === 'roi'
+              ? 'border-red-500 text-white bg-white/[0.02]'
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          Calculadora de ROI
         </button>
       </div>
 
@@ -453,6 +472,178 @@ export default function PlanRoadmap() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ROI Calculator Tab */}
+      {activeTab === 'roi' && (
+        <div className="glass-panel p-6 rounded-xl border border-red-500/15 grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in relative z-20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] card-sport-border">
+          {/* Sliders Controls Column */}
+          <div className="lg:col-span-7 space-y-5">
+            <h3 className="text-sm font-extrabold uppercase tracking-widest text-red-500 mb-3 flex items-center gap-1.5 font-display">
+              <TrendingUp className="w-4 h-4 text-red-500" />
+              Parámetros de Rentabilidad
+            </h3>
+
+            {/* Slider 1: Turnos Diarios */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-slate-300">
+                <span className="uppercase tracking-wider">Turnos Diarios Promedio:</span>
+                <span className="text-red-400 font-mono text-sm">{roiTurnosDiarios} turnos/día</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="1"
+                value={roiTurnosDiarios}
+                onChange={(e) => setRoiTurnosDiarios(Number(e.target.value))}
+                className="w-full accent-red-600 h-1.5 bg-black/40 rounded-lg cursor-pointer"
+              />
+              <div className="flex justify-between text-[8px] text-slate-500 font-mono">
+                <span>1 TURNO</span>
+                <span>20 TURNOS</span>
+              </div>
+            </div>
+
+            {/* Slider 2: Precio Promedio */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-slate-300">
+                <span className="uppercase tracking-wider">Precio Promedio por Turno:</span>
+                <span className="text-red-400 font-mono text-sm">${roiPrecioPromedio.toLocaleString('es-AR')} ARS</span>
+              </div>
+              <input
+                type="range"
+                min="15000"
+                max="300000"
+                step="5000"
+                value={roiPrecioPromedio}
+                onChange={(e) => setRoiPrecioPromedio(Number(e.target.value))}
+                className="w-full accent-red-600 h-1.5 bg-black/40 rounded-lg cursor-pointer"
+              />
+              <div className="flex justify-between text-[8px] text-slate-500 font-mono">
+                <span>$15.000</span>
+                <span>$300.000</span>
+              </div>
+            </div>
+
+            {/* Slider 3: Costo Insumos */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-slate-300">
+                <span className="uppercase tracking-wider">Costo Insumos y Químicos:</span>
+                <span className="text-red-400 font-mono text-sm">{roiCostoInsumos}% del valor del servicio</span>
+              </div>
+              <input
+                type="range"
+                min="3"
+                max="25"
+                step="1"
+                value={roiCostoInsumos}
+                onChange={(e) => setRoiCostoInsumos(Number(e.target.value))}
+                className="w-full accent-red-600 h-1.5 bg-black/40 rounded-lg cursor-pointer"
+              />
+              <div className="flex justify-between text-[8px] text-slate-500 font-mono">
+                <span>3% (MIN)</span>
+                <span>25% (MAX)</span>
+              </div>
+            </div>
+
+            {/* Slider 4: Comisión Empleado */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-slate-300">
+                <span className="uppercase tracking-wider">Comisión para el Lavador/Detallador:</span>
+                <span className="text-red-400 font-mono text-sm">{roiComisionOperario}% del valor del servicio</span>
+              </div>
+              <input
+                type="range"
+                min="15"
+                max="50"
+                step="5"
+                value={roiComisionOperario}
+                onChange={(e) => setRoiComisionOperario(Number(e.target.value))}
+                className="w-full accent-red-600 h-1.5 bg-black/40 rounded-lg cursor-pointer"
+              />
+              <div className="flex justify-between text-[8px] text-slate-500 font-mono">
+                <span>15%</span>
+                <span>50%</span>
+              </div>
+            </div>
+
+            {/* Slider 5: Costos Fijos */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-slate-300">
+                <span className="uppercase tracking-wider">Costos Fijos Mensuales (Alquiler + Servicios):</span>
+                <span className="text-red-400 font-mono text-sm">${roiCostosFijos.toLocaleString('es-AR')} ARS</span>
+              </div>
+              <input
+                type="range"
+                min="150000"
+                max="2500000"
+                step="50000"
+                value={roiCostosFijos}
+                onChange={(e) => setRoiCostosFijos(Number(e.target.value))}
+                className="w-full accent-red-600 h-1.5 bg-black/40 rounded-lg cursor-pointer"
+              />
+              <div className="flex justify-between text-[8px] text-slate-500 font-mono">
+                <span>$150.000</span>
+                <span>$2.500.000</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ROI Outputs Dashboard Column */}
+          <div className="lg:col-span-5 bg-black/50 border border-white/[0.06] rounded-xl p-5 flex flex-col justify-between shadow-inner relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/[0.02] rounded-full blur-xl pointer-events-none" />
+            
+            <div className="space-y-4">
+              <div className="text-center pb-3.5 border-b border-white/[0.08]">
+                <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-bold">Ganancia Neta Estimada (Mensual)</span>
+                <span className={`text-3xl font-black block mt-1.5 font-mono ${
+                  (roiTurnosDiarios * roiPrecioPromedio * 30 * (1 - (roiCostoInsumos / 100) - (roiComisionOperario / 100)) - roiCostosFijos) >= 0 
+                    ? 'text-emerald-400' 
+                    : 'text-red-500'
+                }`}>
+                  ${Math.round(
+                    (roiTurnosDiarios * roiPrecioPromedio * 30 * (1 - (roiCostoInsumos / 100) - (roiComisionOperario / 100))) - roiCostosFijos
+                  ).toLocaleString('es-AR')} ARS
+                </span>
+                <span className="text-[9px] text-red-400 font-extrabold uppercase tracking-widest mt-1 block">Utilidad sobre Caja Operativa</span>
+              </div>
+
+              <div className="space-y-2.5 text-xs font-sans">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Facturación Bruta (30 días):</span>
+                  <span className="text-white font-bold font-mono">${(roiTurnosDiarios * roiPrecioPromedio * 30).toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Costo Insumos ({roiCostoInsumos}%):</span>
+                  <span className="text-red-400 font-bold font-mono">-${Math.round(roiTurnosDiarios * roiPrecioPromedio * 30 * (roiCostoInsumos / 100)).toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Comisiones Operarias ({roiComisionOperario}%):</span>
+                  <span className="text-red-400 font-bold font-mono">-${Math.round(roiTurnosDiarios * roiPrecioPromedio * 30 * (roiComisionOperario / 100)).toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Costos Fijos Operativos:</span>
+                  <span className="text-red-400 font-bold font-mono">-${roiCostosFijos.toLocaleString('es-AR')}</span>
+                </div>
+                
+                <div className="pt-2 border-t border-white/[0.08] flex justify-between font-bold">
+                  <span className="text-slate-300">Punto de Equilibrio (Break-even):</span>
+                  <span className="text-yellow-400 font-mono">
+                    {Math.max(0, Math.ceil(
+                      roiCostosFijos / (roiPrecioPromedio * (1 - (roiCostoInsumos / 100) - (roiComisionOperario / 100)))
+                    ))} turnos/mes
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-white/[0.06] text-[10px] text-slate-500 leading-relaxed flex items-start gap-1.5">
+              <DollarSign className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+              <span>Cálculos proyectados en base a 30 días laborables. El ROI real puede variar en función de las comisiones operarias acordadas.</span>
+            </div>
           </div>
         </div>
       )}

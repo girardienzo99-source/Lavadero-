@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { 
   ShieldAlert, ShieldCheck, Trash2, Camera, Eye, Plus, Info, 
-  Sparkles, CheckCircle2, AlertTriangle, AlertCircle, EyeOff
+  Sparkles, CheckCircle2, AlertTriangle, AlertCircle, EyeOff, FileText
 } from 'lucide-react';
 import { Turno, DamageChecklist, VehicleHealthData } from '../types';
+import { generateInspectionPDF } from '../utils/ticketGenerator';
 
 // Preset mock photo simulations of "before" details to give high quality realism
 const SIMULATED_DAMAGE_PHOTOS: Record<keyof DamageChecklist, { sector: string; url: string; descripcion: string }[]> = {
@@ -471,16 +472,31 @@ export default function VehicleHealth({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 font-semibold py-1.5 rounded-lg text-xs transition"
+                className="flex-1 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 font-semibold py-1.5 rounded-lg text-xs transition cursor-pointer"
               >
                 Cerrar
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => generateInspectionPDF({
+                patente,
+                modelo,
+                inspector,
+                checklistDanos: checklist,
+                observaciones,
+                fecha: new Date().toISOString()
+              })}
+              className="flex-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-200 font-extrabold py-1.5 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>PDF Reporte</span>
+            </button>
             {isEditMode && onSave && (
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex-1 bg-brand-primary text-white font-extrabold py-1.5 rounded-lg text-xs uppercase tracking-wider transition-all shadow-md hover:opacity-90"
+                className="flex-1 bg-brand-primary text-white font-extrabold py-1.5 rounded-lg text-xs uppercase tracking-wider transition-all shadow-md hover:opacity-90 cursor-pointer"
               >
                 Vincular Inspección
               </button>

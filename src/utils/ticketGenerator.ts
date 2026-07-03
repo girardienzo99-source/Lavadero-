@@ -261,3 +261,184 @@ export function generateTicketPDF(data: TicketInput) {
   const filename = `Ticket_${cleanBrandName}_${data.id}.pdf`;
   doc.save(filename);
 }
+
+export interface InspectionInput {
+  patente: string;
+  modelo: string;
+  inspector: string;
+  checklistDanos: Record<string, boolean>;
+  observaciones: string;
+  fecha: string;
+}
+
+export function generateInspectionPDF(data: InspectionInput) {
+  const brand = getBrandConfig();
+  const primaryRgb = hexToRgb(brand.primaryColor);
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  // Top header banner
+  doc.setFillColor(15, 23, 42); // Deep dark
+  doc.rect(0, 0, 210, 35, 'F');
+
+  doc.setFillColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
+  doc.rect(0, 0, 210, 3, 'F');
+
+  // Title
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text(brand.nombre.toUpperCase(), 15, 15);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(156, 163, 175);
+  doc.text(brand.tagline.toUpperCase(), 15, 21);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
+  doc.text('INFORME DE INSPECCIÓN VEHICULAR', 195, 18, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`Fecha: ${new Date(data.fecha).toLocaleDateString('es-AR')} ${new Date(data.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`, 195, 25, { align: 'right' });
+
+  let y = 45;
+
+  // Client / Vehicle Details Section
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text('1. Datos de Recepción', 15, y);
+
+  y += 4;
+  doc.setDrawColor(226, 232, 240);
+  doc.line(15, y, 195, y);
+
+  y += 2;
+  const detailRows = [
+    ['Vehículo / Modelo:', data.modelo, 'Patente / Dominio:', data.patente.toUpperCase()],
+    ['Inspector Técnico:', data.inspector, 'Ubicación:', 'Estudio Central Albelo']
+  ];
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: 15, right: 15 },
+    body: detailRows,
+    theme: 'plain',
+    styles: {
+      fontSize: 9,
+      cellPadding: 2,
+      textColor: [51, 65, 85],
+      font: 'helvetica'
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 35 },
+      1: { cellWidth: 60 },
+      2: { fontStyle: 'bold', cellWidth: 35 },
+      3: { cellWidth: 50 }
+    }
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 8;
+
+  // Damage Checklist Table
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text('2. Registro de Daños Pre-existentes', 15, y);
+
+  y += 4;
+  doc.line(15, y, 195, y);
+
+  y += 2;
+
+  const checklistMap: Record<string, string> = {
+    paragolpesDelantero: 'Paragolpes Delantero',
+    paragolpesTrasero: 'Paragolpes Trasero',
+    puertaDerecha: 'Puerta Derecha',
+    puertaIzquierda: 'Puerta Izquierda',
+    capot: 'Capot',
+    techo: 'Techo',
+    vidrios: 'Vidrios y Cristales',
+    llantas: 'Llantas de Aleación',
+    interior: 'Interior y Tapizado'
+  };
+
+  const checklistRows = Object.entries(data.checklistDanos).map(([key, value]) => {
+    const label = checklistMap[key] || key;
+    const status = value ? '❌ REGISTRADO (Daño / Detalle)' : '✔️ Sin Novedad';
+    const classStyle = value ? 'Daño en Sector' : 'Conforme';
+    return [label, status, classStyle];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: 15, right: 15 },
+    head: [['Componente / Sector', 'Estado Evaluado', 'Observación']],
+    body: checklistRows,
+    theme: 'striped',
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontSize: 9,
+      fontStyle: 'bold'
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 2.5
+    },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 65, fontStyle: 'bold' },
+      2: { cellWidth: 55 }
+    }
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 8;
+
+  // Observations Section
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text('3. Diagnóstico y Observaciones Adicionales', 15, y);
+
+  y += 4;
+  doc.line(15, y, 195, y);
+
+  y += 4;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(71, 85, 105);
+
+  const cleanObservations = data.observaciones ? data.observaciones : 'Sin observaciones adicionales registradas para este peritaje vehicular.';
+  const splitObs = doc.splitTextToSize(cleanObservations, 180);
+  doc.text(splitObs, 15, y);
+
+  y += splitObs.length * 5 + 15;
+
+  // Signatures Section
+  doc.setDrawColor(203, 213, 225);
+  doc.line(25, y, 85, y);
+  doc.line(125, y, 185, y);
+
+  y += 4;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Firma Operario / Inspector', 55, y, { align: 'center' });
+  doc.text('Firma Cliente / Propietario', 155, y, { align: 'center' });
+
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.text('Este documento certifica el estado estético inicial del vehículo previo al ingreso de los tratamientos contratados.', 105, y, { align: 'center' });
+
+  doc.save(`Informe_Inspeccion_${data.patente.toUpperCase()}.pdf`);
+}
