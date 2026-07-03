@@ -31,7 +31,15 @@ const PRESET_COLORS = [
   { nombre: 'Nardo Gray / Carbon', primary: '#6b7280', hover: '#4b5563', desc: 'Gris competición sigiloso elegante.' }
 ];
 
+const AlbeloIcon = (props: any) => (
+  <svg {...props} viewBox="0 0 100 100" fill="currentColor">
+    <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="6" />
+    <path d="M30 68 L50 26 L70 68 M36 54 L64 54" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  </svg>
+);
+
 const LOGO_ICONS = [
+  { id: 'Albelo', component: AlbeloIcon, label: 'Albelo Emblem' },
   { id: 'Car', component: Car, label: 'Superdeportivo' },
   { id: 'Sparkles', component: Sparkles, label: 'Brillo Extremo' },
   { id: 'Shield', component: Shield, label: 'Protección Gyeon' },
@@ -165,7 +173,7 @@ export default function BrandSettings({
         primaryColor: '#dc2626',
         hoverColor: '#b91c1c',
         logoType: 'icon',
-        selectedIcon: 'Car',
+        selectedIcon: 'Albelo',
         customLogoUrl: '',
         fontFamily: 'Outfit'
       };

@@ -59,6 +59,23 @@ export default function ArgentineFacturacion({
     }
   ]);
 
+  const handleExportIVA = () => {
+    const header = "Fecha,Tipo,PuntoVenta,Numero,Cliente,CUIT,Neto,IVA,Total,CAE\n";
+    const rows = invoiceHistory.map(inv => {
+      const formattedDate = new Date(inv.fechaEmision).toLocaleDateString('es-AR');
+      return `"${formattedDate}","${inv.tipo}","${inv.puntoVenta}","${inv.nroFactura}","${inv.razonSocialCliente}","${inv.cuitCliente}",${inv.neto},${inv.iva},${inv.total},"${inv.cae}"`;
+    }).join("\n");
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "Libro_IVA_Digital_AlbeloDetail.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    onAddLog("📊 Libro IVA Digital exportado en formato CSV para sistemas contables.");
+  };
+
   // Form States
   const [selectedTxId, setSelectedTxId] = useState<string>('');
   const [invoiceType, setInvoiceType] = useState<'A' | 'B' | 'T'>('B');
@@ -684,9 +701,19 @@ export default function ArgentineFacturacion({
       {/* COMPROBANTES EMITIDOS HISTORY LIST */}
       {activeTab === 'historial' && !showPreview && (
         <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4">
-          <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+          <div className="flex justify-between items-center pb-2 border-b border-white/[0.08] flex-wrap gap-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Registro de Facturación Electrónica</h4>
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Año Fiscal 2026</span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleExportIVA}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-widest transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Exportar Libro IVA</span>
+              </button>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Año Fiscal 2026</span>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
