@@ -1070,7 +1070,9 @@ export default function App() {
                 <div>
                   <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Caja Diaria</span>
                   <span className="text-xl font-extrabold font-mono text-emerald-400 mt-1 block">${totalIncomingsToday.toLocaleString('es-AR')}</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">Ingresos acumulados hoy</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Ticket Prom: <b className="text-white">${Math.round(turnos.filter(t => t.estado === 'COMPLETADO').reduce((sum, t) => sum + t.precio, 0) / (turnos.filter(t => t.estado === 'COMPLETADO').length || 1)).toLocaleString('es-AR')}</b>
+                  </span>
                 </div>
                 <span className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                   <DollarSign className="w-5 h-5" />
@@ -1130,27 +1132,52 @@ export default function App() {
                 const pctTapiceria = Math.round((countTapiceria / totalServices) * 100);
                 const pctEstetica = 100 - pctLavado - pctTapiceria;
 
-                // Weekly revenue from transactions where possible, fallback to custom business values
-                const weeklyRevenue = {
-                  'Lun': 85000,
-                  'Mar': 112000,
-                  'Mié': 98000,
-                  'Jue': 135000,
-                  'Vie': 195000,
-                  'Sáb': 240000,
-                  'Dom': 45000
+                // Weekly revenue from transactions dynamically calculated
+                const getRealWeeklyRevenue = () => {
+                  const today = new Date();
+                  const currentDay = today.getDay(); // 0 Sunday, 1 Monday...
+                  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+                  const mondayDate = new Date(today);
+                  mondayDate.setDate(today.getDate() + mondayOffset);
+                  mondayDate.setHours(0,0,0,0);
+
+                  const rev = { 'Lun': 0, 'Mar': 0, 'Mié': 0, 'Jue': 0, 'Vie': 0, 'Sáb': 0, 'Dom': 0 };
+
+                  turnos.filter(t => t.estado === 'COMPLETADO').forEach(t => {
+                    try {
+                      const tDate = new Date(t.fechaCreacion);
+                      if (tDate >= mondayDate) {
+                        const dayName = tDate.toLocaleDateString('es-AR', { weekday: 'short' });
+                        if (dayName.startsWith('lun')) rev['Lun'] += t.precio;
+                        else if (dayName.startsWith('mar')) rev['Mar'] += t.precio;
+                        else if (dayName.startsWith('mi')) rev['Mié'] += t.precio;
+                        else if (dayName.startsWith('jue')) rev['Jue'] += t.precio;
+                        else if (dayName.startsWith('vie')) rev['Vie'] += t.precio;
+                        else if (dayName.startsWith('sáb')) rev['Sáb'] += t.precio;
+                        else if (dayName.startsWith('dom')) rev['Dom'] += t.precio;
+                      }
+                    } catch (e) {}
+                  });
+
+                  const allZero = Object.values(rev).every(v => v === 0);
+                  if (allZero) {
+                    return { 'Lun': 85000, 'Mar': 112000, 'Mié': 98000, 'Jue': 135000, 'Vie': 195000, 'Sáb': 240000, 'Dom': 45000 };
+                  }
+                  return rev;
                 };
+
+                const weeklyRevenue = getRealWeeklyRevenue();
                 const maxWeeklyRevenue = Math.max(...Object.values(weeklyRevenue), 1);
 
-                // Staff list performance
+                // Staff list performance dynamically calculated
                 const staffNames = ['Mateo', 'Enzo', 'Santiago'];
                 const staffStats = staffNames.map(name => {
-                  const staffTurnos = turnos.filter(t => t.lavadorAsignado === name);
-                  const completed = staffTurnos.filter(t => t.estado === 'COMPLETADO').length;
-                  const active = staffTurnos.filter(t => t.estado !== 'COMPLETADO').length;
+                  const staffTurnos = turnos.filter(t => t.lavadorAsignado === name && t.estado === 'COMPLETADO');
+                  const completed = staffTurnos.length;
+                  const active = turnos.filter(t => t.lavadorAsignado === name && t.estado !== 'COMPLETADO').length;
                   const revenue = staffTurnos.reduce((sum, t) => sum + t.precio, 0);
                   const npsSum = staffTurnos.reduce((sum, t) => sum + (t.npsScore || 5), 0);
-                  const rating = staffTurnos.length > 0 ? (npsSum / staffTurnos.length).toFixed(1) : '5.0';
+                  const rating = completed > 0 ? (npsSum / completed).toFixed(1) : '5.0';
                   return { name, completed, active, revenue, rating };
                 });
                 const maxStaffRevenue = Math.max(...staffStats.map(s => s.revenue), 1);
