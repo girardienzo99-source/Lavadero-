@@ -36,7 +36,7 @@ export default function CeramicServices({
   onAddLog
 }: CeramicServicesProps) {
   // Local active tab within Ceramic Module
-  const [activeSubTab, setActiveSubTab] = useState<'calculator' | 'config'>('calculator');
+  const [activeSubTab, setActiveSubTab] = useState<'calculator' | 'config' | 'simulator'>('calculator');
 
   // Initial Treatment Levels state (stored in local state, seeded with pro values)
   const [niveles, setNiveles] = useState<NivelTratamiento[]>([

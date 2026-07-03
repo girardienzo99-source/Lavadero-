@@ -304,7 +304,7 @@ export default function InventoryManagement({
               <span className="text-[9px] text-amber-400 font-bold font-mono">Alertas</span>
             </div>
             <div className="w-full bg-white/[0.05] h-1 rounded-full overflow-hidden mt-2">
-              <div className={`h-full ${criticalItems > 0 ? 'bg-amber-500' : 'bg-slate-500'}`} style={{ width: `${(criticalItems / totalItems) * 100}%` }} />
+              <div className={`h-full ${criticalItems > 0 ? 'bg-amber-500' : 'bg-slate-500'}`} style={{ width: `${(criticalItems / (totalItems || 1)) * 100}%` }} />
             </div>
           </div>
 
@@ -315,7 +315,7 @@ export default function InventoryManagement({
               <span className="text-[9px] text-red-500 font-bold font-mono">Agotado</span>
             </div>
             <div className="w-full bg-white/[0.05] h-1 rounded-full overflow-hidden mt-2">
-              <div className={`h-full ${outOfStockItems > 0 ? 'bg-red-500' : 'bg-slate-500'}`} style={{ width: `${(outOfStockItems / totalItems) * 100}%` }} />
+              <div className={`h-full ${outOfStockItems > 0 ? 'bg-red-500' : 'bg-slate-500'}`} style={{ width: `${(outOfStockItems / (totalItems || 1)) * 100}%` }} />
             </div>
           </div>
         </div>

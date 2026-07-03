@@ -52,15 +52,15 @@ export default function BrandSettings({
   onSave,
   onAddLog
 }: BrandSettingsProps) {
-  // Local form states initialized from current config
-  const [nombre, setNombre] = useState(config.nombre);
-  const [tagline, setTagline] = useState(config.tagline);
-  const [primaryColor, setPrimaryColor] = useState(config.primaryColor);
-  const [hoverColor, setHoverColor] = useState(config.hoverColor);
-  const [logoType, setLogoType] = useState<Required<BrandConfig>['logoType']>(config.logoType);
-  const [selectedIcon, setSelectedIcon] = useState(config.selectedIcon);
-  const [customLogoUrl, setCustomLogoUrl] = useState(config.customLogoUrl || '');
-  const [fontFamily, setFontFamily] = useState(config.fontFamily);
+  // Local form states initialized from current config with robust fallbacks
+  const [nombre, setNombre] = useState(config?.nombre || 'ALBELO DETAIL');
+  const [tagline, setTagline] = useState(config?.tagline || 'ESTÉTICA VEHICULAR • POLARIZADOS • DETAILING');
+  const [primaryColor, setPrimaryColor] = useState(config?.primaryColor || '#dc2626');
+  const [hoverColor, setHoverColor] = useState(config?.hoverColor || '#b91c1c');
+  const [logoType, setLogoType] = useState<Required<BrandConfig>['logoType']>(config?.logoType || 'icon');
+  const [selectedIcon, setSelectedIcon] = useState(config?.selectedIcon || 'Albelo');
+  const [customLogoUrl, setCustomLogoUrl] = useState(config?.customLogoUrl || '');
+  const [fontFamily, setFontFamily] = useState(config?.fontFamily || 'Outfit');
 
   // Drag and drop states
   const [isDragging, setIsDragging] = useState(false);
