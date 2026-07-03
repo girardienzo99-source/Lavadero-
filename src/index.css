@@ -127,3 +127,25 @@
   scrollbar-width: none;  /* Firefox */
 }
 
+/* @media print styles for thermal receipt printing */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #thermal-ticket-print, #thermal-ticket-print * {
+    visibility: visible;
+  }
+  #thermal-ticket-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 10px;
+    box-shadow: none !important;
+    border-top: 8px solid #dc2626 !important;
+    background: white !important;
+    color: black !important;
+  }
+}
+

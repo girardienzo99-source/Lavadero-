@@ -65,7 +65,7 @@ export function generateTicketPDF(data: TicketInput) {
 
   // 1. Header Banner
   doc.setFillColor(15, 23, 42); // Deep dark background
-  doc.rect(0, 0, 80, 22, 'F');
+  doc.rect(0, 0, 80, 25, 'F');
 
   // Draw primary branding accent bar
   doc.setFillColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
@@ -90,10 +90,11 @@ export function generateTicketPDF(data: TicketInput) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(5.5);
   doc.setTextColor(156, 163, 175);
-  doc.text('Av. Las Heras 1234, Mendoza - CUIT: 30-71458925-9', 40, 16, { align: 'center' });
-  doc.text('RESPONSABLE INSCRIPTO - IVA EXENTO', 40, 19, { align: 'center' });
+  doc.text('Av. Marcelo T. de Alvear 1850, Río Cuarto', 40, 16, { align: 'center' });
+  doc.text('Tel: 358 4226415  •  Insta: @albelodetail', 40, 19, { align: 'center' });
+  doc.text('CUIT: 30-71649255-9  •  IVA RESPONSABLE INSCRIPTO', 40, 22, { align: 'center' });
 
-  let y = 27;
+  let y = 30;
 
   // 2. Receipt metadata
   doc.setTextColor(30, 41, 59);
@@ -219,24 +220,67 @@ export function generateTicketPDF(data: TicketInput) {
   doc.text(`$${data.precio.toLocaleString('es-AR')} ARS`, 72, y + 1, { align: 'right' });
 
   // 6. AFIP QR Code and CAE section
-  y += 10;
-  doc.setFillColor(248, 250, 252);
-  doc.rect(30, y, 20, 20, 'F');
-  doc.setDrawColor(203, 213, 225);
-  doc.rect(30, y, 20, 20, 'S');
-
+  y += 8;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(4.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text('AFIP COMPROBANTE', 40, y + 11, { align: 'center' });
+  doc.setFontSize(6.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('COMPROBANTE AUTORIZADO AFIP', 40, y, { align: 'center' });
 
-  // Draw small QR block patterns
+  y += 3;
+  // Draw a beautiful mock QR code at x=30, y=y
+  const qrX = 30;
+  const qrY = y;
+  
+  // Outer border & background for QR Code
+  doc.setFillColor(255, 255, 255);
+  doc.rect(qrX, qrY, 20, 20, 'F');
+  doc.setDrawColor(30, 41, 59);
+  doc.setLineWidth(0.2);
+  doc.rect(qrX, qrY, 20, 20, 'S');
+
+  // Finder patterns (top-left, top-right, bottom-left)
   doc.setFillColor(30, 41, 59);
-  doc.rect(32, y + 2, 3.5, 3.5, 'F');
-  doc.rect(44.5, y + 2, 3.5, 3.5, 'F');
-  doc.rect(32, y + 14.5, 3.5, 3.5, 'F');
-  doc.rect(38.5, y + 8, 3, 3, 'F');
-  doc.rect(44.5, y + 13, 2.5, 2.5, 'F');
+  // Top-left
+  doc.rect(qrX + 1, qrY + 1, 5, 5, 'F');
+  doc.setFillColor(255, 255, 255);
+  doc.rect(qrX + 2, qrY + 2, 3, 3, 'F');
+  doc.setFillColor(30, 41, 59);
+  doc.rect(qrX + 2.5, qrY + 2.5, 2, 2, 'F');
+
+  // Top-right
+  doc.rect(qrX + 14, qrY + 1, 5, 5, 'F');
+  doc.setFillColor(255, 255, 255);
+  doc.rect(qrX + 15, qrY + 2, 3, 3, 'F');
+  doc.setFillColor(30, 41, 59);
+  doc.rect(qrX + 15.5, qrY + 2.5, 2, 2, 'F');
+
+  // Bottom-left
+  doc.rect(qrX + 1, qrY + 14, 5, 5, 'F');
+  doc.setFillColor(255, 255, 255);
+  doc.rect(qrX + 2, qrY + 15, 3, 3, 'F');
+  doc.setFillColor(30, 41, 59);
+  doc.rect(qrX + 2.5, qrY + 15.5, 2, 2, 'F');
+
+  // Alignment pattern bottom-right
+  doc.rect(qrX + 13, qrY + 13, 3, 3, 'F');
+  doc.setFillColor(255, 255, 255);
+  doc.rect(qrX + 14, qrY + 14, 1, 1, 'F');
+
+  // Random QR noise pixels
+  doc.setFillColor(30, 41, 59);
+  const qrPixels = [
+    [7, 1], [9, 1], [11, 2], [12, 1],
+    [7, 3], [8, 4], [10, 4], [12, 3], [12, 5],
+    [1, 7], [3, 7], [4, 8], [6, 7], [7, 7], [9, 6], [11, 7], [13, 7], [15, 7], [17, 7], [18, 8],
+    [2, 9], [5, 9], [8, 9], [10, 8], [11, 10], [14, 9], [16, 9],
+    [1, 11], [3, 11], [6, 11], [7, 12], [9, 11], [13, 11], [15, 12], [18, 11],
+    [7, 13], [10, 13], [11, 14], [12, 13], [17, 13],
+    [8, 15], [9, 16], [13, 16], [15, 15], [16, 17],
+    [7, 18], [9, 17], [11, 18], [14, 18], [18, 18]
+  ];
+  qrPixels.forEach(([px, py]) => {
+    doc.rect(qrX + px, qrY + py, 1, 1, 'F');
+  });
 
   y += 24;
   doc.setFont('helvetica', 'normal');

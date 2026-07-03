@@ -29,6 +29,25 @@ export default function TurnosKanbanView({
   onAddLog,
   onUpdateTurno,
 }: TurnosKanbanViewProps) {
+  // Load brand configuration dynamically
+  const brandConfig = (() => {
+    let config = {
+      nombre: 'ALBELO DETAIL',
+      tagline: 'ESTÉTICA VEHICULAR • POLARIZADOS • DETAILING',
+      primaryColor: '#dc2626',
+    };
+    try {
+      const saved = localStorage.getItem('albelo_brand_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.nombre) {
+          config = { ...config, ...parsed };
+        }
+      }
+    } catch (e) {}
+    return config;
+  })();
+
   // Filters & Tabs
   const [filterType, setFilterType] = useState<TipoServicio | 'ALL'>('ALL');
   const [viewMode, setViewMode] = useState<'kanban' | 'calendar'>('kanban');
@@ -954,12 +973,14 @@ export default function TurnosKanbanView({
             </button>
 
             {/* Thermal Print Receipt Wrapper */}
-            <div id="thermal-ticket-print" className="bg-white text-slate-900 p-5 rounded-lg font-mono text-xs shadow-xl overflow-y-auto max-h-[60vh] space-y-4 border-t-8 border-[#00d2ff]">
+            <div id="thermal-ticket-print" className="bg-white text-slate-900 p-5 rounded-lg font-mono text-xs shadow-xl overflow-y-auto max-h-[60vh] space-y-4" style={{ borderTop: `8px solid ${brandConfig.primaryColor}` }}>
               <div className="text-center space-y-1">
-                <h4 className="font-bold text-sm tracking-widest">MOBILE WASH CAR WASH</h4>
-                <p className="text-[10px] text-slate-500">Av. Las Heras 1234, Mendoza</p>
-                <p className="text-[10px] text-slate-500">CUIT: 30-71458925-9</p>
-                <p className="text-[9px] text-slate-400">Responsable Inscripto</p>
+                <h4 className="font-bold text-sm tracking-widest">{brandConfig.nombre.toUpperCase()}</h4>
+                <p className="text-[8px] text-slate-500 font-semibold">{brandConfig.tagline.toUpperCase()}</p>
+                <p className="text-[9px] text-slate-500">Av. Marcelo T. de Alvear 1850, Río Cuarto</p>
+                <p className="text-[9px] text-slate-500">Cel: 358 4226415  •  Insta: @albelodetail</p>
+                <p className="text-[9px] text-slate-500 font-bold">CUIT: 30-71649255-9</p>
+                <p className="text-[8.5px] text-slate-400">IVA RESPONSABLE INSCRIPTO</p>
               </div>
 
               <div className="border-b border-dashed border-slate-400 py-1 space-y-1 text-[10px]">
@@ -1004,14 +1025,61 @@ export default function TurnosKanbanView({
                 </div>
               </div>
 
-              <div className="text-center pt-4 space-y-2">
-                <div className="inline-block bg-slate-100 p-1.5 rounded">
-                  {/* Mock QR Code for AFIP digital invoice link */}
-                  <div className="w-20 h-20 bg-slate-300 border-2 border-slate-400 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                    QR AFIP
-                  </div>
+              <div className="text-center pt-4 space-y-2 flex flex-col items-center">
+                <div className="text-[9px] font-bold text-slate-800 uppercase tracking-wider mb-1">Comprobante Autorizado AFIP</div>
+                <div className="inline-block bg-white p-1.5 rounded border border-slate-200 shadow-sm">
+                  {/* Beautiful SVG Mock QR Code */}
+                  <svg className="w-20 h-20 text-slate-900" viewBox="0 0 21 21" fill="currentColor">
+                    <rect width="21" height="21" fill="white" />
+                    {/* Top-Left Finder */}
+                    <rect x="1" y="1" width="7" height="7" fill="currentColor" />
+                    <rect x="2" y="2" width="5" height="5" fill="white" />
+                    <rect x="3" y="3" width="3" height="3" fill="currentColor" />
+                    
+                    {/* Top-Right Finder */}
+                    <rect x="13" y="1" width="7" height="7" fill="currentColor" />
+                    <rect x="14" y="2" width="5" height="5" fill="white" />
+                    <rect x="15" y="3" width="3" height="3" fill="currentColor" />
+                    
+                    {/* Bottom-Left Finder */}
+                    <rect x="1" y="13" width="7" height="7" fill="currentColor" />
+                    <rect x="2" y="14" width="5" height="5" fill="white" />
+                    <rect x="3" y="15" width="3" height="3" fill="currentColor" />
+                    
+                    {/* Alignment pattern */}
+                    <rect x="13" y="13" width="5" height="5" fill="currentColor" />
+                    <rect x="14" y="14" width="3" height="3" fill="white" />
+                    <rect x="15" y="15" width="1" height="1" fill="currentColor" />
+                    
+                    {/* Random-looking dots */}
+                    <rect x="9" y="1" width="1" height="1" fill="currentColor" />
+                    <rect x="11" y="2" width="1" height="1" fill="currentColor" />
+                    <rect x="9" y="4" width="1" height="1" fill="currentColor" />
+                    <rect x="10" y="5" width="1" height="1" fill="currentColor" />
+                    
+                    <rect x="1" y="9" width="1" height="1" fill="currentColor" />
+                    <rect x="3" y="9" width="1" height="1" fill="currentColor" />
+                    <rect x="5" y="10" width="1" height="1" fill="currentColor" />
+                    <rect x="6" y="9" width="1" height="1" fill="currentColor" />
+                    
+                    <rect x="9" y="9" width="1" height="1" fill="currentColor" />
+                    <rect x="10" y="10" width="1" height="1" fill="white" />
+                    <rect x="11" y="9" width="1" height="1" fill="currentColor" />
+                    
+                    <rect x="9" y="13" width="1" height="1" fill="currentColor" />
+                    <rect x="10" y="15" width="1" height="1" fill="currentColor" />
+                    <rect x="11" y="14" width="1" height="1" fill="currentColor" />
+                    
+                    <rect x="14" y="9" width="1" height="1" fill="currentColor" />
+                    <rect x="16" y="10" width="1" height="1" fill="currentColor" />
+                    <rect x="17" y="9" width="1" height="1" fill="currentColor" />
+                  </svg>
                 </div>
-                <p className="text-[9px] text-slate-500 leading-normal">CAE N°: 73254915648521<br />Vto. CAE: {new Date(Date.now() + 864000000).toLocaleDateString('es-AR')}<br />¡Gracias por confiar en Mobile Wash!</p>
+                <p className="text-[9px] text-slate-500 leading-normal mt-1">
+                  CAE N°: 73254915648521<br />
+                  Vto. CAE: {new Date(Date.now() + 864000000).toLocaleDateString('es-AR')}<br />
+                  ¡Gracias por confiar en <b>{brandConfig.nombre}</b>!
+                </p>
               </div>
             </div>
 
