@@ -16,10 +16,10 @@ def setup_database():
         print("[ERROR] Se requiere una contraseña para conectar a Supabase.")
         sys.exit(1)
         
-    host = "db.sqczmyaoqplrmrgyczjy.supabase.co"
+    host = "aws-1-us-west-1.pooler.supabase.com"
     port = 5432
     dbname = "postgres"
-    user = "postgres"
+    user = "postgres.txpryiflqkxukeldgisc"
     
     print(f"\nConectando a {host}:{port}/{dbname} como {user}...")
     

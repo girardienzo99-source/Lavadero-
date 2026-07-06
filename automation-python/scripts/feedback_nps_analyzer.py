@@ -2,7 +2,7 @@ import os
 import json
 import pandas as pd
 
-DB_URL = os.getenv("DATABASE_URL", f"postgresql://postgres:{os.getenv('SUPABASE_DB_PASSWORD', 'postgres')}@db.sqczmyaoqplrmrgyczjy.supabase.co:5432/postgres")
+DB_URL = os.getenv("DATABASE_URL", f"postgresql://postgres.txpryiflqkxukeldgisc:{os.getenv('SUPABASE_DB_PASSWORD', 'Enzo37108100.')}@aws-1-us-west-1.pooler.supabase.com:5432/postgres")
 
 def calculate_nps():
     print("[NPS] Buscando valoraciones de clientes en la base de datos...")

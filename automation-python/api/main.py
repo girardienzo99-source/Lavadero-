@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 # Configuración de base de datos
-DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.tqbikenqygnyzrxnabia:Lavadero2026/@aws-0-us-east-2.pooler.supabase.com:6543/postgres").strip()
+DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.txpryiflqkxukeldgisc:Lavadero2026/@aws-0-us-east-2.pooler.supabase.com:6543/postgres").strip()
 
 # Forzar el modo REST API de manera permanente para evitar fallos del pooler directo de Supabase
 DB_ONLINE = False
@@ -35,8 +35,8 @@ def execute_query_rest(query: str, params: dict = None, fetch_all: bool = False,
     import random
     from datetime import datetime
     
-    REST_URL = "https://tqbikenqygnyzrxnabia.supabase.co/rest/v1"
-    anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxYmlrZW5xeWdueXpyeG5hYmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjUzOTYsImV4cCI6MjA5ODYwMTM5Nn0.JgadNGVv4XzOw9duUV_v8AE5Fhyi6sQ7nNcqQry1UCI"
+    REST_URL = "https://txpryiflqkxukeldgisc.supabase.co/rest/v1"
+    anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4cHJ5aWZscWt4dWtlbGRnaXNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNjU1NzksImV4cCI6MjA5ODk0MTU3OX0.6LHLR4pyaBokyVbrboIWyCDM6ACAxJOj3EWEizjieec"
     headers = {
         "apikey": anon_key,
         "Authorization": f"Bearer {anon_key}",
@@ -550,8 +550,8 @@ def get_customer_segmentation():
         print(f"[FASTAPI-WARNING] DB Offline. Intentando REST API para segmentación: {e}")
         try:
             import requests
-            REST_URL = "https://tqbikenqygnyzrxnabia.supabase.co/rest/v1"
-            anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxYmlrZW5xeWdueXpyeG5hYmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjUzOTYsImV4cCI6MjA5ODYwMTM5Nn0.JgadNGVv4XzOw9duUV_v8AE5Fhyi6sQ7nNcqQry1UCI"
+            REST_URL = "https://txpryiflqkxukeldgisc.supabase.co/rest/v1"
+            anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4cHJ5aWZscWt4dWtlbGRnaXNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNjU1NzksImV4cCI6MjA5ODk0MTU3OX0.6LHLR4pyaBokyVbrboIWyCDM6ACAxJOj3EWEizjieec"
             headers = {"apikey": anon_key, "Authorization": f"Bearer {anon_key}"}
             
             # Fetch clientes
@@ -639,8 +639,8 @@ def get_nps_metrics():
         print(f"[FASTAPI-WARNING] DB Offline. Intentando REST API para NPS: {e}")
         try:
             import requests
-            REST_URL = "https://tqbikenqygnyzrxnabia.supabase.co/rest/v1"
-            anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxYmlrZW5xeWdueXpyeG5hYmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjUzOTYsImV4cCI6MjA5ODYwMTM5Nn0.JgadNGVv4XzOw9duUV_v8AE5Fhyi6sQ7nNcqQry1UCI"
+            REST_URL = "https://txpryiflqkxukeldgisc.supabase.co/rest/v1"
+            anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4cHJ5aWZscWt4dWtlbGRnaXNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNjU1NzksImV4cCI6MjA5ODk0MTU3OX0.6LHLR4pyaBokyVbrboIWyCDM6ACAxJOj3EWEizjieec"
             headers = {"apikey": anon_key, "Authorization": f"Bearer {anon_key}"}
             res = requests.get(f"{REST_URL}/feedback_clientes?select=puntuacion", headers=headers).json()
             df = pd.DataFrame(res)

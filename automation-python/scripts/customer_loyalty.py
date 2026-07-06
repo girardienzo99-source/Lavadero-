@@ -4,7 +4,7 @@ import string
 import json
 from datetime import datetime, timedelta
 
-DB_URL = os.getenv("DATABASE_URL", f"postgresql://postgres:{os.getenv('SUPABASE_DB_PASSWORD', 'postgres')}@db.sqczmyaoqplrmrgyczjy.supabase.co:5432/postgres")
+DB_URL = os.getenv("DATABASE_URL", f"postgresql://postgres.txpryiflqkxukeldgisc:{os.getenv('SUPABASE_DB_PASSWORD', 'Enzo37108100.')}@aws-1-us-west-1.pooler.supabase.com:5432/postgres")
 
 def generate_coupon_code(length=6):
     """Genera un código alfanumérico aleatorio para el cupón."""
