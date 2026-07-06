@@ -20,13 +20,14 @@ import InventoryManagement from './components/InventoryManagement';
 import CeramicServices from './components/CeramicServices';
 import BrandSettings from './components/BrandSettings';
 import Login from './components/Login';
+import WhatsAppCRMHub from './components/WhatsAppCRMHub';
 
 export default function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<'overview' | 'turnos' | 'caja' | 'publicidad' | 'roadmap' | 'public-page' | 'inventario' | 'ceramic' | 'branding'>('overview');
   const [cajaSubTab, setCajaSubTab] = useState<'pos' | 'facturacion'>('pos');
   const [statsSubTab, setStatsSubTab] = useState<'semanal' | 'mix' | 'lavadores'>('semanal');
-  const [subTabPublicidad, setSubTabPublicidad] = useState<'flyers' | 'loyalty'>('flyers');
+  const [subTabPublicidad, setSubTabPublicidad] = useState<'flyers' | 'loyalty' | 'whatsapp-crm'>('flyers');
 
   // Session state
   const [session, setSession] = useState<{ nombre: string; rol: string } | null>(() => {
@@ -1566,9 +1567,20 @@ export default function App() {
               >
                 CRM & Cupones VIP
               </button>
+              <button
+                type="button"
+                onClick={() => setSubTabPublicidad('whatsapp-crm')}
+                className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
+                  subTabPublicidad === 'whatsapp-crm'
+                    ? 'border-brand-primary text-white bg-white/[0.02]'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+                }`}
+              >
+                CRM WhatsApp & Alertas
+              </button>
             </div>
 
-            {subTabPublicidad === 'flyers' ? (
+            {subTabPublicidad === 'flyers' && (
               <>
                 <div className="glass-panel p-5 rounded-xl space-y-2">
                   <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">Diseñador de Publicidades y Promociones</h3>
@@ -1578,7 +1590,9 @@ export default function App() {
                 </div>
                 <PromoPosterCreator onAddPromotionToConsole={addConsoleLog} />
               </>
-            ) : (
+            )}
+
+            {subTabPublicidad === 'loyalty' && (
               <>
                 <div className="glass-panel p-5 rounded-xl space-y-2">
                   <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">CRM & Campañas de Fidelización</h3>
@@ -1588,6 +1602,13 @@ export default function App() {
                 </div>
                 <LoyaltyCampaigns clientes={clientes} onAddLog={addConsoleLog} />
               </>
+            )}
+
+            {subTabPublicidad === 'whatsapp-crm' && (
+              <WhatsAppCRMHub 
+                turnos={turnos}
+                onAddLog={addConsoleLog}
+              />
             )}
           </div>
         )}
@@ -1605,6 +1626,7 @@ export default function App() {
             <PlanRoadmap 
               turnos={turnos}
               empleados={rawDbData?.empleados || []}
+              transacciones={transacciones}
               onAddLog={addConsoleLog}
               onAddTransaccion={(tx) => setTransacciones(prev => [...prev, tx])}
               onReloadData={loadDashboardData}

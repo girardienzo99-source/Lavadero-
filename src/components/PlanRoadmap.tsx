@@ -7,19 +7,21 @@ import { Turno, Transaccion } from '../types';
 interface PlanRoadmapProps {
   turnos?: Turno[];
   empleados?: any[];
+  transacciones?: any[];
   onAddLog?: (message: string) => void;
-  onAddTransaccion?: (tx: Transaccion) => void;
+  onAddTransaccion?: (tx: any) => void;
   onReloadData?: () => void;
 }
 
 export default function PlanRoadmap({
   turnos = [],
   empleados = [],
+  transacciones = [],
   onAddLog,
   onAddTransaccion,
   onReloadData
 }: PlanRoadmapProps) {
-  const [activeTab, setActiveTab] = useState<'blueprint' | 'calculator' | 'equipment' | 'roi' | 'comisiones'>('blueprint');
+  const [activeTab, setActiveTab] = useState<'blueprint' | 'calculator' | 'equipment' | 'roi' | 'comisiones' | 'balance'>('blueprint');
 
   // Active staff list with database or hardcoded mock fallback
   const activeStaff = empleados && empleados.length > 0
@@ -263,6 +265,86 @@ export default function PlanRoadmap({
     alert(`Comisión liquidada para ${name}. Recibo descargado.`);
   };
 
+  // ==========================================
+  // FINANCIAL P&L AND EBITDA CALCULATIONS
+  // ==========================================
+  const completedTurnos = turnos.filter(t => t.estado === 'COMPLETADO' || t.estado === 'LISTO' || t.estado === 'ENTREGADO');
+  const revenueTurnos = completedTurnos.reduce((sum, t) => sum + t.precio, 0);
+
+  const transaccionesIngresos = transacciones.filter(tx => tx.tipo === 'INGRESO');
+  const revenueManual = transaccionesIngresos.reduce((sum, tx) => sum + tx.monto, 0);
+  const revenueTotal = revenueTurnos + revenueManual;
+
+  const transaccionesEgresos = transacciones.filter(tx => tx.tipo === 'EGRESO');
+  const costsManual = transaccionesEgresos.reduce((sum, tx) => sum + tx.monto, 0);
+
+  const commissionsPaid = completedTurnos.reduce((sum, t) => {
+    const op = empleados.find(emp => emp.nombre === t.lavadorAsignado);
+    const pct = op && op.porcentaje_comision !== undefined ? Number(op.porcentaje_comision) : 40;
+    return sum + Math.round((t.precio * pct) / 100);
+  }, 0);
+
+  const cogsInsumos = completedTurnos.reduce((sum, t) => {
+    const typeStr = t.tipo || 'LAVADO';
+    if (typeStr.toUpperCase().includes('CERAMIC') || typeStr.toUpperCase().includes('ESTETICA')) {
+      return sum + 15000;
+    }
+    if (typeStr.toUpperCase().includes('TAPICERIA')) {
+      return sum + 5000;
+    }
+    return sum + 2500;
+  }, 0);
+
+  const ebitda = revenueTotal - (costsManual + commissionsPaid + cogsInsumos);
+  const margin = revenueTotal > 0 ? Math.round((ebitda / revenueTotal) * 100) : 0;
+
+  const handleExportPLReport = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("ALBELO DETAIL - ESTADO DE RESULTADOS (P&L)", 14, 18);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Reporte consolidado al: ${new Date().toLocaleDateString('es-AR')}`, 14, 26);
+    
+    // Financial Table
+    const data = [
+      ["INGRESOS TOTALES", `$${revenueTotal.toLocaleString('es-AR')}`, "Suma de lavados y cobros de caja"],
+      ["  (+) Ingresos por Turnos", `$${revenueTurnos.toLocaleString('es-AR')}`, "Turnos en estado Listo o Entregado"],
+      ["  (+) Ajustes Manuales de Caja", `$${revenueManual.toLocaleString('es-AR')}`, "Entradas de efectivo manuales"],
+      ["COSTOS DIRECTOS DE SERVICIO (COGS)", `-$${(commissionsPaid + cogsInsumos).toLocaleString('es-AR')}`, "Fricción directa de operarios e insumos"],
+      ["  (-) Comisiones Operarios", `-$${commissionsPaid.toLocaleString('es-AR')}`, "Sueldos variables liquidados"],
+      ["  (-) Desgaste de Químicos/Insumos", `-$${cogsInsumos.toLocaleString('es-AR')}`, "Consumo estimado de insumos por lavado"],
+      ["GASTOS OPERATIVOS (OPEX)", `-$${costsManual.toLocaleString('es-AR')}`, "Gastos operativos del lavadero"],
+      ["  (-) Gastos Generales (Caja)", `-$${costsManual.toLocaleString('es-AR')}`, "Luz, alquiler, agua, etc."],
+      ["UTILIDAD NETA (EBITDA)", `$${ebitda.toLocaleString('es-AR')}`, `Margen Neto del ${margin}%`]
+    ];
+    
+    autoTable(doc, {
+      startY: 50,
+      head: [["Concepto Financiero", "Monto (ARS)", "Observaciones / Detalles"]],
+      body: data,
+      theme: 'grid',
+      headStyles: { fillStyle: 'F', fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 9, cellPadding: 4 },
+      columnStyles: {
+        0: { cellWidth: 85 },
+        1: { cellWidth: 35, fontStyle: 'bold', halign: 'right' },
+        2: { cellWidth: 70 }
+      }
+    });
+    
+    doc.save("Reporte_Resultados_PL_EBITDA.pdf");
+    if (onAddLog) onAddLog("📊 Reporte de Pérdidas y Ganancias (P&L / EBITDA) exportado correctamente en formato PDF.");
+  };
+
   // Interactive Pricing Calculator States
   const [vehicleSize, setVehicleSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [vehicleState, setVehicleState] = useState<'mild' | 'moderate' | 'severe'>('moderate');
@@ -395,6 +477,18 @@ export default function PlanRoadmap({
         >
           <DollarSign className="w-4 h-4" />
           Liquidación de Comisiones
+        </button>
+        <button
+          id="btn-tab-balance"
+          onClick={() => setActiveTab('balance')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
+            activeTab === 'balance'
+              ? 'border-brand-primary text-white bg-white/[0.02]'
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4 text-emerald-400" />
+          Balance P&L / EBITDA
         </button>
       </div>
 
@@ -1065,6 +1159,143 @@ export default function PlanRoadmap({
                   Registrar Adelanto
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Balance Tab */}
+      {activeTab === 'balance' && (
+        <div className="space-y-6 animate-fade-in relative z-20">
+          {/* Summary stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white/[0.02] border border-white/[0.06] p-4 rounded-xl shadow-sm hover:scale-[1.01] transition-transform">
+              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black block font-mono">Ingresos Operativos</span>
+              <span className="text-xl font-extrabold text-emerald-400 block font-mono mt-1">${revenueTotal.toLocaleString('es-AR')}</span>
+              <span className="text-[8.5px] text-slate-500 mt-1 block">Turnos: ${revenueTurnos.toLocaleString('es-AR')} | Caja: ${revenueManual.toLocaleString('es-AR')}</span>
+            </div>
+
+            <div className="bg-white/[0.02] border border-white/[0.06] p-4 rounded-xl shadow-sm hover:scale-[1.01] transition-transform">
+              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black block font-mono">Comisiones Operarios</span>
+              <span className="text-xl font-extrabold text-amber-400 block font-mono mt-1">${commissionsPaid.toLocaleString('es-AR')}</span>
+              <span className="text-[8.5px] text-slate-500 mt-1 block">Fórmulas de lavado aplicadas</span>
+            </div>
+
+            <div className="bg-white/[0.02] border border-white/[0.06] p-4 rounded-xl shadow-sm hover:scale-[1.01] transition-transform">
+              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black block font-mono">Costo Insumos (COGS)</span>
+              <span className="text-xl font-extrabold text-cyan-400 block font-mono mt-1">${cogsInsumos.toLocaleString('es-AR')}</span>
+              <span className="text-[8.5px] text-slate-500 mt-1 block">Fricción química aproximada</span>
+            </div>
+
+            <div className="bg-white/[0.02] border border-white/[0.06] p-4 rounded-xl relative overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:scale-[1.01] transition-transform">
+              <div className="absolute top-0 right-0 w-8 h-8 bg-emerald-500/5 rounded-full blur-sm" />
+              <span className="text-[9px] text-emerald-400 uppercase tracking-widest font-black block font-mono">EBITDA / Ganancia Neta</span>
+              <span className={`text-xl font-extrabold block font-mono mt-1 ${ebitda >= 0 ? 'text-emerald-400 animate-pulse' : 'text-red-400'}`}>
+                ${ebitda.toLocaleString('es-AR')}
+              </span>
+              <span className="text-[9px] font-bold text-slate-300 mt-1 block">Margen Neto: {margin}%</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: P&L Statement */}
+            <div className="lg:col-span-8 glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+              <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Estado de Resultados Consolidado (P&L)
+                </h4>
+                <button
+                  type="button"
+                  onClick={handleExportPLReport}
+                  className="flex items-center gap-1.5 bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 px-2.5 py-1 rounded text-[9.5px] text-brand-primary font-bold uppercase tracking-wider transition cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" /> Exportar Reporte PDF
+                </button>
+              </div>
+
+              <div className="space-y-2.5 font-mono text-[10.5px] text-slate-300 pt-1">
+                <div className="flex justify-between items-center border-b border-white/[0.04] pb-1.5 font-bold">
+                  <span className="text-white">INGRESOS TOTALES</span>
+                  <span className="text-emerald-400">${revenueTotal.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between items-center pl-4 text-slate-400">
+                  <span>(+) Ingresos por Turnos Realizados</span>
+                  <span>${revenueTurnos.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between items-center pl-4 text-slate-400 pb-1 border-b border-white/[0.02]">
+                  <span>(+) Ajustes de Caja (Ventas POS / Manual)</span>
+                  <span>${revenueManual.toLocaleString('es-AR')}</span>
+                </div>
+
+                <div className="flex justify-between items-center border-b border-white/[0.04] pt-2 pb-1.5 font-bold">
+                  <span className="text-white">COSTOS DIRECTOS DE SERVICIO (COGS)</span>
+                  <span className="text-red-400">-${(commissionsPaid + cogsInsumos).toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between items-center pl-4 text-slate-400">
+                  <span>(-) Comisiones a Operarios</span>
+                  <span>-${commissionsPaid.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between items-center pl-4 text-slate-400 pb-1 border-b border-white/[0.02]">
+                  <span>(-) Consumo Estimado de Químicos</span>
+                  <span>-${cogsInsumos.toLocaleString('es-AR')}</span>
+                </div>
+
+                <div className="flex justify-between items-center border-b border-white/[0.04] pt-2 pb-1.5 font-bold">
+                  <span className="text-white">GASTOS OPERATIVOS (OPEX)</span>
+                  <span className="text-red-400">-${costsManual.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between items-center pl-4 text-slate-400 pb-1">
+                  <span>(-) Gastos Generales de Caja (Alquiler, Luz, etc.)</span>
+                  <span>-${costsManual.toLocaleString('es-AR')}</span>
+                </div>
+
+                <div className="flex justify-between items-center border-t-2 border-white/[0.08] pt-3.5 font-black text-xs text-white bg-white/[0.01] p-2 rounded-lg">
+                  <span>UTILIDAD NETA OPERACIONAL (EBITDA)</span>
+                  <span className={ebitda >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                    ${ebitda.toLocaleString('es-AR')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Visual Breakdown gauge */}
+            <div className="lg:col-span-4 glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 pb-2 border-b border-white/[0.08]">
+                Eficiencia del Margen
+              </h4>
+              
+              <div className="flex flex-col items-center justify-center py-4 space-y-2">
+                <div className="relative w-32 h-32 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.03)" strokeWidth="6" fill="transparent" />
+                    <circle 
+                      cx="50" 
+                      cy="50" 
+                      r="40" 
+                      stroke="url(#progress-gradient)" 
+                      strokeWidth="6" 
+                      fill="transparent" 
+                      strokeDasharray={251.2}
+                      strokeDashoffset={251.2 - (251.2 * Math.max(0, Math.min(100, margin))) / 100}
+                      strokeLinecap="round"
+                    />
+                    <defs>
+                      <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#059669" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
+                    <span className="text-xl font-black text-white">{margin}%</span>
+                    <span className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest">Margen</span>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-slate-400 text-center leading-relaxed max-w-[200px] pt-2">
+                  📊 <b>Métrica Saludable:</b> Un margen superior al 30% indica un control eficiente de egresos e insumos directos.
+                </div>
+              </div>
             </div>
           </div>
         </div>
