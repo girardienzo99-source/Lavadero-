@@ -341,7 +341,7 @@ export default function PlanRoadmap({
           onClick={() => setActiveTab('blueprint')}
           className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
             activeTab === 'blueprint'
-              ? 'border-red-500 text-white bg-white/[0.02]'
+              ? 'border-brand-primary text-white bg-white/[0.02]'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
           }`}
         >
@@ -353,7 +353,7 @@ export default function PlanRoadmap({
           onClick={() => setActiveTab('calculator')}
           className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
             activeTab === 'calculator'
-              ? 'border-red-500 text-white bg-white/[0.02]'
+              ? 'border-brand-primary text-white bg-white/[0.02]'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
           }`}
         >
@@ -365,7 +365,7 @@ export default function PlanRoadmap({
           onClick={() => setActiveTab('equipment')}
           className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
             activeTab === 'equipment'
-              ? 'border-red-500 text-white bg-white/[0.02]'
+              ? 'border-brand-primary text-white bg-white/[0.02]'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
           }`}
         >
@@ -377,7 +377,7 @@ export default function PlanRoadmap({
           onClick={() => setActiveTab('roi')}
           className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
             activeTab === 'roi'
-              ? 'border-red-500 text-white bg-white/[0.02]'
+              ? 'border-brand-primary text-white bg-white/[0.02]'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
           }`}
         >
@@ -389,7 +389,7 @@ export default function PlanRoadmap({
           onClick={() => setActiveTab('comisiones')}
           className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition duration-200 shrink-0 cursor-pointer ${
             activeTab === 'comisiones'
-              ? 'border-red-500 text-white bg-white/[0.02]'
+              ? 'border-brand-primary text-white bg-white/[0.02]'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
           }`}
         >

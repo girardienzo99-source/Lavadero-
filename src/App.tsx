@@ -1478,7 +1478,7 @@ export default function App() {
                 onClick={() => setCajaSubTab('pos')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition uppercase tracking-wider cursor-pointer ${
                   cajaSubTab === 'pos'
-                    ? 'bg-[#00d2ff]/20 text-[#00d2ff] border border-[#00d2ff]/30 shadow-[0_0_15px_rgba(0,210,255,0.1)]'
+                    ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
                     : 'text-slate-400 hover:text-slate-200 bg-white/[0.01] border border-white/[0.06]'
                 }`}
               >
@@ -1488,11 +1488,11 @@ export default function App() {
                 onClick={() => setCajaSubTab('facturacion')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 uppercase tracking-wider cursor-pointer ${
                   cajaSubTab === 'facturacion'
-                    ? 'bg-[#00d2ff]/20 text-[#00d2ff] border border-[#00d2ff]/30 shadow-[0_0_15px_rgba(0,210,255,0.1)]'
+                    ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
                     : 'text-slate-400 hover:text-slate-200 bg-white/[0.01] border border-white/[0.06]'
                 }`}
               >
-                <FileText className="w-3.5 h-3.5 text-[#00d2ff]" />
+                <FileText className="w-3.5 h-3.5 text-brand-primary" />
                 Facturación AFIP (A / B)
               </button>
             </div>

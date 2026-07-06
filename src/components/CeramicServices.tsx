@@ -204,7 +204,7 @@ export default function CeramicServices({
             onClick={() => setActiveSubTab('calculator')}
             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 ${
               activeSubTab === 'calculator'
-                ? 'bg-red-600/20 text-red-500 border border-red-600/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -215,7 +215,7 @@ export default function CeramicServices({
             onClick={() => setActiveSubTab('config')}
             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 ${
               activeSubTab === 'config'
-                ? 'bg-red-600/20 text-red-500 border border-red-600/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -226,7 +226,7 @@ export default function CeramicServices({
             onClick={() => setActiveSubTab('simulator')}
             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 ${
               activeSubTab === 'simulator'
-                ? 'bg-red-600/20 text-red-500 border border-red-600/30 shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
             }`}
           >
@@ -248,11 +248,11 @@ export default function CeramicServices({
           {/* Main Calculator Form */}
           <form onSubmit={handleScheduleCeramic} className="lg:col-span-8 glass-panel p-5 rounded-xl border border-white/[0.08] space-y-5">
             <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-red-500 flex items-center gap-1.5">
-                <Calculator className="w-4 h-4 text-red-500" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-brand-primary flex items-center gap-1.5">
+                <Calculator className="w-4 h-4 text-brand-primary" />
                 Cotización de Tratamiento Cerámico Complejo
               </h4>
-              <span className="text-[9px] bg-red-950/40 text-red-400 border border-red-600/35 px-1.5 py-0.5 rounded font-bold uppercase">ALBELO STUDIO</span>
+              <span className="text-[9px] bg-brand-primary/15 text-brand-primary border border-brand-primary/30 px-1.5 py-0.5 rounded font-bold uppercase">ALBELO STUDIO</span>
             </div>
 
             {/* Selection inputs */}
@@ -274,7 +274,7 @@ export default function CeramicServices({
                 {currentCliente && (
                   <div className="bg-white/[0.01] p-2.5 rounded-lg border border-white/[0.04] text-[10px] text-slate-400 flex justify-between items-center">
                     <span>Modelo: <b className="text-slate-200">{currentCliente.vehiculoModelo}</b></span>
-                    <span>Patente: <b className="text-red-400 uppercase">{currentCliente.vehiculoPatente}</b></span>
+                    <span>Patente: <b className="text-brand-primary uppercase font-mono">{currentCliente.vehiculoPatente}</b></span>
                   </div>
                 )}
               </div>
@@ -349,11 +349,11 @@ export default function CeramicServices({
                         }}
                         className={`p-3.5 rounded-xl border text-center cursor-pointer transition flex flex-col items-center justify-between h-36 ${
                           isSelected
-                            ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_15px_rgba(220,38,38,0.1)]'
+                            ? 'bg-brand-primary/10 border-brand-primary/30 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
                             : 'bg-black/20 border-white/[0.06] hover:border-white/[0.1] hover:bg-black/30'
                         }`}
                       >
-                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-red-500/20 text-red-400' : 'bg-white/[0.03] text-slate-500'}`}>
+                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-brand-primary/20 text-brand-primary' : 'bg-white/[0.03] text-slate-500'}`}>
                           {f.tipo === 'AUTO' && <Car className="w-6 h-6" />}
                           {f.tipo === 'SUV' && (
                             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -384,7 +384,7 @@ export default function CeramicServices({
                 {/* Helpful Note about formulas */}
                 <div className="bg-white/[0.01] border border-white/[0.06] rounded-lg p-3 space-y-1.5 text-[10px] text-slate-400">
                   <div className="flex items-center gap-1.5 font-bold text-slate-300">
-                    <HelpCircle className="w-3.5 h-3.5 text-red-400" />
+                    <HelpCircle className="w-3.5 h-3.5 text-brand-primary" />
                     <span>Fórmula de Cobro Detailing</span>
                   </div>
                   <p className="leading-relaxed">
@@ -419,7 +419,7 @@ export default function CeramicServices({
                         setCustomPrecioCalc(Number(promptVal));
                       }
                     }}
-                    className="text-[10px] text-red-400 underline hover:text-red-300 transition"
+                    className="text-[10px] text-brand-primary underline hover:opacity-85 transition"
                   >
                     Establecer precio manual
                   </button>
@@ -532,8 +532,8 @@ export default function CeramicServices({
             {/* Treatment level configuration form */}
             <form onSubmit={handleAddNivel} className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-red-500 flex items-center gap-1.5">
-                  <Plus className="w-4 h-4 text-red-500" /> Configurar Niveles de Tratamiento
+                <h4 className="text-xs font-bold uppercase tracking-wider text-brand-primary flex items-center gap-1.5">
+                  <Plus className="w-4 h-4 text-brand-primary" /> Configurar Niveles de Tratamiento
                 </h4>
                 <span className="text-[8px] text-slate-500">Formulario Admin</span>
               </div>
@@ -658,7 +658,7 @@ export default function CeramicServices({
             <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                  <Car className="w-4 h-4 text-red-500" />
+                  <Car className="w-4 h-4 text-brand-primary" />
                   Factores por Tamaño de Vehículo
                 </h4>
                 <span className="text-[9px] text-slate-500 font-bold uppercase font-mono">Formulas</span>
@@ -672,7 +672,7 @@ export default function CeramicServices({
                 {factores.map((f) => (
                   <div key={f.tipo} className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-lg space-y-3">
                     <div className="flex items-center gap-2">
-                      <div className="p-1 rounded bg-red-500/20 text-red-400">
+                      <div className="p-1 rounded bg-brand-primary/20 text-brand-primary">
                         <Car className="w-3.5 h-3.5" />
                       </div>
                       <span className="text-xs font-bold text-white uppercase">{f.tipo} • {f.nombre}</span>
@@ -936,10 +936,60 @@ export default function CeramicServices({
                   {/* Specular Light Reflection (Dynamic spot) */}
                   <circle cx="50" cy="50" r="42" fill="url(#specular-highlight)" />
 
-                  {/* Hydrophobic Water Droplet Animation */}
+                  {/* Hydrophobic Water Droplets Animation (Dynamic speeds governed by treatment quality) */}
                   {isWaterTestActive && (
                     <g>
-                      <circle cx="50" cy="30" r="2.5" fill="#38bdf8" className="animate-bounce" />
+                      {/* Droplet 1 (Center) */}
+                      <circle cx="50" cy="18" r="2.0" fill="#38bdf8" opacity="0.9">
+                        <animate 
+                          attributeName="cy" 
+                          values="18;85" 
+                          dur={simLevel === 'elite' ? '0.5s' : simLevel === 'premium' ? '1.2s' : '2.2s'} 
+                          repeatCount="indefinite" 
+                        />
+                        <animate 
+                          attributeName="opacity" 
+                          values="0.9;0" 
+                          dur={simLevel === 'elite' ? '0.5s' : simLevel === 'premium' ? '1.2s' : '2.2s'} 
+                          repeatCount="indefinite" 
+                        />
+                      </circle>
+                      
+                      {/* Droplet 2 (Left) */}
+                      <circle cx="36" cy="26" r="1.6" fill="#38bdf8" opacity="0.9">
+                        <animate 
+                          attributeName="cy" 
+                          values="26;76" 
+                          dur={simLevel === 'elite' ? '0.7s' : simLevel === 'premium' ? '1.5s' : '2.5s'} 
+                          begin="0.15s" 
+                          repeatCount="indefinite" 
+                        />
+                        <animate 
+                          attributeName="opacity" 
+                          values="0.9;0" 
+                          dur={simLevel === 'elite' ? '0.7s' : simLevel === 'premium' ? '1.5s' : '2.5s'} 
+                          begin="0.15s" 
+                          repeatCount="indefinite" 
+                        />
+                      </circle>
+
+                      {/* Droplet 3 (Right) */}
+                      <circle cx="64" cy="24" r="1.8" fill="#38bdf8" opacity="0.9">
+                        <animate 
+                          attributeName="cy" 
+                          values="24;78" 
+                          dur={simLevel === 'elite' ? '0.6s' : simLevel === 'premium' ? '1.3s' : '2.3s'} 
+                          begin="0.3s" 
+                          repeatCount="indefinite" 
+                        />
+                        <animate 
+                          attributeName="opacity" 
+                          values="0.9;0" 
+                          dur={simLevel === 'elite' ? '0.6s' : simLevel === 'premium' ? '1.3s' : '2.3s'} 
+                          begin="0.3s" 
+                          repeatCount="indefinite" 
+                        />
+                      </circle>
                     </g>
                   )}
                 </svg>
