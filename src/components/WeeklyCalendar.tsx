@@ -68,6 +68,24 @@ export default function WeeklyCalendar({
     return `${year}-${month}-${day}`;
   };
 
+  // Helper to calculate daily occupancy (max 8 turnos per day)
+  const getDailyOccupancy = (day: Date) => {
+    const dateKey = formatDateKey(day);
+    const dayTurnos = turnos.filter((t) => {
+      if (t.lavadorAsignado === 'Sin Asignar (Online)') return false;
+      try {
+        const tDate = new Date(t.fechaCreacion);
+        return formatDateKey(tDate) === dateKey;
+      } catch (e) {
+        return false;
+      }
+    });
+    const count = dayTurnos.length;
+    const maxCapacity = 8;
+    const percent = Math.min(100, Math.round((count / maxCapacity) * 100));
+    return { count, maxCapacity, percent };
+  };
+
   // Find turnos scheduled for a specific date key and hour slot
   const getTurnosForSlot = (dateKey: string, hourStr: string) => {
     const targetHour = parseInt(hourStr.split(':')[0], 10);
@@ -143,7 +161,7 @@ export default function WeeklyCalendar({
       {/* Calendar Header with Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pb-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
-          <CalendarIcon className="w-5 h-5 text-[#00d2ff]" />
+          <CalendarIcon className="w-5 h-5 text-brand-primary" />
           <h3 className="font-extrabold text-white text-xs uppercase tracking-widest font-display">
             Agenda Semanal
           </h3>
@@ -200,6 +218,8 @@ export default function WeeklyCalendar({
           const dayName = day.toLocaleDateString('es-AR', { weekday: 'short' });
           const dateStr = day.toLocaleDateString('es-AR', { day: '2-digit' });
           const isToday = new Date().toDateString() === day.toDateString();
+          const { count, percent } = getDailyOccupancy(day);
+
           return (
             <button
               key={day.toISOString()}
@@ -207,14 +227,33 @@ export default function WeeklyCalendar({
               onClick={() => setSelectedDayIndex(idx)}
               className={`flex-1 min-w-[60px] py-2 px-1 rounded-lg border text-center transition flex flex-col items-center justify-center cursor-pointer ${
                 isSelected
-                  ? 'bg-brand-primary/10 border-brand-primary text-white shadow-[0_0_10px_rgba(220,38,38,0.15)]'
+                  ? 'bg-brand-primary/10 border-brand-primary text-white shadow-[0_0_10px_rgba(255,255,255,0.05)]'
                   : 'bg-black/30 border-white/[0.06] text-slate-400 hover:text-slate-200'
               }`}
+              title={`${count} turnos agendados (${percent}% de ocupación)`}
             >
               <span className={`text-[8.5px] font-black uppercase ${isToday && !isSelected ? 'text-brand-primary' : ''}`}>
                 {dayName}
               </span>
               <span className="text-xs font-black mt-0.5">{dateStr}</span>
+              
+              {/* Mini occupancy bar */}
+              <div className="w-8 h-1 bg-white/[0.08] rounded-full mt-1.5 overflow-hidden border border-white/[0.04]">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    percent >= 90
+                      ? 'bg-purple-500'
+                      : percent >= 70
+                      ? 'bg-red-400'
+                      : percent >= 40
+                      ? 'bg-amber-400'
+                      : count > 0
+                      ? 'bg-emerald-400'
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
             </button>
           );
         })}
@@ -235,6 +274,7 @@ export default function WeeklyCalendar({
               const dateStr = day.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
               const dayName = day.toLocaleDateString('es-AR', { weekday: 'short' });
               const isToday = new Date().toDateString() === day.toDateString();
+              const { count, percent } = getDailyOccupancy(day);
 
               return (
                 <div 
@@ -249,6 +289,29 @@ export default function WeeklyCalendar({
                   <span className="text-[9px] font-mono text-slate-500 font-bold mt-0.5">
                     {dateStr}
                   </span>
+                  
+                  {/* Occupancy Indicator */}
+                  <div className="w-16 mt-1.5 flex flex-col items-center gap-0.5 cursor-help" title={`${count} turnos agendados (${percent}% de ocupación)`}>
+                    <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden border border-white/[0.04]">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          percent >= 90
+                            ? 'bg-purple-500 shadow-[0_0_6px_rgba(168,85,247,0.4)]'
+                            : percent >= 70
+                            ? 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.4)]'
+                            : percent >= 40
+                            ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.4)]'
+                            : count > 0
+                            ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]'
+                            : 'bg-transparent'
+                        }`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <span className="text-[7.5px] font-mono font-bold text-slate-500">
+                      {count === 0 ? 'Vacío' : `${count}/8 turnos`}
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -282,7 +345,7 @@ export default function WeeklyCalendar({
                       {/* Plus icon on hover for empty slots */}
                       {cellTurnos.length === 0 && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-150 pointer-events-none">
-                          <div className="p-1 rounded bg-[#00d2ff]/20 text-[#00d2ff] border border-[#00d2ff]/30 shadow-[0_0_8px_rgba(0,210,255,0.2)]">
+                          <div className="p-1 rounded bg-brand-primary/20 text-brand-primary border border-brand-primary/30 shadow-[0_0_8px_rgba(255,255,255,0.04)]">
                             <Plus className="w-3.5 h-3.5" />
                           </div>
                         </div>
@@ -350,7 +413,7 @@ export default function WeeklyCalendar({
               <div 
                 onClick={() => cellTurnos.length === 0 && onSelectSlot(dateKey, hour)}
                 className={`flex-1 min-h-[50px] relative flex flex-col gap-1.5 justify-center transition duration-150 rounded-lg p-1 ${
-                  cellTurnos.length === 0 ? 'hover:bg-[#00d2ff]/[0.02] cursor-pointer' : ''
+                  cellTurnos.length === 0 ? 'hover:bg-brand-primary/[0.02] cursor-pointer' : ''
                 }`}
               >
                 {cellTurnos.length === 0 ? (
@@ -420,7 +483,7 @@ export default function WeeklyCalendar({
 
             {/* Header */}
             <div>
-              <span className="text-[9px] uppercase tracking-widest text-[#00d2ff] font-bold font-mono">Detalle del Turno</span>
+              <span className="text-[9px] uppercase tracking-widest text-brand-primary font-bold font-mono">Detalle del Turno</span>
               <h3 className="text-base font-extrabold text-white uppercase tracking-wider font-display mt-0.5">
                 {selectedTurno.clienteNombre}
               </h3>
@@ -439,7 +502,7 @@ export default function WeeklyCalendar({
                 </div>
                 <div>
                   <span className="text-[8px] uppercase tracking-widest text-slate-500 font-bold block">Patente / Placa</span>
-                  <span className="font-mono text-[#00d2ff] uppercase font-bold tracking-widest block mt-0.5">
+                  <span className="font-mono text-brand-primary uppercase font-bold tracking-widest block mt-0.5">
                     {selectedTurno.vehiculoPatente}
                   </span>
                 </div>
@@ -489,7 +552,7 @@ export default function WeeklyCalendar({
             <div className="border-t border-white/[0.06] pt-4 grid grid-cols-2 gap-4">
               {/* Reschedule fields */}
               <div className="space-y-3.5">
-                <h4 className="text-[10px] font-black text-[#00d2ff] uppercase tracking-wider flex items-center gap-1 border-b border-white/[0.04] pb-1">
+                <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-wider flex items-center gap-1 border-b border-white/[0.04] pb-1">
                   <UserCheck className="w-3.5 h-3.5" />
                   Operador & Fecha
                 </h4>
@@ -534,7 +597,7 @@ export default function WeeklyCalendar({
               {/* CRM / Notification actions */}
               <div className="space-y-3.5 flex flex-col justify-between">
                 <div>
-                  <h4 className="text-[10px] font-black text-[#00d2ff] uppercase tracking-wider flex items-center gap-1 border-b border-white/[0.04] pb-1">
+                  <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-wider flex items-center gap-1 border-b border-white/[0.04] pb-1">
                     <MessageSquare className="w-3.5 h-3.5" />
                     Notificaciones
                   </h4>
