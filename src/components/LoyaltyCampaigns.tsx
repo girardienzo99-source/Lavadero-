@@ -28,6 +28,7 @@ export default function LoyaltyCampaigns({
 }: LoyaltyCampaignsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'INACTIVE' | 'VIP'>('ALL');
+  const [crmSubTab, setCrmSubTab] = useState<'coupon' | 'prizes'>('coupon');
   
   // Selected client for coupon customization preview
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(clientes[0] || null);
@@ -220,6 +221,117 @@ export default function LoyaltyCampaigns({
     onAddLog(`🏆 [MARKETING] Descargado voucher de regalo PDF para ${selectedClient.nombre} (${customDiscountCode})`);
   };
 
+  const redeemPrize = (prizeName: string, pointsCost: number) => {
+    if (!selectedClient) return;
+    const clientPoints = (selectedClient.visitas || 0) * 100;
+    if (clientPoints < pointsCost) {
+      alert(`Puntos insuficientes. ${selectedClient.nombre} tiene ${clientPoints} puntos (requiere ${pointsCost}).`);
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [120, 150]
+    });
+
+    // Background slate
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 120, 150, 'F');
+
+    // Borders
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(1);
+    doc.rect(4, 4, 112, 142);
+
+    // Header
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('ALBELO DETAIL', 60, 15, { align: 'center' });
+    
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('CLUB DE PUNTOS & FIDELIZACIÓN', 60, 19, { align: 'center' });
+
+    // Ticket Title
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(0.5);
+    doc.line(20, 24, 100, 24);
+
+    doc.setTextColor(220, 38, 38);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('VALE DE CANJE DE PREMIO', 60, 30, { align: 'center' });
+
+    // Prize Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text(prizeName.toUpperCase(), 60, 44, { align: 'center' });
+
+    // Client Info
+    doc.setFillColor(30, 41, 59);
+    doc.rect(10, 52, 100, 32, 'F');
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(0.5);
+    doc.rect(10, 52, 100, 32, 'D');
+
+    doc.setTextColor(220, 38, 38);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DATOS DE LA REDENCIÓN', 15, 58);
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Beneficiario: ${selectedClient.nombre.toUpperCase()}`, 15, 66);
+    doc.text(`Patente Asociada: ${selectedClient.vehiculoPatente.toUpperCase()}`, 15, 73);
+    doc.text(`Costo del Canje: ${pointsCost} PUNTOS`, 15, 80);
+
+    // Barcode simulated lines
+    const barY = 92;
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(1.5);
+    doc.line(30, barY, 30, barY + 12);
+    doc.line(33, barY, 33, barY + 12);
+    doc.line(38, barY, 38, barY + 12);
+    doc.line(45, barY, 45, barY + 12);
+    doc.line(48, barY, 48, barY + 12);
+    doc.line(53, barY, 53, barY + 12);
+    doc.line(57, barY, 57, barY + 12);
+    doc.line(60, barY, 60, barY + 12);
+    doc.line(65, barY, 65, barY + 12);
+    doc.line(70, barY, 70, barY + 12);
+    doc.line(74, barY, 74, barY + 12);
+    doc.line(78, barY, 78, barY + 12);
+    doc.line(82, barY, 82, barY + 12);
+    doc.line(87, barY, 87, barY + 12);
+    doc.line(90, barY, 90, barY + 12);
+    
+    doc.setTextColor(148, 163, 184);
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(7);
+    doc.text(`*ALB-RW-${selectedClient.id}-${pointsCost}*`, 60, barY + 16, { align: 'center' });
+
+    // Terms
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text('Presentar este vale en recepción para retirar el producto o realizar el servicio.', 60, 122, { align: 'center', maxWidth: 90 });
+    doc.text('Los puntos canjeados han sido debitados del saldo de fidelización.', 60, 128, { align: 'center', maxWidth: 90 });
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(6.5);
+    doc.text(`Emitido el: ${new Date().toLocaleDateString('es-AR')}`, 60, 140, { align: 'center' });
+
+    doc.save(`Premio_${prizeName.replace(/\s+/g, '_')}_${selectedClient.vehiculoPatente.toLowerCase()}.pdf`);
+    
+    // Mutate visits locally to represent the discount
+    selectedClient.visitas = Math.max(0, selectedClient.visitas - (pointsCost / 100));
+    onAddLog(`🏆 [LOYALTY] Cliente ${selectedClient.nombre} canjeó premio "${prizeName}" por ${pointsCost} puntos.`);
+    alert(`¡Premio "${prizeName}" canjeado con éxito! Se descontaron ${pointsCost} puntos (${pointsCost / 100} visitas) y se descargó el vale PDF.`);
+  };
+
   const getWhatsAppMessage = () => {
     if (!selectedClient) return '';
     if (activeTemplate.type === 'RETORNO') {
@@ -335,113 +447,209 @@ export default function LoyaltyCampaigns({
       <div className="lg:col-span-5 space-y-6">
         {selectedClient ? (
           <div className="glass-panel p-5 rounded-xl border border-white/[0.08] space-y-5 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider pb-2 border-b border-white/[0.06] flex items-center gap-1">
-              <Gift className="w-4 h-4 text-emerald-400" />
-              Generador de Cupones Digitales
-            </h3>
-
-            {/* Select template */}
-            <div className="space-y-1.5">
-              <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Seleccionar Campaña</label>
-              <div className="grid grid-cols-3 gap-1.5">
-                {templates.map(t => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setActiveTemplate(t)}
-                    className={`py-1.5 px-2 rounded text-[8px] font-bold uppercase tracking-wider border transition text-center truncate ${
-                      activeTemplate.id === t.id
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                        : 'bg-white/[0.01] text-slate-500 border-white/[0.04] hover:text-slate-300'
-                    }`}
-                  >
-                    {t.name.split(' ')[1] || t.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Custom discount code */}
-            <div className="space-y-1.5">
-              <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Código de Descuento Custom</label>
-              <input
-                type="text"
-                value={customDiscountCode}
-                onChange={(e) => setCustomDiscountCode(e.target.value.toUpperCase())}
-                className="w-full bg-white/[0.02] border border-white/[0.08] rounded px-2.5 py-1 text-xs text-white font-mono uppercase"
-              />
-            </div>
-
-            {/* CARD PNG PREVIEW CONTAINER */}
-            <div className="relative p-1 bg-slate-950 rounded-2xl border border-white/[0.04] shadow-inner max-w-[300px] mx-auto overflow-hidden">
-              
-              <div 
-                ref={couponCardRef}
-                className="p-5 text-center flex flex-col justify-between min-h-[220px] rounded-xl relative overflow-hidden select-none"
-                style={{ background: activeTemplate.bgColor }}
+            {/* Sub-tab switcher inside Column 2 */}
+            <div className="flex gap-2 bg-black/45 p-1 rounded-lg border border-white/[0.05]">
+              <button
+                type="button"
+                onClick={() => setCrmSubTab('coupon')}
+                className={`flex-1 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition ${
+                  crmSubTab === 'coupon'
+                    ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/20'
+                    : 'text-slate-400 hover:text-white'
+                }`}
               >
-                {/* Sports carbon texture or glow effects */}
-                <div className="absolute inset-0 bg-[radial-gradient(#ffffff_0.3px,transparent_0.3px)] [background-size:8px_8px] opacity-10 pointer-events-none" />
-                <div className="absolute -top-12 -left-12 w-28 h-28 rounded-full bg-white/5 blur-xl pointer-events-none" />
+                🎟️ Cupón de Descuento
+              </button>
+              <button
+                type="button"
+                onClick={() => setCrmSubTab('prizes')}
+                className={`flex-1 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition ${
+                  crmSubTab === 'prizes'
+                    ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/20'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🎁 Canjear Puntos
+              </button>
+            </div>
 
-                {/* Header */}
-                <div className="flex justify-between items-center text-white border-b border-white/10 pb-1.5 z-10">
-                  <span className="text-[10px] font-black tracking-widest font-display">ALBELO DETAIL</span>
-                  <span className="text-[7px] font-mono font-bold tracking-widest bg-white/10 px-1 py-0.2 rounded">COUPON</span>
-                </div>
+            {crmSubTab === 'coupon' ? (
+              <div className="space-y-5">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider pb-2 border-b border-white/[0.06] flex items-center gap-1">
+                  <Gift className="w-4 h-4 text-emerald-400" />
+                  Generador de Cupones Digitales
+                </h3>
 
-                {/* Body details */}
-                <div className="my-3 space-y-1.5 z-10">
-                  <span className="text-[8px] text-slate-300 font-extrabold uppercase tracking-widest block">
-                    {activeTemplate.title}
-                  </span>
-                  <h2 className="text-base font-black text-white font-display uppercase tracking-widest leading-none drop-shadow">
-                    {activeTemplate.benefit}
-                  </h2>
-                  <span className="text-[8px] text-white/60 block pt-0.5">
-                    Preparado exclusivamente para:
-                  </span>
-                  <div className="text-[11px] font-black text-yellow-300 uppercase tracking-wide">
-                    {selectedClient.nombre}
+                {/* Select template */}
+                <div className="space-y-1.5">
+                  <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Seleccionar Campaña</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {templates.map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setActiveTemplate(t)}
+                        className={`py-1.5 px-2 rounded text-[8px] font-bold uppercase tracking-wider border transition text-center truncate ${
+                          activeTemplate.id === t.id
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : 'bg-white/[0.01] text-slate-500 border-white/[0.04] hover:text-slate-300'
+                        }`}
+                      >
+                        {t.name.split(' ')[1] || t.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Footer Code */}
-                <div className="bg-black/40 border border-white/10 p-1.5 rounded-lg flex justify-between items-center z-10">
-                  <span className="text-[6.5px] text-slate-400 font-mono tracking-widest">PRESENTAR EN EL TALLER:</span>
-                  <span className="text-[9.5px] text-white font-mono font-bold tracking-wider">{customDiscountCode}</span>
+                {/* Custom discount code */}
+                <div className="space-y-1.5">
+                  <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Código de Descuento Custom</label>
+                  <input
+                    type="text"
+                    value={customDiscountCode}
+                    onChange={(e) => setCustomDiscountCode(e.target.value.toUpperCase())}
+                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded px-2.5 py-1 text-xs text-white font-mono uppercase"
+                  />
+                </div>
+
+                {/* CARD PNG PREVIEW CONTAINER */}
+                <div className="relative p-1 bg-slate-950 rounded-2xl border border-white/[0.04] shadow-inner max-w-[300px] mx-auto overflow-hidden">
+                  
+                  <div 
+                    ref={couponCardRef}
+                    className="p-5 text-center flex flex-col justify-between min-h-[220px] rounded-xl relative overflow-hidden select-none"
+                    style={{ background: activeTemplate.bgColor }}
+                  >
+                    {/* Sports carbon texture or glow effects */}
+                    <div className="absolute inset-0 bg-[radial-gradient(#ffffff_0.3px,transparent_0.3px)] [background-size:8px_8px] opacity-10 pointer-events-none" />
+                    <div className="absolute -top-12 -left-12 w-28 h-28 rounded-full bg-white/5 blur-xl pointer-events-none" />
+
+                    {/* Header */}
+                    <div className="flex justify-between items-center text-white border-b border-white/10 pb-1.5 z-10">
+                      <span className="text-[10px] font-black tracking-widest font-display">ALBELO DETAIL</span>
+                      <span className="text-[7px] font-mono font-bold tracking-widest bg-white/10 px-1 py-0.2 rounded">COUPON</span>
+                    </div>
+
+                    {/* Body details */}
+                    <div className="my-3 space-y-1.5 z-10">
+                      <span className="text-[8px] text-slate-300 font-extrabold uppercase tracking-widest block">
+                        {activeTemplate.title}
+                      </span>
+                      <h2 className="text-base font-black text-white font-display uppercase tracking-widest leading-none drop-shadow">
+                        {activeTemplate.benefit}
+                      </h2>
+                      <span className="text-[8px] text-white/60 block pt-0.5">
+                        Preparado exclusivamente para:
+                      </span>
+                      <div className="text-[11px] font-black text-yellow-300 uppercase tracking-wide">
+                        {selectedClient.nombre}
+                      </div>
+                    </div>
+
+                    {/* Footer Code */}
+                    <div className="bg-black/40 border border-white/10 p-1.5 rounded-lg flex justify-between items-center z-10">
+                      <span className="text-[6.5px] text-slate-400 font-mono tracking-widest">PRESENTAR EN EL TALLER:</span>
+                      <span className="text-[9.5px] text-white font-mono font-bold tracking-wider">{customDiscountCode}</span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Copy WhatsApp / Download Actions */}
+                <div className="space-y-2">
+                  <button
+                    onClick={handleCopyText}
+                    className="w-full bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 text-[#25D366] font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    {copiedText ? <Check className="w-3.5 h-3.5 text-[#25D366]" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedText ? 'Copiado' : 'Copiar Texto para WhatsApp'}
+                  </button>
+
+                  <button
+                    onClick={handleDownloadCoupon}
+                    disabled={downloading}
+                    className="w-full bg-brand-primary hover:bg-brand-hover text-white font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {downloading ? 'Capturando...' : 'Descargar Tarjeta PNG'}
+                  </button>
+
+                  <button
+                    onClick={generateGiftCardPdf}
+                    className="w-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-400 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Descargar Gift Card PDF
+                  </button>
                 </div>
               </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center pb-2 border-b border-white/[0.06]">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 font-display">
+                    <Award className="w-4 h-4 text-brand-primary" />
+                    Canje de Premios por Fidelidad
+                  </h3>
+                  <span className="font-mono text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                    {(selectedClient.visitas || 0) * 100} pts
+                  </span>
+                </div>
 
-            </div>
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  <b>{selectedClient.nombre}</b> acumuló <b>{(selectedClient.visitas || 0) * 100} puntos</b> (equivalente a {selectedClient.visitas} visitas). Podés canjearlos por premios físicos o servicios bonificados:
+                </p>
 
-            {/* Copy WhatsApp / Download Actions */}
-            <div className="space-y-2">
-              <button
-                onClick={handleCopyText}
-                className="w-full bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 text-[#25D366] font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                {copiedText ? <Check className="w-3.5 h-3.5 text-[#25D366]" /> : <Copy className="w-3.5 h-3.5" />}
-                {copiedText ? 'Copiado' : 'Copiar Texto para WhatsApp'}
-              </button>
+                {/* Prizes Grid Catalog */}
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                  {[
+                    { name: 'Pino Aromatizante Classic', cost: 100, icon: '🌲' },
+                    { name: 'Lavado de Motor Express', cost: 300, icon: '⚙️' },
+                    { name: 'Encerado Rápido de Carnauba', cost: 500, icon: '✨' },
+                    { name: 'Lavado Simple Bonificado', cost: 800, icon: '🧼' },
+                    { name: 'Tratamiento Cerámico SiO2 Express', cost: 1500, icon: '💎' }
+                  ].map((prize, idx) => {
+                    const clientPoints = (selectedClient.visitas || 0) * 100;
+                    const canClaim = clientPoints >= prize.cost;
 
-              <button
-                onClick={handleDownloadCoupon}
-                disabled={downloading}
-                className="w-full bg-brand-primary hover:bg-brand-hover text-white font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                {downloading ? 'Capturando...' : 'Descargar Tarjeta PNG'}
-              </button>
+                    return (
+                      <div 
+                        key={idx}
+                        className={`flex justify-between items-center p-2.5 rounded-xl border transition ${
+                          canClaim 
+                            ? 'bg-white/[0.02] border-white/[0.08] hover:border-brand-primary/20' 
+                            : 'bg-black/40 border-white/[0.03] opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{prize.icon}</span>
+                          <div>
+                            <span className="font-bold text-slate-200 block text-xs">{prize.name}</span>
+                            <span className="text-[9px] text-slate-500 font-mono">Requerido: {prize.cost} pts</span>
+                          </div>
+                        </div>
 
-              <button
-                onClick={generateGiftCardPdf}
-                className="w-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-400 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Descargar Gift Card PDF
-              </button>
-            </div>
+                        <button
+                          type="button"
+                          disabled={!canClaim}
+                          onClick={() => redeemPrize(prize.name, prize.cost)}
+                          className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer ${
+                            canClaim
+                              ? 'bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                              : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                          }`}
+                        >
+                          {canClaim ? 'Canjear' : 'Bloqueado'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="bg-slate-900/50 rounded-xl p-2.5 text-[9px] border border-white/[0.03] leading-relaxed text-slate-500 font-light">
+                  Nota: El canje deducirá automáticamente los puntos de su historial. Esto descargará el Vale en PDF para el operario.
+                </div>
+              </div>
+            )}
 
           </div>
         ) : (
