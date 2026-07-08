@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { Cliente, Turno, TipoServicio } from '../types';
 import { LAVADORES_ACTIVOS } from '../data/initialData';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface CeramicServicesProps {
   clientes: Cliente[];
@@ -192,6 +194,134 @@ export default function CeramicServices({
     
     // Quick success scroll indicator or notification
     alert(`¡Tratamiento Cerámico agendado correctamente! Podrás hacerle seguimiento en la sección de Turnos (Tablero Kanban) con una etiqueta especial de servicio complejo.`);
+  };
+
+  // Generate Warranty Certificate PDF for detailing treatments
+  const generateWarrantyCertificate = (t: Turno) => {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const primaryColor = [220, 38, 38]; // Red brand primary
+
+    // Background decoration (Premium Border)
+    doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.setLineWidth(1.5);
+    doc.rect(5, 5, 287, 200); // outer border
+    
+    doc.setDrawColor(51, 65, 85);
+    doc.setLineWidth(0.5);
+    doc.rect(8, 8, 281, 194); // inner border
+
+    // Background watermark/graphics
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, 10, 210, 'F');
+    doc.rect(287, 0, 10, 210, 'F');
+
+    // Title Block
+    doc.setTextColor(220, 38, 38);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(26);
+    doc.text('CERTIFICADO DE GARANTÍA', 148, 30, { align: 'center' });
+    
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('ESTÉTICA VEHICULAR PROFESIONAL & TRATAMIENTOS DE ALTA GAMA', 148, 37, { align: 'center' });
+
+    // Certificate Seal divider line
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(1);
+    doc.line(80, 44, 217, 44);
+
+    // Body text
+    doc.setTextColor(55, 65, 81);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Se certifica por el presente documento que el vehículo descrito a continuación ha sido tratado con', 148, 56, { align: 'center' });
+    doc.text('nuestras técnicas de corrección de laca y protegido con un recubrimiento protector premium.', 148, 62, { align: 'center' });
+
+    // Treatment Title (Highlight)
+    doc.setTextColor(220, 38, 38);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    const trat = t.servicioNombre.replace('Tratamiento Cerámico ', '');
+    doc.text(trat.toUpperCase(), 148, 73, { align: 'center' });
+
+    // Detail boxes layout
+    const startY = 82;
+    // Box 1: Owner & Vehicle
+    doc.setFillColor(248, 250, 252);
+    doc.rect(20, startY, 120, 48, 'F');
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(0.5);
+    doc.rect(20, startY, 120, 48, 'D');
+
+    doc.setTextColor(220, 38, 38);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DATOS DEL PROPIETARIO Y VEHÍCULO', 25, startY + 6);
+    
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(10);
+    doc.text(`Cliente: ${t.clienteNombre.toUpperCase()}`, 25, startY + 16);
+    doc.text(`Vehículo: ${t.vehiculoModelo.toUpperCase()}`, 25, startY + 24);
+    doc.text(`Patente / Placa: ${t.vehiculoPatente.toUpperCase()}`, 25, startY + 32);
+    doc.text(`Técnico Aplicador: ${t.lavadorAsignado.toUpperCase()}`, 25, startY + 40);
+
+    // Box 2: Warranty details
+    doc.setFillColor(248, 250, 252);
+    doc.rect(157, startY, 120, 48, 'F');
+    doc.rect(157, startY, 120, 48, 'D');
+
+    doc.setTextColor(220, 38, 38);
+    doc.text('TÉRMINOS DE LA GARANTÍA', 162, startY + 6);
+    
+    doc.setTextColor(51, 65, 85);
+    const fechaApli = new Date(t.fechaCreacion).toLocaleDateString('es-AR');
+    const duracion = t.ceramicNivel || "3 Años";
+    doc.text(`Fecha de Aplicación: ${fechaApli}`, 162, startY + 16);
+    doc.text(`Duración Garantizada: ${duracion}`, 162, startY + 24);
+    doc.text(`Medición de Laca Promedio: 120 micras (Seguro)`, 162, startY + 32);
+    doc.text(`Mantenimientos Sugeridos: Semestral`, 162, startY + 40);
+
+    // Recommendations section (Table-like or bullet points)
+    const recY = 142;
+    doc.setTextColor(220, 38, 38);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INSTRUCCIONES CLAVE DE MANTENIMIENTO POST-TRATAMIENTO', 20, recY);
+
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('1. Lavar el vehículo únicamente con shampoo de pH neutro (evitar desengrasantes agresivos o productos ácidos).', 20, recY + 6);
+    doc.text('2. Utilizar siempre la técnica de los 2 baldes y manoplas de microfibra de alta calidad para prevenir micro-rayas.', 20, recY + 11);
+    doc.text('3. No lavar el auto bajo el sol directo o con la chapa caliente. Secar con paños de microfibra ultra absorbentes sin frotar con fuerza.', 20, recY + 16);
+    doc.text('4. Asistir a la inspección de garantía y recarga de sellado cerámico cada 6 meses en nuestro centro oficial.', 20, recY + 21);
+
+    // Signature Area
+    const sigY = 175;
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(0.5);
+    doc.line(200, sigY, 270, sigY);
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FIRMA CERTIFICADA', 235, sigY + 4, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text('Centro de Detailing Oficial', 235, sigY + 8, { align: 'center' });
+
+    // Digital ID
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(7);
+    doc.setFont('courier', 'normal');
+    doc.text(`CERT-ID: DS-${t.id}-${t.vehiculoPatente.toLowerCase()}`, 20, 192);
+
+    doc.save(`certificado_garantia_${t.vehiculoPatente.toLowerCase()}.pdf`);
+    onAddLog(`📜 EMISIÓN: Se emitió Certificado de Garantía en PDF para el vehículo ${t.vehiculoPatente.toUpperCase()} (${t.vehiculoModelo})`);
   };
 
   return (
@@ -511,6 +641,17 @@ export default function CeramicServices({
                         <span>Técnico: {t.lavadorAsignado}</span>
                         <span>Estado: <b className="text-amber-400 uppercase">{t.estado}</b></span>
                       </div>
+                      {t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO' ? (
+                        <button
+                          type="button"
+                          onClick={() => generateWarrantyCertificate(t)}
+                          className="mt-1 w-full bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/35 border border-amber-500/30 text-amber-400 font-bold py-1 rounded text-[8px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          📜 Emitir Garantía
+                        </button>
+                      ) : (
+                        <div className="text-[8px] text-slate-600 italic text-center mt-1">Garantía disponible al completar</div>
+                      )}
                     </div>
                   ))
                 )}

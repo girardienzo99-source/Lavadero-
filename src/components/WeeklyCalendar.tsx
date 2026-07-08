@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Turno, Cliente, TipoServicio } from '../types';
 import { LAVADORES_ACTIVOS } from '../data/initialData';
+import CarDamageInspection from './CarDamageInspection';
 
 interface WeeklyCalendarProps {
   turnos: Turno[];
@@ -31,6 +32,7 @@ export default function WeeklyCalendar({
   // Selected turno for detail popup modal
   const [selectedTurno, setSelectedTurno] = useState<Turno | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDamageInspection, setShowDamageInspection] = useState(false);
 
   // Edit states for rescheduling
   const [editWasher, setEditWasher] = useState('');
@@ -117,6 +119,7 @@ export default function WeeklyCalendar({
   const handleCardClick = (t: Turno) => {
     setSelectedTurno(t);
     setConfirmDelete(false);
+    setShowDamageInspection(false);
     setEditWasher(t.lavadorAsignado);
     
     try {
@@ -522,6 +525,15 @@ export default function WeeklyCalendar({
               </div>
             </div>
 
+            {/* Inspección de Vehículo (Control de Daños) */}
+            <button
+              type="button"
+              onClick={() => setShowDamageInspection(true)}
+              className="w-full bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 border border-amber-500/30 text-amber-400 font-bold py-2 rounded-xl text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              📋 Inspección de Vehículo / Control de Daños
+            </button>
+
             {/* Action State Transition Buttons */}
             <div className="space-y-1.5">
               <label className="block text-[9px] text-slate-500 uppercase tracking-widest font-bold">Estado del Vehículo</label>
@@ -675,6 +687,16 @@ export default function WeeklyCalendar({
             </div>
 
           </div>
+
+          {showDamageInspection && (
+            <CarDamageInspection
+              turnoId={selectedTurno.id}
+              clienteNombre={selectedTurno.clienteNombre}
+              vehiculoModelo={selectedTurno.vehiculoModelo}
+              vehiculoPatente={selectedTurno.vehiculoPatente}
+              onClose={() => setShowDamageInspection(false)}
+            />
+          )}
         </div>
       )}
 

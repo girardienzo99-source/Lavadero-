@@ -970,6 +970,58 @@ def reprogramar_turno(id: int, lavador: str, fechaHora: str):
         raise HTTPException(status_code=400, detail=f"Error al reprogramar turno: {e}")
 
 # ==========================================
+# 🚘 ENDPOINTS: INSPECCION DE DAÑOS
+# ==========================================
+
+@app.get("/api/turnos/{id}/inspeccion")
+def get_inspeccion_danos(id: int):
+    try:
+        # Fetch all damage pins for the specified turno
+        res = execute_query(
+            "SELECT id, componente, tipo_danio, gravedad, coordenada_x, coordenada_y, detalles, fecha_registro FROM inspeccion_danos WHERE turno_id = :id ORDER BY id ASC;",
+            {"id": id},
+            fetch_all=True
+        )
+        return {"status": "success", "danos": res or []}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al obtener inspección de daños: {e}")
+
+@app.post("/api/turnos/{id}/inspeccion")
+def add_inspeccion_danio(id: int, payload: dict):
+    try:
+        componente = payload.get("componente", "General")
+        tipo_danio = payload.get("tipo_danio", "Rayón")
+        gravedad = payload.get("gravedad", "Leve")
+        coordenada_x = float(payload.get("coordenada_x", 0.0))
+        coordenada_y = float(payload.get("coordenada_y", 0.0))
+        detalles = payload.get("detalles", "")
+        
+        execute_query(
+            """INSERT INTO inspeccion_danos (turno_id, componente, tipo_danio, gravedad, coordenada_x, coordenada_y, detalles)
+               VALUES (:t_id, :comp, :tipo, :grav, :cx, :cy, :det);""",
+            {
+                "t_id": id,
+                "comp": componente,
+                "tipo": tipo_danio,
+                "grav": gravedad,
+                "cx": coordenada_x,
+                "cy": coordenada_y,
+                "det": detalles
+            }
+        )
+        return {"status": "success", "message": "Daño registrado con éxito en la inspección."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al registrar daño de inspección: {e}")
+
+@app.post("/api/turnos/inspeccion/{pin_id}/eliminar")
+def delete_inspeccion_danio(pin_id: int):
+    try:
+        execute_query("DELETE FROM inspeccion_danos WHERE id = :id;", {"id": pin_id})
+        return {"status": "success", "message": "Pin de daño eliminado."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al eliminar pin de daño: {e}")
+
+# ==========================================
 # 💵 ENDPOINTS: CAJA DIARIA
 # ==========================================
 
