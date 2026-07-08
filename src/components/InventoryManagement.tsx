@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { 
   Package, AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, Minus, DollarSign, 
-  ShoppingCart, RefreshCw, Layers, ShieldCheck, ClipboardList, User, Search
+  ShoppingCart, RefreshCw, Layers, ShieldCheck, ClipboardList, User, Search, Download
 } from 'lucide-react';
 import { Insumo, Transaccion } from '../types';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface InventoryManagementProps {
   insumos: Insumo[];
@@ -265,6 +267,112 @@ export default function InventoryManagement({
     };
     setMovements(prev => [newMovement, ...prev]);
     setEditingInsumo(null);
+  };
+
+  // Generate PDF Purchase Order to send to supplier
+  const generatePurchaseOrder = (supplierName: string) => {
+    const lowStockItems = insumos.filter(i => i.stockActual <= i.stockMinimo);
+    if (lowStockItems.length === 0) {
+      alert("No hay insumos con stock crítico para generar una orden de compra.");
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFillColor(30, 41, 59); // Dark slate
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('ORDEN DE COMPRA SUGERIDA', 15, 18);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Reabastecimiento Automático de Stock Crítico', 15, 26);
+    doc.text(`Fecha Emisión: ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR')}`, 15, 33);
+
+    // Supplier & Buyer Info Box
+    doc.setDrawColor(229, 231, 235);
+    doc.setFillColor(249, 250, 251);
+    doc.rect(15, 48, 180, 28, 'FD');
+    
+    doc.setTextColor(55, 65, 81);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROVEEDOR DESTINATARIO:', 20, 55);
+    doc.text('COMPRADOR / SOLICITANTE:', 20, 63);
+    doc.text('DETALLE:', 20, 71);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(supplierName.toUpperCase(), 75, 55);
+    doc.text('ALBELO DETAIL - SISTEMA DE INVENTARIO', 75, 63);
+    doc.text(`Reposición de ${lowStockItems.length} insumos en nivel crítico`, 75, 71);
+
+    // Table rows: code, item name, current stock, suggested order, unit cost, total cost
+    let grandTotal = 0;
+    const tableRows = lowStockItems.map((item, idx) => {
+      const suggestedQty = Math.max(1, (item.stockMinimo * 2) - item.stockActual);
+      const totalCost = suggestedQty * item.precioCosto;
+      grandTotal += totalCost;
+      
+      return [
+        `INS-${100 + idx}`,
+        item.nombre,
+        `${item.stockActual} ${item.unidad}`,
+        `${item.stockMinimo} ${item.unidad}`,
+        `${suggestedQty} ${item.unidad}`,
+        `$${item.precioCosto.toLocaleString('es-AR')}`,
+        `$${totalCost.toLocaleString('es-AR')}`
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 84,
+      head: [['Código', 'Producto / Detalle', 'Stock Act.', 'Stock Mín.', 'Sugerido a Pedir', 'Costo Unit.', 'Subtotal Est.']],
+      body: tableRows,
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 25 },
+        6: { cellWidth: 25 }
+      }
+    });
+
+    // Total Cost Highlight
+    const finalY = (doc as any).lastAutoTable.finalY + 12;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`VALOR TOTAL ESTIMADO DE LA COMPRA:`, 85, finalY);
+    
+    doc.setTextColor(16, 185, 129); // Emerald color
+    doc.setFontSize(12);
+    doc.text(`$${grandTotal.toLocaleString('es-AR')} ARS`, 160, finalY);
+
+    // Disclaimer
+    const discY = finalY + 15;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, discY, 195, discY);
+    
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Nota: Esta orden de compra fue generada automáticamente por el control semafórico de stock crítico.', 15, discY + 5);
+    doc.text('El costo total estimado es indicativo y está sujeto a cambios por parte del distribuidor.', 15, discY + 9);
+
+    // Signatures
+    const sigY = discY + 28;
+    doc.line(70, sigY, 140, sigY);
+    doc.text('Firma Encargado de Compras', 105, sigY + 4, { align: 'center' });
+
+    doc.save(`OrdenCompra_${supplierName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`);
+    onAddLog(`📦 [COMPRAS] Generada orden de compra sugerida en PDF para ${supplierName} (${lowStockItems.length} ítems)`);
   };
 
   return (
@@ -648,6 +756,71 @@ export default function InventoryManagement({
               Confirmar Entrada de Stock
             </button>
           </form>
+        </div>
+
+        {/* Orden de Compra Inteligente */}
+        <div className="glass-panel p-5 rounded-xl space-y-4">
+          <div className="flex justify-between items-center pb-2 border-b border-white/[0.06]">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-display flex items-center gap-1.5">
+              <ClipboardList className="w-4 h-4 text-brand-primary" />
+              Orden de Compra Sugerida (PO)
+            </h3>
+            <span className="text-[8px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded uppercase font-bold">
+              Stock Crítico
+            </span>
+          </div>
+
+          {insumos.filter(i => i.stockActual <= i.stockMinimo).length === 0 ? (
+            <div className="bg-emerald-950/10 text-emerald-400 border border-emerald-900/20 p-3 rounded-lg text-center text-[10px] leading-relaxed">
+              ✔️ Todos los productos disponen de stock óptimo. No se requiere generar órdenes de compra en este momento.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-[10px] text-slate-400 leading-normal">
+                El sistema detectó <b>{insumos.filter(i => i.stockActual <= i.stockMinimo).length} insumos</b> por debajo del stock mínimo. Se sugiere reabastecerlos.
+              </p>
+
+              <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
+                {insumos.filter(i => i.stockActual <= i.stockMinimo).map(i => {
+                  const suggested = Math.max(1, (i.stockMinimo * 2) - i.stockActual);
+                  return (
+                    <div key={i.id} className="flex justify-between items-center bg-white/[0.01] border border-white/[0.04] p-2 rounded text-[10px]">
+                      <div>
+                        <span className="font-bold text-slate-200">{i.nombre}</span>
+                        <span className="text-slate-500 block text-[9px]">Stock actual: {i.stockActual} {i.unidad} (Mín: {i.stockMinimo})</span>
+                      </div>
+                      <span className="font-mono text-brand-primary font-bold">Pedir: {suggested} {i.unidad}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Proveedor Destinatario</label>
+                <select
+                  id="po-supplier-select"
+                  className="w-full bg-slate-900 border border-white/[0.08] rounded px-2 py-1 text-xs text-white"
+                >
+                  <option value="Toxic Shine Oficial">Toxic Shine Oficial</option>
+                  <option value="Detailers Mayorista">Detailers Mayorista</option>
+                  <option value="Químicos Córdoba">Químicos Córdoba</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const select = document.getElementById('po-supplier-select') as HTMLSelectElement;
+                  const supplier = select ? select.value : 'Toxic Shine Oficial';
+                  generatePurchaseOrder(supplier);
+                }}
+                className="w-full bg-brand-primary hover:bg-brand-hover text-white font-extrabold py-2 rounded-lg text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_2px_10px_rgba(220,38,38,0.2)]"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Descargar Orden de Compra PDF
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Cuentas Corrientes con Proveedores (Credit Accounts payable) */}

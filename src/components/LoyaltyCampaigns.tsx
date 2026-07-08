@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Cliente } from '../types';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 interface LoyaltyCampaignsProps {
   clientes: Cliente[];
@@ -128,6 +129,95 @@ export default function LoyaltyCampaigns({
         setDownloading(false);
       });
     }, 300);
+  };
+
+  const generateGiftCardPdf = () => {
+    if (!selectedClient) return;
+
+    // Elegant voucher size: 180mm x 90mm
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: [180, 90]
+    });
+
+    // Luxury Dark Background
+    doc.setFillColor(15, 23, 42); // Dark slate
+    doc.rect(0, 0, 180, 90, 'F');
+
+    // Double borders
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(1.2);
+    doc.rect(4, 4, 172, 82);
+    
+    doc.setDrawColor(30, 41, 59);
+    doc.setLineWidth(0.3);
+    doc.rect(6, 6, 168, 78);
+
+    // Decorative geometric triangles in corner
+    doc.setFillColor(30, 41, 59);
+    doc.triangle(140, 4, 176, 4, 176, 40, 'F');
+    doc.setFillColor(220, 38, 38);
+    doc.triangle(165, 4, 176, 4, 176, 15, 'F');
+
+    // Brand Header
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('ALBELO DETAIL', 15, 16);
+    
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('ESTÉTICA & DETALLADO VEHICULAR', 15, 20);
+
+    // Voucher Title
+    doc.setTextColor(220, 38, 38);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(activeTemplate.title.toUpperCase(), 90, 30, { align: 'center' });
+
+    // Benefit (Big highlight)
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.text(activeTemplate.benefit.toUpperCase(), 90, 42, { align: 'center' });
+
+    // Recipient Name
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Preparado exclusivamente para:', 90, 52, { align: 'center' });
+    
+    doc.setTextColor(234, 179, 8); // Yellow / Gold text
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(selectedClient.nombre.toUpperCase(), 90, 58, { align: 'center' });
+
+    // Footer Code block
+    doc.setFillColor(30, 41, 59);
+    doc.rect(40, 66, 100, 10, 'F');
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(0.5);
+    doc.rect(40, 66, 100, 10, 'D');
+
+    doc.setTextColor(148, 163, 184);
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(7);
+    doc.text('CÓDIGO DE VALIDACIÓN:', 45, 72.5);
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(10);
+    doc.text(customDiscountCode, 100, 73);
+
+    // Terms of use
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.text('* Válido por 30 días a partir de la emisión. Presentar en recepción antes del servicio.', 90, 81, { align: 'center' });
+
+    doc.save(`Voucher_${selectedClient.nombre.replace(/\s+/g, '_')}.pdf`);
+    onAddLog(`🏆 [MARKETING] Descargado voucher de regalo PDF para ${selectedClient.nombre} (${customDiscountCode})`);
   };
 
   const getWhatsAppMessage = () => {
@@ -342,6 +432,14 @@ export default function LoyaltyCampaigns({
               >
                 <Download className="w-3.5 h-3.5" />
                 {downloading ? 'Capturando...' : 'Descargar Tarjeta PNG'}
+              </button>
+
+              <button
+                onClick={generateGiftCardPdf}
+                className="w-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-400 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Descargar Gift Card PDF
               </button>
             </div>
 
