@@ -5,6 +5,7 @@ import {
   Zap, ArrowRight, Eye, Star, Info, ShoppingCart, Check
 } from 'lucide-react';
 import { TipoServicio, Turno } from '../types';
+import { jsPDF } from 'jspdf';
 
 function DetailingSimulationWidget() {
   const [activeCategory, setActiveCategory] = useState<'opticas' | 'laca' | 'tapizados'>('laca');
@@ -151,6 +152,417 @@ function DetailingSimulationWidget() {
   );
 }
 
+interface DetailingCostCalculatorProps {
+  onAddLog: (msg: string) => void;
+  onApplyCombo?: (details: { title: string; price: number; description: string }) => void;
+}
+
+function DetailingCostCalculator({ onAddLog, onApplyCombo }: DetailingCostCalculatorProps) {
+  const [vehiculoSize, setVehiculoSize] = useState<'chico' | 'mediano' | 'grande' | 'suv'>('mediano');
+  const [pinturaEstado, setPinturaEstado] = useState<'excelente' | 'swirls' | 'dañado'>('swirls');
+  const [interiorEstado, setInteriorEstado] = useState<'limpio' | 'sucio' | 'manchado'>('sucio');
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+
+  const sizes = {
+    chico: { name: 'Chico (e.g. Ka, Up!, 208)', base: 45000, time: 3 },
+    mediano: { name: 'Mediano (e.g. Golf, Corolla)', base: 55000, time: 4 },
+    grande: { name: 'Grande (e.g. Vento, Passat, Audi A4)', base: 65000, time: 5 },
+    suv: { name: 'SUV / PickUp (e.g. Hilux, Compass, Amarok)', base: 80000, time: 6 }
+  };
+
+  const paintLevels = {
+    excelente: { name: 'Excelente (Solo brillo/encerado)', price: 0, time: 0 },
+    swirls: { name: 'Micro-Rayones / Swirls Leves (1 paso)', price: 25000, time: 4 },
+    dañado: { name: 'Opaco / Rayones Profundos (3 pasos)', price: 50000, time: 10 }
+  };
+
+  const interiorLevels = {
+    limpio: { name: 'Limpio (Solo aspirado de cortesía)', price: 0, time: 0 },
+    sucio: { name: 'Suciedad Moderada (Limpieza tapizados)', price: 18000, time: 2.5 },
+    manchado: { name: 'Suciedad Extrema / Manchas (Vapor Kärcher)', price: 35000, time: 5 }
+  };
+
+  const addonsList = [
+    { id: 'motor', name: 'Detalle Técnico de Motor & Chasis', price: 22000, time: 2, icon: '⚙️' },
+    { id: 'opticas', name: 'Restauración UV de Ópticas Opacas', price: 14000, time: 1.5, icon: '💡' },
+    { id: 'vidrios', name: 'Sellado de Cristales Anti-Lluvia SiO2', price: 12000, time: 1, icon: '🌧️' },
+    { id: 'ferrico', name: 'Descontaminado Férrico Llantas/Laca', price: 18000, time: 1.5, icon: '🧪' },
+    { id: 'chasis', name: 'Lavado Técnico de Chasis & Motor', price: 15000, time: 1, icon: '🚗' }
+  ];
+
+  const handleToggleAddon = (id: string) => {
+    setSelectedAddons(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  // Calculate totals
+  const baseCost = sizes[vehiculoSize].base;
+  const baseTime = sizes[vehiculoSize].time;
+
+  const paintCost = paintLevels[pinturaEstado].price;
+  const paintTime = paintLevels[pinturaEstado].time;
+
+  const interiorCost = interiorLevels[interiorEstado].price;
+  const interiorTime = interiorLevels[interiorEstado].time;
+
+  const addonsCost = selectedAddons.reduce((acc, id) => {
+    const item = addonsList.find(x => x.id === id);
+    return acc + (item ? item.price : 0);
+  }, 0);
+
+  const addonsTime = selectedAddons.reduce((acc, id) => {
+    const item = addonsList.find(x => x.id === id);
+    return acc + (item ? item.time : 0);
+  }, 0);
+
+  const totalCost = baseCost + paintCost + interiorCost + addonsCost;
+  const totalTime = baseTime + paintTime + interiorTime + addonsTime;
+
+  const handleDownloadPdf = () => {
+    const doc = new jsPDF();
+    
+    // Header Banner
+    doc.setFillColor(30, 41, 59); // Dark slate
+    doc.rect(0, 0, 210, 42, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('COTIZACIÓN DE ESTÉTICA & DETAILING', 15, 18);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Presupuesto interactivo personalizado de servicios premium', 15, 26);
+    doc.text(`Fecha Emisión: ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR')}`, 15, 33);
+
+    // Document Number & Brand details
+    doc.setTextColor(239, 68, 68); // Red
+    doc.setFont('helvetica', 'bold');
+    doc.text('ALBELO DETAIL', 195, 18, { align: 'right' });
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.5);
+    doc.text('RÍO CUARTO, CÓRDOBA', 195, 24, { align: 'right' });
+    doc.text('TEL: +54 9 358 123-4567', 195, 29, { align: 'right' });
+
+    // Customer & Vehicle summary block
+    doc.setDrawColor(229, 231, 235);
+    doc.setFillColor(249, 250, 251);
+    doc.rect(15, 50, 180, 32, 'FD');
+    
+    doc.setTextColor(55, 65, 81);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('DETALLE DEL VEHÍCULO COTIZADO:', 20, 57);
+    doc.text('Tamaño del Auto:', 20, 64);
+    doc.text('Tratamiento de Pintura:', 20, 70);
+    doc.text('Limpieza de Interior:', 20, 76);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(sizes[vehiculoSize].name, 65, 64);
+    doc.text(paintLevels[pinturaEstado].name, 65, 70);
+    doc.text(interiorLevels[interiorEstado].name, 65, 76);
+
+    // Summary items table
+    doc.setFillColor(30, 41, 59);
+    doc.rect(15, 90, 180, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONCEPTO / SERVICIO SOLICITADO', 20, 95);
+    doc.text('COSTO ESTIMADO', 190, 95, { align: 'right' });
+
+    let currentY = 104;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(55, 65, 81);
+
+    // Row 1: Base Detailing
+    doc.text(`Servicio de Acondicionamiento Base (${sizes[vehiculoSize].name})`, 20, currentY);
+    doc.text(`$${baseCost.toLocaleString('es-AR')}`, 190, currentY, { align: 'right' });
+    currentY += 8;
+
+    // Row 2: Paint Correction
+    if (paintCost > 0) {
+      doc.text(paintLevels[pinturaEstado].name, 20, currentY);
+      doc.text(`$${paintCost.toLocaleString('es-AR')}`, 190, currentY, { align: 'right' });
+      currentY += 8;
+    }
+
+    // Row 3: Interior treatment
+    if (interiorCost > 0) {
+      doc.text(interiorLevels[interiorEstado].name, 20, currentY);
+      doc.text(`$${interiorCost.toLocaleString('es-AR')}`, 190, currentY, { align: 'right' });
+      currentY += 8;
+    }
+
+    // Row 4: Addons
+    selectedAddons.forEach(addonId => {
+      const addon = addonsList.find(a => a.id === addonId);
+      if (addon) {
+        doc.text(`[ADICIONAL] ${addon.name}`, 20, currentY);
+        doc.text(`$${addon.price.toLocaleString('es-AR')}`, 190, currentY, { align: 'right' });
+        currentY += 8;
+      }
+    });
+
+    doc.line(15, currentY, 195, currentY);
+    currentY += 10;
+
+    // Estimate duration
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Tiempo Estimado de Trabajo:', 20, currentY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${totalTime} Horas de Labor Técnico Dedicadas`, 75, currentY);
+    currentY += 8;
+
+    // Total Cost
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL ESTIMADO A PAGAR:', 20, currentY);
+    doc.setTextColor(16, 185, 129); // Emerald
+    doc.setFontSize(12);
+    doc.text(`$${totalCost.toLocaleString('es-AR')} ARS`, 75, currentY);
+
+    // Footnote
+    const footnoteY = 135;
+    doc.setDrawColor(229, 231, 235);
+    doc.line(15, footnoteY, 195, footnoteY);
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text('Condiciones del Presupuesto:', 15, footnoteY + 6);
+    doc.text('1. Validez de 15 días desde la fecha de emisión.', 15, footnoteY + 11);
+    doc.text('2. Requiere confirmación de turno previa y disponibilidad en el taller.', 15, footnoteY + 16);
+    doc.text('3. Tratamientos cerámicos incluyen garantía certificada por escrito post-entrega.', 15, footnoteY + 21);
+
+    doc.save(`Presupuesto_Detailing_${vehiculoSize}_Albelo.pdf`);
+    onAddLog(`📋 [TIENDA] Presupuesto de Detailing en PDF descargado por cliente ($${totalCost.toLocaleString('es-AR')}).`);
+  };
+
+  const handleApplyToBookingForm = () => {
+    if (onApplyCombo) {
+      const addonsNames = selectedAddons.map(id => addonsList.find(a => a.id === id)?.name || id);
+      const desc = `Combo Custom (${sizes[vehiculoSize].name}). Pintura: ${paintLevels[pinturaEstado].name}. Interior: ${interiorLevels[interiorEstado].name}. Adicionales: ${addonsNames.join(', ') || 'Ninguno'}.`;
+      
+      onApplyCombo({
+        title: `Combo Detailing Custom (${sizes[vehiculoSize].name})`,
+        price: totalCost,
+        description: desc
+      });
+      alert('¡Combo cargado en el formulario de reservas de abajo! Desplázate hacia el formulario para completar tus datos.');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 pb-3 border-b border-white/[0.08]">
+        <div>
+          <span className="text-[10px] font-bold tracking-widest text-red-500 uppercase block">HERRAMIENTA INTERACTIVA</span>
+          <h3 className="text-lg font-black text-white uppercase tracking-tight font-display">
+            Cotizador Inteligente de Estética
+          </h3>
+        </div>
+        <p className="text-[11px] text-slate-400 max-w-sm leading-relaxed">
+          Seleccioná las características de tu vehículo y armá un presupuesto transparente a tu medida en tiempo real.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        
+        {/* FORM CONTROLS */}
+        <div className="lg:col-span-8 space-y-5">
+          
+          {/* 1. Vehicle Size */}
+          <div className="space-y-2">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">1. Tamaño del Vehículo</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(Object.keys(sizes) as Array<keyof typeof sizes>).map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => setVehiculoSize(sz)}
+                  className={`p-3 rounded-xl border text-center transition flex flex-col items-center justify-center space-y-1 ${
+                    vehiculoSize === sz
+                      ? 'bg-red-600/10 border-red-500 text-white shadow-[0_0_12px_rgba(220,38,38,0.1)]'
+                      : 'bg-white/[0.01] border-white/[0.05] hover:border-white/[0.1] text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Car className="w-5 h-5 text-red-500" />
+                  <span className="text-[10px] font-black uppercase tracking-wider block">{sz}</span>
+                  <span className="text-[8px] opacity-65 leading-tight">{sizes[sz].name.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. Paint Condition & Correction */}
+          <div className="space-y-2">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">2. Tratamiento de Pintura Requerido</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {(Object.keys(paintLevels) as Array<keyof typeof paintLevels>).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPinturaEstado(p)}
+                  className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                    pinturaEstado === p
+                      ? 'bg-red-600/10 border-red-500 text-white shadow-[0_0_12px_rgba(220,38,38,0.1)]'
+                      : 'bg-white/[0.01] border-white/[0.05] hover:border-white/[0.1] text-slate-400'
+                  }`}
+                >
+                  <span className="text-[9px] font-black uppercase tracking-wider text-red-500 block mb-1">{p}</span>
+                  <span className="text-[10px] font-bold text-slate-200 block leading-tight">{paintLevels[p].name.split(' (')[0]}</span>
+                  <span className="text-[9px] text-slate-500 mt-2 font-mono font-bold">+${paintLevels[p].price.toLocaleString('es-AR')}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 3. Interior Cleanliness */}
+          <div className="space-y-2">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">3. Limpieza de Interiores y Tapizados</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {(Object.keys(interiorLevels) as Array<keyof typeof interiorLevels>).map((int) => (
+                <button
+                  key={int}
+                  type="button"
+                  onClick={() => setInteriorEstado(int)}
+                  className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                    interiorEstado === int
+                      ? 'bg-red-600/10 border-red-500 text-white shadow-[0_0_12px_rgba(220,38,38,0.1)]'
+                      : 'bg-white/[0.01] border-white/[0.05] hover:border-white/[0.1] text-slate-400'
+                  }`}
+                >
+                  <span className="text-[9px] font-black uppercase tracking-wider text-red-500 block mb-1">{int}</span>
+                  <span className="text-[10px] font-bold text-slate-200 block leading-tight">{interiorLevels[int].name.split(' (')[0]}</span>
+                  <span className="text-[9px] text-slate-500 mt-2 font-mono font-bold">+${interiorLevels[int].price.toLocaleString('es-AR')}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. Addons */}
+          <div className="space-y-2">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">4. Adicionales de Detallado (Servicios Extra)</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {addonsList.map((addon) => {
+                const isSelected = selectedAddons.includes(addon.id);
+                return (
+                  <div
+                    key={addon.id}
+                    onClick={() => handleToggleAddon(addon.id)}
+                    className={`p-2.5 rounded-xl border transition cursor-pointer flex justify-between items-center ${
+                      isSelected
+                        ? 'bg-red-600/15 border-red-500/40 text-white shadow-[0_0_10px_rgba(220,38,38,0.05)]'
+                        : 'bg-[#030406]/35 border-white/[0.05] hover:border-white/[0.1] text-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{addon.icon}</span>
+                      <div>
+                        <span className="font-bold text-slate-200 block text-[10px] leading-snug">{addon.name}</span>
+                        <span className="text-[9px] text-slate-500 font-mono">+{addon.time}hs labor</span>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-mono font-bold ${isSelected ? 'text-red-400' : 'text-slate-400'}`}>
+                      +${addon.price.toLocaleString('es-AR')}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+
+        {/* SUMMARY TICKET DISPLAY */}
+        <div className="lg:col-span-4 flex flex-col justify-between bg-black/40 border border-white/[0.06] p-5 rounded-2xl space-y-4">
+          <div className="space-y-4">
+            <div className="border-b border-white/[0.08] pb-2 text-center">
+              <span className="text-[8px] font-black tracking-widest text-red-500 uppercase block font-mono">TICKET DE PRESUPUESTO</span>
+              <h4 className="text-xs font-black text-white uppercase tracking-wider font-display">ALBELO DETAIL</h4>
+            </div>
+
+            {/* Price list */}
+            <div className="space-y-2 text-[10px] leading-tight">
+              <div className="flex justify-between text-slate-400">
+                <span>Base ({vehiculoSize.toUpperCase()}):</span>
+                <span className="font-mono font-bold text-slate-300">${baseCost.toLocaleString('es-AR')}</span>
+              </div>
+              
+              {paintCost > 0 && (
+                <div className="flex justify-between text-slate-400">
+                  <span>Corrección Pintura:</span>
+                  <span className="font-mono font-bold text-slate-300">${paintCost.toLocaleString('es-AR')}</span>
+                </div>
+              )}
+
+              {interiorCost > 0 && (
+                <div className="flex justify-between text-slate-400">
+                  <span>Detalle Interior:</span>
+                  <span className="font-mono font-bold text-slate-300">${interiorCost.toLocaleString('es-AR')}</span>
+                </div>
+              )}
+
+              {selectedAddons.length > 0 && (
+                <div className="space-y-1.5 pt-1 border-t border-white/[0.04]">
+                  <span className="text-[9px] text-slate-500 uppercase font-black block">Adicionales:</span>
+                  {selectedAddons.map(id => {
+                    const add = addonsList.find(x => x.id === id);
+                    if (!add) return null;
+                    return (
+                      <div key={id} className="flex justify-between text-slate-500 text-[9px]">
+                        <span>• {add.name.split(' ')[0]} {add.name.split(' ')[1] || ''}:</span>
+                        <span className="font-mono font-bold">${add.price.toLocaleString('es-AR')}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Calculations */}
+            <div className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl space-y-2">
+              <div className="flex justify-between items-center text-[10px] text-slate-400">
+                <span>Duración Estimada:</span>
+                <span className="font-mono font-black text-slate-200">{totalTime} horas</span>
+              </div>
+
+              <div className="flex justify-between items-baseline text-white">
+                <span className="text-[10px] font-bold uppercase">Costo Final:</span>
+                <div className="text-right">
+                  <span className="text-lg font-black text-emerald-400 font-display">${totalCost.toLocaleString('es-AR')}</span>
+                  <span className="text-[7px] text-slate-500 block font-mono">ARS</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-white/[0.08]">
+            <button
+              type="button"
+              onClick={handleApplyToBookingForm}
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-2 rounded-xl text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer shadow-[0_2px_10px_rgba(16,185,129,0.2)]"
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              Reservar este Combo
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              className="w-full bg-white/[0.02] hover:bg-white/[0.08] border border-white/[0.08] text-white font-bold py-2 rounded-xl text-[10px] uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Descargar Presupuesto PDF
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 export interface PromocionTienda {
   id: string;
   titulo: string;
@@ -273,6 +685,28 @@ export default function PublicPage({
   const [bookingCompleted, setBookingCompleted] = useState(false);
   const [lastBookedTurnoId, setLastBookedTurnoId] = useState('');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+
+  const handleApplyCombo = (details: { title: string; price: number; description: string }) => {
+    const customPromo: PromocionTienda = {
+      id: 'promo_custom',
+      titulo: details.title,
+      subtitulo: 'Acondicionamiento Detallado Personalizado',
+      servicio: 'ESTETICA',
+      precioOriginal: details.price,
+      descuentoPorcentaje: 0,
+      precioOferta: details.price,
+      activa: true,
+      caracteristicas: [details.description],
+      etiqueta: 'Combo Custom'
+    };
+
+    setPromociones(prev => {
+      const filtered = prev.filter(p => p.id !== 'promo_custom');
+      return [...filtered, customPromo];
+    });
+
+    setSelectedPromoId('promo_custom');
+  };
 
   // Admin New Promo state
   const [newPromoTitulo, setNewPromoTitulo] = useState('');
@@ -649,6 +1083,11 @@ export default function PublicPage({
             </div>
 
             <DetailingSimulationWidget />
+          </section>
+
+          {/* INTERACTIVE DETAILING COST CALCULATOR */}
+          <section className="glass-panel p-6 rounded-2xl border border-red-500/20 shadow-xl space-y-6">
+            <DetailingCostCalculator onAddLog={onAddLog} onApplyCombo={handleApplyCombo} />
           </section>
 
           {/* CERAMIC COATING & TREATMENTS MARKETING MODULE */}
