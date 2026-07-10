@@ -119,6 +119,20 @@ export default function App() {
   const [cajaAbierta, setCajaAbierta] = useState(true);
   const [montoApertura, setMontoApertura] = useState(35000);
 
+  // Workshop work bays state (persistent via localStorage)
+  const [bays, setBays] = useState<{ [key: string]: string | null }>(() => {
+    try {
+      const saved = localStorage.getItem('albelo_bays');
+      return saved ? JSON.parse(saved) : { box1: null, box2: null, box3: null };
+    } catch {
+      return { box1: null, box2: null, box3: null };
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('albelo_bays', JSON.stringify(bays));
+  }, [bays]);
+
   // Background Console Log simulator state
   const [consoleLogs, setConsoleLogs] = useState<string[]>([
     '🟢 [SYS] Sistema inicializado en puerto :3000.',
@@ -1398,6 +1412,320 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+            </div>
+
+            {/* WORKSHOP BAY MONITOR */}
+            <div className="glass-panel p-5 rounded-xl space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-red-600/10 border border-red-600/20 text-red-500 shadow-[0_0_10px_rgba(220,38,38,0.15)] animate-pulse">
+                    <Car className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider font-display">Monitor de Boxes en Tiempo Real</h3>
+                    <span className="text-[9px] text-slate-500 font-mono">LAYOUT OPERATIVO DEL TALLER</span>
+                  </div>
+                </div>
+
+                <span className="text-[8px] bg-red-600/20 text-red-500 border border-red-600/30 px-2 py-0.5 rounded uppercase font-bold tracking-widest font-mono">
+                  PROCESO ACTIVO
+                </span>
+              </div>
+
+              {/* 3 Columns Grid representing Boxes */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                {/* BOX 1 */}
+                {(() => {
+                  const bayId = 'box1';
+                  const turnoId = bays.box1;
+                  const turnoObj = turnos.find(t => t.id === turnoId);
+                  const isOccupied = !!turnoObj;
+
+                  return (
+                    <div className={`p-4 rounded-xl border transition-all ${
+                      isOccupied 
+                        ? 'bg-gradient-to-br from-[#120808]/80 to-[#030406]/60 border-red-500/30 shadow-[0_4px_20px_rgba(220,38,38,0.05)]' 
+                        : 'bg-[#030406]/20 border-white/[0.04] opacity-75'
+                    }`}>
+                      <div className="flex justify-between items-start pb-2 border-b border-white/[0.05] mb-3">
+                        <div>
+                          <span className="text-[9px] text-slate-500 font-mono font-bold block">BOX 1</span>
+                          <span className="text-xs font-black text-slate-200 uppercase font-display">Lavado & Prep</span>
+                        </div>
+                        <span className={`text-[8px] px-1.5 py-0.2 rounded font-extrabold tracking-wider ${
+                          isOccupied ? 'bg-red-500/15 text-red-400' : 'bg-slate-800 text-slate-500'
+                        }`}>
+                          {isOccupied ? 'OCUPADO' : 'LIBRE'}
+                        </span>
+                      </div>
+
+                      {isOccupied ? (
+                        <div className="space-y-3">
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] bg-red-600/10 text-red-400 border border-red-600/20 px-1.5 py-0.2 rounded font-mono font-bold uppercase inline-block">
+                              {turnoObj.vehiculoPatente}
+                            </span>
+                            <h4 className="text-xs font-bold text-slate-100 uppercase">{turnoObj.vehiculoModelo}</h4>
+                            <p className="text-[10px] text-slate-400 font-medium truncate">{turnoObj.servicioNombre}</p>
+                          </div>
+
+                          <div className="flex justify-between text-[9px] text-slate-500 pt-1.5 border-t border-white/[0.03]">
+                            <span>Operario: <b className="text-slate-300 font-bold">{turnoObj.lavadorAsignado || 'Sin asignar'}</b></span>
+                            <span className="animate-pulse text-red-500">🧼 Lavando...</span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="w-full bg-white/[0.03] rounded-full h-1 overflow-hidden border border-white/[0.05]">
+                            <div className="bg-red-600 h-full animate-[shimmer_2s_infinite]" style={{ width: '40%' }} />
+                          </div>
+
+                          {/* Action Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBays(prev => ({ ...prev, box1: null, box2: turnoId }));
+                              addConsoleLog(`➡️ [TALLER] Vehículo ${turnoObj.vehiculoModelo} [${turnoObj.vehiculoPatente}] avanzó del Box 1 al Box 2 (Pulido).`);
+                            }}
+                            className="w-full py-1.5 rounded-lg bg-white/[0.03] hover:bg-red-600 hover:text-white border border-white/[0.06] hover:border-red-500 text-[10px] font-black uppercase tracking-wider text-slate-300 transition duration-300 cursor-pointer flex items-center justify-center gap-1"
+                          >
+                            Mover a Box 2 (Pulido) ➡️
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center space-y-3">
+                          <span className="text-2xl block grayscale opacity-30">🧼</span>
+                          <span className="text-[10px] text-slate-500 block italic">Sin vehículos en preparación</span>
+                          
+                          {/* Selector to assign */}
+                          <select
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val) {
+                                setBays(prev => ({ ...prev, box1: val }));
+                                handleUpdateTurnoEstado(val, 'EN_PROCESO');
+                                addConsoleLog(`🧼 [TALLER] Vehículo ingresado al Box 1 (Lavado). Estado actualizado a EN_PROCESO.`);
+                              }
+                            }}
+                            className="bg-slate-900/80 border border-white/[0.08] focus:border-red-500/50 rounded-lg px-2 py-1 text-[9px] text-slate-400 font-bold w-full focus:outline-none"
+                            defaultValue=""
+                          >
+                            <option value="">+ INGRESAR AUTO</option>
+                            {turnos.filter(t => t.estado === 'PENDIENTE').map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.vehiculoModelo} [{t.vehiculoPatente}] - {t.clienteNombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* BOX 2 */}
+                {(() => {
+                  const bayId = 'box2';
+                  const turnoId = bays.box2;
+                  const turnoObj = turnos.find(t => t.id === turnoId);
+                  const isOccupied = !!turnoObj;
+
+                  return (
+                    <div className={`p-4 rounded-xl border transition-all ${
+                      isOccupied 
+                        ? 'bg-gradient-to-br from-[#120808]/80 to-[#030406]/60 border-[#00d2ff]/30 shadow-[0_4px_20px_rgba(6,182,212,0.05)]' 
+                        : 'bg-[#030406]/20 border-white/[0.04] opacity-75'
+                    }`}>
+                      <div className="flex justify-between items-start pb-2 border-b border-white/[0.05] mb-3">
+                        <div>
+                          <span className="text-[9px] text-slate-500 font-mono font-bold block">BOX 2</span>
+                          <span className="text-xs font-black text-slate-200 uppercase font-display">Corrección & Pulido</span>
+                        </div>
+                        <span className={`text-[8px] px-1.5 py-0.2 rounded font-extrabold tracking-wider ${
+                          isOccupied ? 'bg-[#00d2ff]/15 text-[#00d2ff]' : 'bg-slate-800 text-slate-500'
+                        }`}>
+                          {isOccupied ? 'OCUPADO' : 'LIBRE'}
+                        </span>
+                      </div>
+
+                      {isOccupied ? (
+                        <div className="space-y-3">
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] bg-[#00d2ff]/10 text-[#00d2ff] border border-[#00d2ff]/20 px-1.5 py-0.2 rounded font-mono font-bold uppercase inline-block">
+                              {turnoObj.vehiculoPatente}
+                            </span>
+                            <h4 className="text-xs font-bold text-slate-100 uppercase">{turnoObj.vehiculoModelo}</h4>
+                            <p className="text-[10px] text-slate-400 font-medium truncate">{turnoObj.servicioNombre}</p>
+                          </div>
+
+                          <div className="flex justify-between text-[9px] text-slate-500 pt-1.5 border-t border-white/[0.03]">
+                            <span>Operario: <b className="text-slate-300 font-bold">{turnoObj.lavadorAsignado || 'Sin asignar'}</b></span>
+                            <span className="animate-pulse text-[#00d2ff]">✨ Puliendo...</span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="w-full bg-white/[0.03] rounded-full h-1 overflow-hidden border border-white/[0.05]">
+                            <div className="bg-[#00d2ff] h-full" style={{ width: '70%' }} />
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBays(prev => ({ ...prev, box2: null, box1: turnoId }));
+                                addConsoleLog(`⬅️ [TALLER] Vehículo ${turnoObj.vehiculoModelo} regresado al Box 1 (Lavado) para reapretar.`);
+                              }}
+                              className="py-1.5 rounded bg-white/[0.02] hover:bg-slate-800 text-[9px] font-bold uppercase tracking-wider text-slate-400 transition cursor-pointer text-center"
+                            >
+                              ⬅️ Regresar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBays(prev => ({ ...prev, box2: null, box3: turnoId }));
+                                addConsoleLog(`➡️ [TALLER] Vehículo ${turnoObj.vehiculoModelo} avanzó al Box 3 (Sellado).`);
+                              }}
+                              className="py-1.5 rounded bg-[#00d2ff]/10 hover:bg-[#00d2ff]/20 border border-[#00d2ff]/20 text-[9px] font-bold uppercase tracking-wider text-[#00d2ff] transition cursor-pointer text-center"
+                            >
+                              Siguiente ➡️
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center space-y-3">
+                          <span className="text-2xl block grayscale opacity-30">✨</span>
+                          <span className="text-[10px] text-slate-500 block italic">Sin vehículos en pulido</span>
+                          
+                          {/* Selector to assign */}
+                          <select
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val) {
+                                setBays(prev => ({ ...prev, box2: val }));
+                                handleUpdateTurnoEstado(val, 'EN_PROCESO');
+                                addConsoleLog(`✨ [TALLER] Vehículo ingresado directamente al Box 2 (Pulido). Estado actualizado a EN_PROCESO.`);
+                              }
+                            }}
+                            className="bg-slate-900/80 border border-white/[0.08] focus:border-[#00d2ff]/50 rounded-lg px-2 py-1 text-[9px] text-slate-400 font-bold w-full focus:outline-none"
+                            defaultValue=""
+                          >
+                            <option value="">+ INGRESAR AUTO</option>
+                            {turnos.filter(t => t.estado === 'PENDIENTE' || t.estado === 'EN_PROCESO').map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.vehiculoModelo} [{t.vehiculoPatente}] - {t.clienteNombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* BOX 3 */}
+                {(() => {
+                  const bayId = 'box3';
+                  const turnoId = bays.box3;
+                  const turnoObj = turnos.find(t => t.id === turnoId);
+                  const isOccupied = !!turnoObj;
+
+                  return (
+                    <div className={`p-4 rounded-xl border transition-all ${
+                      isOccupied 
+                        ? 'bg-gradient-to-br from-[#120808]/80 to-[#030406]/60 border-amber-500/30 shadow-[0_4px_20px_rgba(245,158,11,0.05)]' 
+                        : 'bg-[#030406]/20 border-white/[0.04] opacity-75'
+                    }`}>
+                      <div className="flex justify-between items-start pb-2 border-b border-white/[0.05] mb-3">
+                        <div>
+                          <span className="text-[9px] text-slate-500 font-mono font-bold block">BOX 3</span>
+                          <span className="text-xs font-black text-slate-200 uppercase font-display">Curado & Sellado</span>
+                        </div>
+                        <span className={`text-[8px] px-1.5 py-0.2 rounded font-extrabold tracking-wider ${
+                          isOccupied ? 'bg-amber-500/15 text-amber-400' : 'bg-slate-800 text-slate-500'
+                        }`}>
+                          {isOccupied ? 'OCUPADO' : 'LIBRE'}
+                        </span>
+                      </div>
+
+                      {isOccupied ? (
+                        <div className="space-y-3">
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded font-mono font-bold uppercase inline-block">
+                              {turnoObj.vehiculoPatente}
+                            </span>
+                            <h4 className="text-xs font-bold text-slate-100 uppercase">{turnoObj.vehiculoModelo}</h4>
+                            <p className="text-[10px] text-slate-400 font-medium truncate">{turnoObj.servicioNombre}</p>
+                          </div>
+
+                          <div className="flex justify-between text-[9px] text-slate-500 pt-1.5 border-t border-white/[0.03]">
+                            <span>Operario: <b className="text-slate-300 font-bold">{turnoObj.lavadorAsignado || 'Sin asignar'}</b></span>
+                            <span className="animate-pulse text-amber-400">🔥 Curando laca...</span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="w-full bg-white/[0.03] rounded-full h-1 overflow-hidden border border-white/[0.05]">
+                            <div className="bg-amber-500 h-full" style={{ width: '95%' }} />
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBays(prev => ({ ...prev, box3: null, box2: turnoId }));
+                                addConsoleLog(`⬅️ [TALLER] Vehículo ${turnoObj.vehiculoModelo} regresado al Box 2 (Pulido) para retoques.`);
+                              }}
+                              className="py-1.5 rounded bg-white/[0.02] hover:bg-slate-800 text-[9px] font-bold uppercase tracking-wider text-slate-400 transition cursor-pointer text-center"
+                            >
+                              ⬅️ Regresar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBays(prev => ({ ...prev, box3: null }));
+                                handleUpdateTurnoEstado(turnoId, 'COMPLETADO');
+                                addConsoleLog(`✅ [TALLER] ¡Acondicionamiento finalizado! Vehículo ${turnoObj.vehiculoModelo} listo para entregar.`);
+                              }}
+                              className="py-1.5 rounded bg-emerald-500 text-slate-950 text-[9px] font-black uppercase tracking-wider transition cursor-pointer text-center shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                            >
+                              Finalizar ✅
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center space-y-3">
+                          <span className="text-2xl block grayscale opacity-30">💎</span>
+                          <span className="text-[10px] text-slate-500 block italic">Sin vehículos en sellado</span>
+                          
+                          {/* Selector to assign */}
+                          <select
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val) {
+                                setBays(prev => ({ ...prev, box3: val }));
+                                handleUpdateTurnoEstado(val, 'EN_PROCESO');
+                                addConsoleLog(`💎 [TALLER] Vehículo ingresado directamente al Box 3 (Sellado). Estado actualizado a EN_PROCESO.`);
+                              }
+                            }}
+                            className="bg-slate-900/80 border border-white/[0.08] focus:border-amber-500/50 rounded-lg px-2 py-1 text-[9px] text-slate-400 font-bold w-full focus:outline-none"
+                            defaultValue=""
+                          >
+                            <option value="">+ INGRESAR AUTO</option>
+                            {turnos.filter(t => t.estado === 'PENDIENTE' || t.estado === 'EN_PROCESO').map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.vehiculoModelo} [{t.vehiculoPatente}] - {t.clienteNombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
               </div>
 
             </div>
