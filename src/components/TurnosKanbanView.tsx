@@ -10,6 +10,29 @@ import { generateTicketPDF } from '../utils/ticketGenerator';
 import VehicleHealth from './VehicleHealth';
 import WeeklyCalendar from './WeeklyCalendar';
 
+const CHECKLIST_TEMPLATES: { [key in TipoServicio]: string[] } = {
+  LAVADO: [
+    'Aspirado profundo de alfombras y baúl',
+    'Limpieza de llantas y acondicionado de cubiertas',
+    'Limpieza de cristales internos/externos sin vetas',
+    'Repaso minucioso de marcos de puertas y baúl',
+    'Perfumado de habitáculo y colocación de protector de volante'
+  ],
+  TAPICERIA: [
+    'Extracción por inyección/succión de suciedad pesada',
+    'Secado completo de butacas y alfombras para evitar humedad',
+    'Desinfección y sanitizado de habitáculo',
+    'Limpieza de techos y parantes sin dañar el tapizado'
+  ],
+  ESTETICA: [
+    'Descontaminado físico (Claybar) y químico (férrico)',
+    'Medición del espesor de laca con medidor digital',
+    'Corrección/Pulido de pintura en los pasos contratados',
+    'Aplicación uniforme de sellador (acrílico/cerámico/vidrio líquido)',
+    'Inspección final bajo luces de inspección de detailing'
+  ]
+};
+
 interface TurnosKanbanViewProps {
   turnos: Turno[];
   clientes: Cliente[];
@@ -18,6 +41,7 @@ interface TurnosKanbanViewProps {
   onDeleteTurno: (id: string) => void;
   onAddLog: (message: string) => void;
   onUpdateTurno?: (updatedTurno: Turno) => void;
+  onUpdateClient?: (updatedClient: Cliente) => void;
   preselectedClienteId?: string;
   onClearPreselectedCliente?: () => void;
 }
@@ -30,6 +54,7 @@ export default function TurnosKanbanView({
   onDeleteTurno,
   onAddLog,
   onUpdateTurno,
+  onUpdateClient,
   preselectedClienteId,
   onClearPreselectedCliente,
 }: TurnosKanbanViewProps) {
@@ -83,6 +108,11 @@ export default function TurnosKanbanView({
   const [showVehicleHistoryModal, setShowVehicleHistoryModal] = useState(false);
   const [searchHistoryPatente, setSearchHistoryPatente] = useState('');
   const [selectedHistoryPatente, setSelectedHistoryPatente] = useState<string | null>(null);
+  const [useMembership, setUseMembership] = useState(false);
+
+  React.useEffect(() => {
+    setUseMembership(false);
+  }, [selectedClienteId]);
 
   // Active service price helper
   const activeServiceObj = serviciosDeTipo.find((s) => s.nombre === selectedServicioNombre);
@@ -92,6 +122,8 @@ export default function TurnosKanbanView({
   const [feedbackTurnoId, setFeedbackTurnoId] = useState<string | null>(null);
   const [ratingInput, setRatingInput] = useState(5);
   const [commentsInput, setCommentsInput] = useState('');
+  const [showChecklistPhase, setShowChecklistPhase] = useState(true);
+  const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
 
   // Ticket Preview modal states
   const [ticketTurno, setTicketTurno] = useState<Turno | null>(null);
@@ -120,7 +152,7 @@ export default function TurnosKanbanView({
     setIsCreatingTurno(true);
     setCreateTurnoError('');
 
-    const finalPrice = customPriceInput ? Number(customPriceInput) : currentBasePrice;
+    const finalPrice = useMembership ? 0 : (customPriceInput ? Number(customPriceInput) : currentBasePrice);
 
     const newT: Turno = {
       id: `t_${Date.now()}`,
@@ -140,6 +172,17 @@ export default function TurnosKanbanView({
 
     try {
       const created = await onAddTurno(newT);
+      
+      if (useMembership && currentCliente.membershipPlan && onUpdateClient) {
+        const remaining = currentCliente.membershipRemainingWashes;
+        const updatedRemaining = remaining !== undefined ? Math.max(0, remaining - 1) : 0;
+        onUpdateClient({
+          ...currentCliente,
+          membershipRemainingWashes: currentCliente.membershipPlan === 'VIP' ? 999 : updatedRemaining
+        });
+        onAddLog(`🎟️ [MEMBRESÍA] Cupo de lavado descontado al cliente ${currentCliente.nombre}. (${updatedRemaining} restantes)`);
+      }
+
       setShowAddForm(false);
       setActiveInspectionData(null);
       onAddLog(`📅 Turno #${created.id} agendado: ${newT.clienteNombre} (${newT.vehiculoPatente}) para ${newT.servicioNombre} con ${newT.lavadorAsignado}.`);
@@ -156,6 +199,13 @@ export default function TurnosKanbanView({
   };
 
   const triggerCompleteTurno = (t: Turno) => {
+    const items = CHECKLIST_TEMPLATES[t.tipo] || [];
+    const initChecked: { [key: string]: boolean } = {};
+    items.forEach((item) => {
+      initChecked[item] = false;
+    });
+    setCheckedItems(initChecked);
+    setShowChecklistPhase(true);
     setFeedbackTurnoId(t.id);
   };
 
@@ -431,6 +481,26 @@ export default function TurnosKanbanView({
                 <span className="absolute left-2.5 inset-y-0 flex items-center text-slate-500 text-xs">$</span>
               </div>
             </div>
+
+            {currentCliente && currentCliente.membershipPlan && (
+              <div className="mt-3 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-emerald-400">Plan {currentCliente.membershipPlan} Activo</span>
+                  <p className="text-[10px] text-slate-400">
+                    Disponibles: {currentCliente.membershipPlan === 'VIP' ? '∞' : currentCliente.membershipRemainingWashes}
+                  </p>
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useMembership}
+                    onChange={(e) => setUseMembership(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-500 rounded border-white/10"
+                  />
+                  <span className="text-[10px] text-emerald-300 font-bold uppercase">Bonificar $0</span>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Operational staff allocation and actions */}
@@ -1059,61 +1129,126 @@ export default function TurnosKanbanView({
         </div>
       )}
 
-      {/* NPS Evaluation Popup Dialog */}
-      {feedbackTurnoId && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex justify-center items-center p-4">
-          <form onSubmit={handleFeedbackSubmit} className="glass-panel p-6 rounded-xl border border-white/[0.08] w-full max-w-md space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-            <div className="text-center">
-              <span className="text-xs uppercase tracking-widest text-[#00d2ff] font-bold">Fidelización y NPS</span>
-              <h3 className="text-base font-extrabold text-white mt-1 font-display">Registrar Cobro y Calidad del Servicio</h3>
-              <p className="text-xs text-slate-400 mt-1">Por favor, registra el nivel de satisfacción que reportó el cliente al retirar su vehículo.</p>
-            </div>
+      {/* Quality Control & NPS Evaluation Popup Dialog */}
+      {(() => {
+        if (!feedbackTurnoId) return null;
+        const currentTurnoObj = turnos.find(t => t.id === feedbackTurnoId);
+        if (!currentTurnoObj) return null;
+        
+        const checklistItems = CHECKLIST_TEMPLATES[currentTurnoObj.tipo] || [];
+        const allChecked = checklistItems.every(item => !!checkedItems[item]);
 
-            <div className="flex justify-center gap-2.5 py-2">
-              {[1, 2, 3, 4, 5].map((val) => (
-                <button
-                  key={val}
-                  id={`btn-star-rating-${val}`}
-                  type="button"
-                  onClick={() => setRatingInput(val)}
-                  className="p-1 text-yellow-500 hover:scale-110 transition"
-                >
-                  <Star className={`w-8 h-8 ${val <= ratingInput ? 'fill-yellow-500' : 'text-slate-800'}`} />
-                </button>
-              ))}
-            </div>
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex justify-center items-center p-4">
+            <div className="glass-panel p-6 rounded-xl border border-white/[0.08] w-full max-w-md space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-fade-in">
+              
+              {showChecklistPhase ? (
+                // PHASE 1: Quality Control Checklist
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <span className="text-[10px] uppercase tracking-widest text-red-500 font-black block">Fase 1: Control de Calidad</span>
+                    <h3 className="text-base font-extrabold text-white mt-1 font-display">Checklist de Conformidad Técnica</h3>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Verificá los estándares de calidad del servicio <b>{currentTurnoObj.servicioNombre}</b> antes de liberar el vehículo.
+                    </p>
+                  </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider">Comentarios del cliente (opcional)</label>
-              <textarea
-                id="textarea-nps-comment"
-                value={commentsInput}
-                onChange={(e) => setCommentsInput(e.target.value)}
-                placeholder="Ej. Quedó muy conforme, agendó para pulido el mes que viene..."
-                rows={3}
-                className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg p-2.5 text-xs text-white resize-none transition-all placeholder:text-slate-600"
-              />
-            </div>
+                  <div className="bg-black/30 border border-white/[0.06] rounded-xl p-4 space-y-3">
+                    {checklistItems.map((item, index) => (
+                      <label key={index} className="flex items-start gap-3 text-xs text-slate-300 cursor-pointer select-none py-1">
+                        <input
+                          type="checkbox"
+                          checked={!!checkedItems[item]}
+                          onChange={(e) => {
+                            setCheckedItems(prev => ({ ...prev, [item]: e.target.checked }));
+                          }}
+                          className="w-4.5 h-4.5 accent-red-600 rounded border-white/10 bg-transparent text-red-600 focus:ring-red-500 shrink-0 mt-0.5"
+                        />
+                        <span className={checkedItems[item] ? 'line-through text-slate-500 font-bold' : 'text-slate-200'}>
+                          {item}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setFeedbackTurnoId(null)}
-                className="flex-1 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-300 font-bold py-2 rounded-lg text-xs transition"
-              >
-                Volver
-              </button>
-              <button
-                id="btn-confirm-feedback"
-                type="submit"
-                className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 font-bold py-2 rounded-lg text-xs transition shadow-lg"
-              >
-                Registrar Pago
-              </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFeedbackTurnoId(null)}
+                      className="flex-1 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-300 font-bold py-2 rounded-lg text-xs transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!allChecked}
+                      onClick={() => setShowChecklistPhase(false)}
+                      className="flex-1 bg-red-600 hover:bg-red-500 disabled:bg-white/[0.02] text-white disabled:text-slate-500 border border-red-500/20 disabled:border-none font-bold py-2 rounded-lg text-xs transition shadow-lg flex items-center justify-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      Verificar y Continuar ➡️
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // PHASE 2: NPS Satisfaction Survey
+                <form onSubmit={handleFeedbackSubmit} className="space-y-4">
+                  <div className="text-center">
+                    <span className="text-[10px] uppercase tracking-widest text-[#00d2ff] font-black block">Fase 2: Retiro & NPS</span>
+                    <h3 className="text-base font-extrabold text-white mt-1 font-display">Registrar Cobro y Calidad del Servicio</h3>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Por favor, registra el nivel de satisfacción que reportó el cliente al retirar su vehículo.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center gap-2.5 py-2">
+                    {[1, 2, 3, 4, 5].map((val) => (
+                      <button
+                        key={val}
+                        id={`btn-star-rating-${val}`}
+                        type="button"
+                        onClick={() => setRatingInput(val)}
+                        className="p-1 text-yellow-500 hover:scale-110 transition cursor-pointer"
+                      >
+                        <Star className={`w-8 h-8 ${val <= ratingInput ? 'fill-yellow-500' : 'text-slate-800'}`} />
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-wider">Comentarios del cliente (opcional)</label>
+                    <textarea
+                      id="textarea-nps-comment"
+                      value={commentsInput}
+                      onChange={(e) => setCommentsInput(e.target.value)}
+                      placeholder="Ej. Quedó muy conforme, agendó para pulido el mes que viene..."
+                      rows={3}
+                      className="w-full bg-black/30 border border-white/[0.1] focus:border-[#00d2ff]/60 focus:outline-none rounded-lg p-2.5 text-xs text-white resize-none transition-all placeholder:text-slate-600"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowChecklistPhase(true)}
+                      className="flex-1 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-300 font-bold py-2 rounded-lg text-xs transition cursor-pointer"
+                    >
+                      ⬅️ Volver
+                    </button>
+                    <button
+                      id="btn-confirm-feedback"
+                      type="submit"
+                      className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 font-bold py-2 rounded-lg text-xs transition shadow-lg cursor-pointer"
+                    >
+                      Registrar Listo y Cobrar
+                    </button>
+                  </div>
+                </form>
+              )}
+
             </div>
-          </form>
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* Ticket/Invoice Printer Preview Simulation Drawer */}
       {ticketTurno && (

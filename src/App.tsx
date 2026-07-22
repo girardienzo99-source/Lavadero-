@@ -27,10 +27,12 @@ const BrandSettings = lazy(() => import('./components/BrandSettings'));
 const WhatsAppCRMHub = lazy(() => import('./components/WhatsAppCRMHub'));
 const ExcelIntegration = lazy(() => import('./components/ExcelIntegration'));
 
+const EmployeeCommissions = lazy(() => import('./components/EmployeeCommissions'));
+
 export default function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<AppTab>('overview');
-  const [cajaSubTab, setCajaSubTab] = useState<'pos' | 'facturacion'>('pos');
+  const [cajaSubTab, setCajaSubTab] = useState<'pos' | 'facturacion' | 'comisiones'>('pos');
   const [statsSubTab, setStatsSubTab] = useState<'semanal' | 'mix' | 'lavadores'>('semanal');
   const [subTabPublicidad, setSubTabPublicidad] = useState<'flyers' | 'loyalty' | 'whatsapp-crm'>('flyers');
   const [preselectedClienteId, setPreselectedClienteId] = useState<string | undefined>(undefined);
@@ -217,14 +219,19 @@ export default function App() {
             const pat = clientVehicles.map((v: any) => v.patente).join(', ') || 'Sin Auto';
             const mod = clientVehicles.map((v: any) => `${v.marca} ${v.modelo}`).join(', ') || 'Sin Auto';
             
+            const clientIdStr = String(c.id);
+            const localMembSaved = localStorage.getItem(`albelo_membership_${clientIdStr}`);
+            const membership = localMembSaved ? JSON.parse(localMembSaved) : {};
+            
             return {
-              id: String(c.id),
+              id: clientIdStr,
               nombre: c.nombre,
               telefono: c.telefono || '',
               vehiculoPatente: pat,
               vehiculoModelo: mod,
               visitas: (data.turnos || []).filter((t: any) => t.cliente_id === c.id && (t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO')).length || 0,
-              ultimaVisitaDiasAgo: c.ultima_visita ? Math.max(0, Math.floor((Date.now() - new Date(c.ultima_visita).getTime()) / (1000 * 60 * 60 * 24))) : 99
+              ultimaVisitaDiasAgo: c.ultima_visita ? Math.max(0, Math.floor((Date.now() - new Date(c.ultima_visita).getTime()) / (1000 * 60 * 60 * 24))) : 99,
+              ...membership
             };
           });
           setClientes(mappedClientes);
@@ -889,6 +896,23 @@ export default function App() {
       loadDashboardData();
     }
     return { created, skipped, errors };
+  };
+
+  const handleUpdateClient = (updatedClient: Cliente) => {
+    const clientIdStr = String(updatedClient.id);
+    const membership = {
+      membershipPlan: updatedClient.membershipPlan,
+      membershipRenewal: updatedClient.membershipRenewal,
+      membershipRemainingWashes: updatedClient.membershipRemainingWashes
+    };
+    if (updatedClient.membershipPlan) {
+      localStorage.setItem(`albelo_membership_${clientIdStr}`, JSON.stringify(membership));
+    } else {
+      localStorage.removeItem(`albelo_membership_${clientIdStr}`);
+    }
+
+    setClientes((prev) => prev.map((c) => (c.id === updatedClient.id ? updatedClient : c)));
+    addConsoleLog(`👤 [CLIENTE] Membresía/Datos del cliente ${updatedClient.nombre} actualizados.`);
   };
 
   const handleImportClientsAtomic = async (rows: ExcelClientRow[]): Promise<{ created: number; skipped: number; errors: string[] }> => {
@@ -2093,6 +2117,7 @@ export default function App() {
               onAddLog={addConsoleLog}
               preselectedClienteId={preselectedClienteId}
               onClearPreselectedCliente={() => setPreselectedClienteId(undefined)}
+              onUpdateClient={handleUpdateClient}
               onUpdateTurno={(updated) => {
                 if (dbOnline && !updated.id.startsWith('t_')) {
                   const employee = rawDbData.empleados?.find((item: any) => item.nombre === updated.lavadorAsignado);
@@ -2132,6 +2157,7 @@ export default function App() {
               setPreselectedClienteId(clientId);
               setActiveTab('turnos');
             }}
+            onUpdateClient={handleUpdateClient}
           />
         )}
 
@@ -2174,9 +2200,20 @@ export default function App() {
                 <FileText className="w-3.5 h-3.5 text-brand-primary" />
                 Factura electrónica C
               </button>
+              <button
+                onClick={() => setCajaSubTab('comisiones')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 uppercase tracking-wider cursor-pointer ${
+                  cajaSubTab === 'comisiones'
+                    ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                    : 'text-slate-400 hover:text-slate-200 bg-white/[0.01] border border-white/[0.06]'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-brand-primary" />
+                Comisiones Operarios
+              </button>
             </div>
 
-            {cajaSubTab === 'pos' ? (
+            {cajaSubTab === 'pos' && (
               <CajaDiariaLedger
                 role={currentRole}
                 insumos={insumos}
@@ -2191,11 +2228,21 @@ export default function App() {
                 turnos={turnos}
                 onChargeTurno={handleChargeTurno}
               />
-            ) : (
+            )}
+            {cajaSubTab === 'facturacion' && (
               <ArgentineFacturacion
                 transacciones={transacciones}
                 clientes={clientes}
                 turnos={turnos}
+                onAddLog={addConsoleLog}
+              />
+            )}
+            {cajaSubTab === 'comisiones' && (
+              <EmployeeCommissions
+                turnos={turnos}
+                transacciones={transacciones}
+                cajaAbierta={cajaAbierta}
+                onAddTransaccion={handleAddTransaccion}
                 onAddLog={addConsoleLog}
               />
             )}

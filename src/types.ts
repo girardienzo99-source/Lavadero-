@@ -17,6 +17,9 @@ export interface Cliente {
   vehiculoModelo: string;
   visitas: number;
   ultimaVisitaDiasAgo: number;
+  membershipPlan?: 'Classic' | 'Premium' | 'VIP';
+  membershipRenewal?: string;
+  membershipRemainingWashes?: number;
 }
 
 export type TipoServicio = 'LAVADO' | 'TAPICERIA' | 'ESTETICA';

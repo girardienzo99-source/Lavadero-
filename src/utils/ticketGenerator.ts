@@ -591,3 +591,161 @@ export function generateInspectionPDF(data: InspectionInput) {
 
   doc.save(`Informe_Inspeccion_${data.patente.toUpperCase()}.pdf`);
 }
+
+export interface CommissionReceiptInput {
+  employeeName: string;
+  commissionRate: number;
+  totalEarnings: number;
+  totalPayout: number;
+  jobs: {
+    id: string;
+    fecha: string;
+    patente: string;
+    modelo: string;
+    servicio: string;
+    precio: number;
+    comision: number;
+  }[];
+}
+
+export function generateCommissionReceiptPDF(data: CommissionReceiptInput) {
+  const brand = getBrandConfig();
+  const primaryRgb = hexToRgb(brand.primaryColor);
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  // Header Banner
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, 210, 40, 'F');
+
+  // Accent Line
+  doc.setFillColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
+  doc.rect(0, 40, 210, 2, 'F');
+
+  // Title & Brand
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text(brand.nombre, 15, 18);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(148, 163, 184); // slate-400
+  doc.text(brand.tagline, 15, 24);
+  doc.text('Av. Marcelo T. de Alvear 1850, Río Cuarto  •  Tel: 358 4226415', 15, 28);
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('RECIBO DE LIQUIDACIÓN', 195, 18, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Fecha: ${new Date().toLocaleDateString('es-AR')}`, 195, 24, { align: 'right' });
+  doc.text(`ID Pago: COM-${Date.now().toString().slice(-6)}`, 195, 28, { align: 'right' });
+
+  let y = 50;
+
+  // Employee details
+  doc.setFillColor(248, 250, 252); // slate-50
+  doc.rect(15, y, 180, 20, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(15, y, 180, 20, 'D');
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('DETALLES DEL COLABORADOR', 20, y + 6);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text(`Colaborador: ${data.employeeName}`, 20, y + 13);
+  doc.text(`Tasa de Comisión Pactada: ${data.commissionRate}%`, 110, y + 13);
+
+  y += 28;
+
+  // Table header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Detalle de Trabajos Realizados', 15, y);
+  y += 4;
+
+  const tableBody = data.jobs.map((job) => [
+    job.id,
+    new Date(job.fecha).toLocaleDateString('es-AR'),
+    job.patente.toUpperCase(),
+    job.modelo,
+    job.servicio,
+    `$${job.precio.toLocaleString('es-AR')}`,
+    `$${job.comision.toLocaleString('es-AR')}`,
+  ]);
+
+  autoTable(doc, {
+    startY: y,
+    head: [['ID Turno', 'Fecha', 'Patente', 'Vehículo', 'Servicio', 'Precio', 'Comisión']],
+    body: tableBody,
+    theme: 'striped',
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [255, 255, 255],
+      fontSize: 9,
+      fontStyle: 'bold',
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 3,
+    },
+    columnStyles: {
+      0: { cellWidth: 20 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 20 },
+      5: { halign: 'right' },
+      6: { halign: 'right', fontStyle: 'bold' },
+    },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 12;
+
+  // Totals layout
+  doc.setFillColor(248, 250, 252);
+  doc.rect(115, y, 80, 25, 'F');
+  doc.rect(115, y, 80, 25, 'D');
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Total Facturado:', 120, y + 7);
+  doc.text(`$${data.totalEarnings.toLocaleString('es-AR')}`, 190, y + 7, { align: 'right' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
+  doc.text('Comisión a Pagar:', 120, y + 17);
+  doc.text(`$${data.totalPayout.toLocaleString('es-AR')}`, 190, y + 17, { align: 'right' });
+
+  y += 40;
+
+  // Signatures
+  doc.setDrawColor(203, 213, 225);
+  doc.line(25, y, 85, y);
+  doc.line(125, y, 185, y);
+
+  y += 4;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Firma Recibí Conforme', 55, y, { align: 'center' });
+  doc.text('Firma Albelo Detail', 155, y, { align: 'center' });
+
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text('Este recibo constituye prueba suficiente de pago y cancelación de honorarios por comisiones de servicios devengados.', 105, y, { align: 'center' });
+
+  doc.save(`Recibo_Liquidacion_${data.employeeName}_${Date.now().toString().slice(-4)}.pdf`);
+}
+

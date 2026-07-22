@@ -7,11 +7,18 @@ interface ClientsViewProps {
   turnos: Turno[];
   onNewClient: () => void;
   onNewAppointment: (clientId: string) => void;
+  onUpdateClient: (updatedClient: Cliente) => void;
 }
 
-export default function ClientsView({ clientes, turnos, onNewClient, onNewAppointment }: ClientsViewProps) {
+export default function ClientsView({ clientes, turnos, onNewClient, onNewAppointment, onUpdateClient }: ClientsViewProps) {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'Classic' | 'Premium' | 'VIP' | ''>('');
+
+  React.useEffect(() => {
+    setSelectedPlan('');
+  }, [selectedId]);
+
   const normalized = query.trim().toLocaleLowerCase('es-AR');
   const filtered = useMemo(() => clientes.filter((cliente) => {
     if (!normalized) return true;
@@ -55,7 +62,18 @@ export default function ClientsView({ clientes, turnos, onNewClient, onNewAppoin
               <button key={cliente.id} type="button" onClick={() => setSelectedId(cliente.id)} className={`flex w-full items-center gap-3 p-4 text-left transition hover:bg-white/5 ${selected?.id === cliente.id ? 'bg-brand-primary/10' : ''}`}>
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5 text-slate-300"><UserRound className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-white">{cliente.nombre}</span>
+                  <span className="block truncate text-sm font-bold text-white flex items-center gap-1.5">
+                    {cliente.nombre}
+                    {cliente.membershipPlan && (
+                      <span className={`text-[8px] font-black uppercase px-1 rounded tracking-wider shrink-0 ${
+                        cliente.membershipPlan === 'VIP' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                        cliente.membershipPlan === 'Premium' ? 'bg-[#9d50bb]/25 text-purple-200 border border-[#9d50bb]/25' :
+                        'bg-emerald-500/20 text-emerald-300 border border-emerald-500/20'
+                      }`}>
+                        {cliente.membershipPlan}
+                      </span>
+                    )}
+                  </span>
                   <span className="block truncate text-xs text-slate-400">{cliente.vehiculoPatente || 'Sin patente'} · {cliente.vehiculoModelo || 'Sin vehículo'}</span>
                 </span>
                 <span className="hidden text-xs text-slate-500 sm:block">{cliente.visitas} visitas</span>
@@ -83,6 +101,83 @@ export default function ClientsView({ clientes, turnos, onNewClient, onNewAppoin
               <button type="button" onClick={() => onNewAppointment(selected.id)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-extrabold text-white">
                 <CalendarDays className="h-4 w-4" /> Crear turno
               </button>
+
+              {/* MEMBERSHIP SECTION */}
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3.5 space-y-3">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Membresía / Abono Club</h4>
+                
+                {selected.membershipPlan ? (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider ${
+                        selected.membershipPlan === 'VIP' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                        selected.membershipPlan === 'Premium' ? 'bg-[#9d50bb]/15 text-purple-300 border border-[#9d50bb]/20' :
+                        'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      }`}>
+                        Abono {selected.membershipPlan}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 font-bold">
+                        Washes: {selected.membershipPlan === 'VIP' ? '∞' : `${selected.membershipRemainingWashes} restantes`}
+                      </span>
+                    </div>
+                    
+                    <p className="text-[10px] text-slate-500">
+                      Renovación automática: <b>{selected.membershipRenewal ? new Date(selected.membershipRenewal).toLocaleDateString('es-AR') : 'Sin definir'}</b>
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateClient({
+                          ...selected,
+                          membershipPlan: undefined,
+                          membershipRenewal: undefined,
+                          membershipRemainingWashes: undefined
+                        });
+                      }}
+                      className="w-full py-1.5 text-center bg-red-950/20 hover:bg-red-900/30 text-red-400 border border-red-950/20 hover:border-red-900/20 text-[9px] font-black uppercase tracking-wider rounded transition cursor-pointer"
+                    >
+                      Cancelar Membresía
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedPlan}
+                        onChange={(e) => setSelectedPlan(e.target.value as any)}
+                        className="flex-1 bg-black/40 border border-white/10 rounded px-2.5 py-1 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="">-- Elegir Plan --</option>
+                        <option value="Classic">Classic Club (2/mes)</option>
+                        <option value="Premium">Premium Detailer (4/mes)</option>
+                        <option value="VIP">VIP Gold (Ilimitado)</option>
+                      </select>
+                      
+                      <button
+                        type="button"
+                        disabled={!selectedPlan}
+                        onClick={() => {
+                          if (!selectedPlan) return;
+                          const renewal = new Date();
+                          renewal.setDate(renewal.getDate() + 30);
+                          onUpdateClient({
+                            ...selected,
+                            membershipPlan: selectedPlan,
+                            membershipRenewal: renewal.toISOString(),
+                            membershipRemainingWashes: selectedPlan === 'VIP' ? 999 : selectedPlan === 'Premium' ? 4 : 2
+                          });
+                          setSelectedPlan('');
+                        }}
+                        className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 disabled:bg-white/[0.02] text-slate-950 disabled:text-slate-500 font-extrabold text-[10px] uppercase tracking-wider transition cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        Activar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Historial</h4>
                 <div className="space-y-2">
