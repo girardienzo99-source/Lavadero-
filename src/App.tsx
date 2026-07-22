@@ -33,6 +33,7 @@ export default function App() {
   const [cajaSubTab, setCajaSubTab] = useState<'pos' | 'facturacion'>('pos');
   const [statsSubTab, setStatsSubTab] = useState<'semanal' | 'mix' | 'lavadores'>('semanal');
   const [subTabPublicidad, setSubTabPublicidad] = useState<'flyers' | 'loyalty' | 'whatsapp-crm'>('flyers');
+  const [preselectedClienteId, setPreselectedClienteId] = useState<string | undefined>(undefined);
 
   // Session state
   const [session, setSession] = useState<SessionUser | null>(() => {
@@ -2090,6 +2091,8 @@ export default function App() {
               onUpdateTurnoEstado={handleUpdateTurnoEstado}
               onDeleteTurno={handleDeleteTurno}
               onAddLog={addConsoleLog}
+              preselectedClienteId={preselectedClienteId}
+              onClearPreselectedCliente={() => setPreselectedClienteId(undefined)}
               onUpdateTurno={(updated) => {
                 if (dbOnline && !updated.id.startsWith('t_')) {
                   const employee = rawDbData.empleados?.find((item: any) => item.nombre === updated.lavadorAsignado);
@@ -2125,7 +2128,10 @@ export default function App() {
             clientes={clientes}
             turnos={turnos}
             onNewClient={() => setShowAddClientForm(true)}
-            onNewAppointment={() => setActiveTab('turnos')}
+            onNewAppointment={(clientId) => {
+              setPreselectedClienteId(clientId);
+              setActiveTab('turnos');
+            }}
           />
         )}
 

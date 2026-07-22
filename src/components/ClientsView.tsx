@@ -6,7 +6,7 @@ interface ClientsViewProps {
   clientes: Cliente[];
   turnos: Turno[];
   onNewClient: () => void;
-  onNewAppointment: () => void;
+  onNewAppointment: (clientId: string) => void;
 }
 
 export default function ClientsView({ clientes, turnos, onNewClient, onNewAppointment }: ClientsViewProps) {
@@ -80,7 +80,7 @@ export default function ClientsView({ clientes, turnos, onNewClient, onNewAppoin
                   <p className="flex items-center gap-2"><Car className="h-4 w-4 text-brand-primary" /> {selected.vehiculoPatente} · {selected.vehiculoModelo}</p>
                 </div>
               </div>
-              <button type="button" onClick={onNewAppointment} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-extrabold text-white">
+              <button type="button" onClick={() => onNewAppointment(selected.id)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-extrabold text-white">
                 <CalendarDays className="h-4 w-4" /> Crear turno
               </button>
               <div>

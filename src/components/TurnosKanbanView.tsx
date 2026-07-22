@@ -18,6 +18,8 @@ interface TurnosKanbanViewProps {
   onDeleteTurno: (id: string) => void;
   onAddLog: (message: string) => void;
   onUpdateTurno?: (updatedTurno: Turno) => void;
+  preselectedClienteId?: string;
+  onClearPreselectedCliente?: () => void;
 }
 
 export default function TurnosKanbanView({
@@ -28,6 +30,8 @@ export default function TurnosKanbanView({
   onDeleteTurno,
   onAddLog,
   onUpdateTurno,
+  preselectedClienteId,
+  onClearPreselectedCliente,
 }: TurnosKanbanViewProps) {
   // Load brand configuration dynamically
   const brandConfig = (() => {
@@ -55,6 +59,17 @@ export default function TurnosKanbanView({
   // Form states
   const [selectedClienteId, setSelectedClienteId] = useState(clientes[0]?.id || '');
   const [selectedTipoServicio, setSelectedTipoServicio] = useState<TipoServicio>('LAVADO');
+
+  // Auto-open and pre-fill form when customer is selected from Clients tab
+  React.useEffect(() => {
+    if (preselectedClienteId) {
+      setSelectedClienteId(preselectedClienteId);
+      setShowAddForm(true);
+      if (onClearPreselectedCliente) {
+        onClearPreselectedCliente();
+      }
+    }
+  }, [preselectedClienteId, onClearPreselectedCliente]);
   
   // Auto-derived lists
   const currentCliente = clientes.find((c) => c.id === selectedClienteId);
