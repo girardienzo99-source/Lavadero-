@@ -13,8 +13,8 @@ import WeeklyCalendar from './WeeklyCalendar';
 interface TurnosKanbanViewProps {
   turnos: Turno[];
   clientes: Cliente[];
-  onAddTurno: (newTurno: Turno) => void;
-  onUpdateTurnoEstado: (id: string, nuevoEstado: 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO', nps?: number, comentarios?: string) => void;
+  onAddTurno: (newTurno: Turno) => Promise<{ id: string }>;
+  onUpdateTurnoEstado: (id: string, nuevoEstado: Turno['estado'], nps?: number, comentarios?: string) => void;
   onDeleteTurno: (id: string) => void;
   onAddLog: (message: string) => void;
   onUpdateTurno?: (updatedTurno: Turno) => void;
@@ -88,6 +88,8 @@ export default function TurnosKanbanView({
 
   // Form toggles
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isCreatingTurno, setIsCreatingTurno] = useState(false);
+  const [createTurnoError, setCreateTurnoError] = useState('');
 
   // Auto-adjust service options when category changes
   const handleCategoryChange = (cat: TipoServicio) => {
@@ -97,13 +99,13 @@ export default function TurnosKanbanView({
     setCustomPriceInput('');
   };
 
-  const handleCreateTurno = (e: React.FormEvent) => {
+  const handleCreateTurno = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentCliente) return;
+    setIsCreatingTurno(true);
+    setCreateTurnoError('');
 
     const finalPrice = customPriceInput ? Number(customPriceInput) : currentBasePrice;
-
-    const scheduledDateTime = new Date(`${turnoFechaInput}T${turnoHoraInput}:00`);
 
     const newT: Turno = {
       id: `t_${Date.now()}`,
@@ -117,14 +119,20 @@ export default function TurnosKanbanView({
       lavadorAsignado: selectedLavador,
       estado: 'PENDIENTE',
       precio: finalPrice,
-      fechaCreacion: scheduledDateTime.toISOString(),
+      fechaCreacion: `${turnoFechaInput}T${turnoHoraInput}:00`,
       healthData: activeInspectionData || undefined,
     };
 
-    onAddTurno(newT);
-    setShowAddForm(false);
-    setActiveInspectionData(null);
-    onAddLog(`📅 Turno agendado: ${newT.clienteNombre} (${newT.vehiculoPatente}) para ${newT.servicioNombre} con ${newT.lavadorAsignado}. Estado: PENDIENTE.`);
+    try {
+      const created = await onAddTurno(newT);
+      setShowAddForm(false);
+      setActiveInspectionData(null);
+      onAddLog(`📅 Turno #${created.id} agendado: ${newT.clienteNombre} (${newT.vehiculoPatente}) para ${newT.servicioNombre} con ${newT.lavadorAsignado}.`);
+    } catch (error) {
+      setCreateTurnoError(error instanceof Error ? error.message : 'No se pudo confirmar el turno.');
+    } finally {
+      setIsCreatingTurno(false);
+    }
   };
 
   const triggerStartTurno = (t: Turno) => {
@@ -225,7 +233,7 @@ export default function TurnosKanbanView({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Tablero Kanban
+              Estado del trabajo
             </button>
             <button
               type="button"
@@ -236,7 +244,7 @@ export default function TurnosKanbanView({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Agenda Semanal
+              Agenda
             </button>
             <button
               type="button"
@@ -247,7 +255,7 @@ export default function TurnosKanbanView({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Archivo de Entregados
+              Entregados
             </button>
           </div>
 
@@ -264,7 +272,7 @@ export default function TurnosKanbanView({
             title="Ver Ficha Clínica e Historial por Patente"
           >
             <ClipboardList className="w-4 h-4 text-brand-primary" />
-            Historial Clínico
+            Historial del vehículo
           </button>
 
           <button
@@ -278,7 +286,7 @@ export default function TurnosKanbanView({
             className="flex items-center justify-center gap-1.5 bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold px-4 py-2 rounded-lg text-xs transition duration-200 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            Agendar Nuevo Turno
+            Nuevo turno
           </button>
         </div>
       </div>
@@ -453,22 +461,29 @@ export default function TurnosKanbanView({
               </div>
             </div>
 
-            <div className="pt-4 flex gap-2">
-              <button
-                id="btn-cancel-turno"
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="flex-1 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-300 font-bold py-2 rounded-lg text-xs transition"
-              >
-                Cancelar
-              </button>
-              <button
-                id="btn-submit-turno"
-                type="submit"
-                className="flex-1 bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold py-2 rounded-lg text-xs transition shadow-lg"
-              >
-                Confirmar Turno
-              </button>
+            <div className="pt-4 space-y-2">
+              {createTurnoError && (
+                <p className="text-[10px] text-red-300" role="alert">{createTurnoError}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  id="btn-cancel-turno"
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  disabled={isCreatingTurno}
+                  className="flex-1 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-300 font-bold py-2 rounded-lg text-xs transition disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  id="btn-submit-turno"
+                  type="submit"
+                  disabled={isCreatingTurno}
+                  className="flex-1 bg-[#00d2ff]/20 hover:bg-[#00d2ff]/30 text-[#00d2ff] border border-[#00d2ff]/30 font-bold py-2 rounded-lg text-xs transition shadow-lg disabled:opacity-50"
+                >
+                  {isCreatingTurno ? 'Confirmando…' : 'Confirmar Turno'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -932,7 +947,7 @@ export default function TurnosKanbanView({
             <div>
               <h3 className="font-extrabold text-white text-base font-display uppercase tracking-widest flex items-center gap-2">
                 <Archive className="w-5 h-5 text-brand-primary" />
-                Archivo de Vehículos Entregados
+                Vehículos entregados
               </h3>
               <p className="text-xs text-slate-400">Listado histórico de vehículos entregados y retirados por clientes.</p>
             </div>

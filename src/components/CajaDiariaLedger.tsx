@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { 
   DollarSign, ArrowUpRight, ArrowDownRight, Package, AlertTriangle, 
-  Plus, Check, Lock, ShieldAlert, ShoppingBag, RefreshCw, Download, X 
+  Plus, Check, Lock, ShieldAlert, ShoppingBag, RefreshCw, Download, X, CreditCard
 } from 'lucide-react';
-import { Insumo, Transaccion, Rol } from '../types';
+import { Insumo, Transaccion, Rol, Turno } from '../types';
 import { generateTicketPDF } from '../utils/ticketGenerator';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -17,8 +17,10 @@ interface CajaDiariaLedgerProps {
   cajaAbierta: boolean;
   montoApertura: number;
   onOpenCaja: (monto: number) => void;
-  onCloseCaja: (montoCierre: number) => void;
+  onCloseCaja: (montoCierre: number, observacion: string) => Promise<void>;
   onSellPOS: (insumoId: string, cantidad: number) => void;
+  turnos: Turno[];
+  onChargeTurno: (turno: Turno, metodoPago: 'EFECTIVO' | 'DEBITO' | 'CREDITO' | 'TRANSFERENCIA') => Promise<void>;
 }
 
 export default function CajaDiariaLedger({
@@ -32,10 +34,14 @@ export default function CajaDiariaLedger({
   onOpenCaja,
   onCloseCaja,
   onSellPOS,
+  turnos,
+  onChargeTurno,
 }: CajaDiariaLedgerProps) {
   // Opening state inputs
   const [openingInput, setOpeningInput] = useState('35000');
   const [closingInput, setClosingInput] = useState('');
+  const [closingObservation, setClosingObservation] = useState('');
+  const [closingError, setClosingError] = useState('');
   const [isCastingClose, setIsCastingClose] = useState(false);
 
   // Manual transaction inputs
@@ -50,6 +56,10 @@ export default function CajaDiariaLedger({
   // Last POS sale for quick ticket download
   const [lastSale, setLastSale] = useState<{ id: string; concepto: string; monto: number; fecha: string } | null>(null);
   const [auditResult, setAuditResult] = useState<{ teorico: number; fisico: number; desvio: number; fecha: string } | null>(null);
+  const [selectedTurnoId, setSelectedTurnoId] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'EFECTIVO' | 'DEBITO' | 'CREDITO' | 'TRANSFERENCIA'>('EFECTIVO');
+  const [isCharging, setIsCharging] = useState(false);
+  const [chargeMessage, setChargeMessage] = useState('');
 
   // Filter states for transaction ledger history
   const [txSearch, setTxSearch] = useState('');
@@ -342,13 +352,26 @@ export default function CajaDiariaLedger({
     }
   };
 
-  const handleCloseSubmit = (e: React.FormEvent) => {
+  const handleCloseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const val = Number(closingInput);
     if (!isNaN(val) && val >= 0) {
       const teorico = montoApertura + totalIngresos - totalEgresos;
       const desvio = val - teorico;
       const closingDate = new Date().toISOString();
+
+      if (Math.abs(desvio) >= 0.01 && closingObservation.trim().length < 3) {
+        setClosingError('Explicá la diferencia antes de cerrar la caja.');
+        return;
+      }
+
+      setClosingError('');
+      try {
+        await onCloseCaja(val, closingObservation.trim());
+      } catch (error) {
+        setClosingError(error instanceof Error ? error.message : 'No se pudo cerrar la caja.');
+        return;
+      }
 
       setAuditResult({
         teorico,
@@ -357,9 +380,9 @@ export default function CajaDiariaLedger({
         fecha: closingDate
       });
 
-      onCloseCaja(val);
       setIsCastingClose(false);
       setClosingInput('');
+      setClosingObservation('');
 
       // Trigger automatic A5 PDF download
       handleDownloadActaPDF(teorico, val, desvio, closingDate);
@@ -410,6 +433,38 @@ export default function CajaDiariaLedger({
 
   // Critical stock items (stockActual <= stockMinimo)
   const criticalItems = insumos.filter((item) => item.stockActual <= item.stockMinimo);
+  const turnosParaCobrar = turnos.filter((turno) => turno.estado === 'COMPLETADO' && !transacciones.some(
+    (tx) => tx.tipo === 'INGRESO' && tx.origen === 'TURNO' && tx.concepto.includes(`Turno #${turno.id} ·`)
+  ));
+  const selectedTurno = turnosParaCobrar.find((turno) => turno.id === selectedTurnoId) ?? turnosParaCobrar[0];
+
+  const handleChargeSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedTurno || !cajaAbierta || isCharging) return;
+    setIsCharging(true);
+    setChargeMessage('');
+    try {
+      await onChargeTurno(selectedTurno, paymentMethod);
+      generateTicketPDF({
+        id: selectedTurno.id,
+        clienteNombre: selectedTurno.clienteNombre,
+        vehiculoModelo: selectedTurno.vehiculoModelo,
+        vehiculoPatente: selectedTurno.vehiculoPatente,
+        servicioNombre: selectedTurno.servicioNombre,
+        precio: selectedTurno.precio,
+        lavadorAsignado: selectedTurno.lavadorAsignado,
+        fecha: new Date().toISOString(),
+        origen: 'TURNO',
+        metodoPago: paymentMethod,
+      });
+      setSelectedTurnoId('');
+      setChargeMessage(`Cobro del turno #${selectedTurno.id} confirmado. Ticket interno descargado.`);
+    } catch (error) {
+      setChargeMessage(error instanceof Error ? error.message : 'No se pudo confirmar el cobro.');
+    } finally {
+      setIsCharging(false);
+    }
+  };
 
   return (
     <div className="space-y-6 relative">
@@ -419,9 +474,9 @@ export default function CajaDiariaLedger({
           <div className="p-4 rounded-full bg-red-950/20 border border-red-500/30 text-red-400 mb-4 animate-bounce">
             <Lock className="w-10 h-10" />
           </div>
-          <h3 className="text-lg font-bold text-white uppercase tracking-wider font-display text-center">PANEL BLOQUEADO POR ROLES</h3>
+          <h3 className="text-lg font-bold text-white font-display text-center">Caja no disponible</h3>
           <p className="text-xs text-slate-400 text-center max-w-sm mt-2 leading-relaxed font-sans">
-            Tu rol actual es <b className="text-red-400">{role}</b>. Por políticas de auditoría del lavadero, solo los roles de <b className="text-white">ADMINISTRADOR</b> y <b className="text-white">SUPERADMIN</b> pueden manipular la Caja Diaria, ingresar egresos o abastecer stock.
+            Tu perfil no tiene permiso para registrar cobros, movimientos o cierres de caja.
           </p>
           <div className="mt-4 flex items-center gap-1.5 text-[11px] text-red-400 bg-red-950/10 px-3 py-1.5 rounded-lg border border-red-900/20">
             <ShieldAlert className="w-4 h-4" />
@@ -429,6 +484,39 @@ export default function CajaDiariaLedger({
           </div>
         </div>
       )}
+
+      <form onSubmit={handleChargeSubmit} className="glass-panel rounded-xl border border-emerald-500/20 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+          <div className="min-w-0 flex-1">
+            <div className="mb-3 flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-emerald-300" />
+              <div>
+                <h3 className="text-sm font-extrabold text-white">Cobrar trabajo terminado</h3>
+                <p className="text-xs text-slate-400">Elegí un vehículo listo y confirmá el medio de pago.</p>
+              </div>
+            </div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Turno listo</label>
+            <select value={selectedTurno?.id ?? ''} onChange={(event) => setSelectedTurnoId(event.target.value)} disabled={!cajaAbierta || turnosParaCobrar.length === 0} className="mt-1 min-h-11 w-full rounded-lg border border-white/10 bg-[#111827] px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50 disabled:opacity-50">
+              {turnosParaCobrar.length === 0 ? <option value="">No hay trabajos pendientes de cobro</option> : turnosParaCobrar.map((turno) => (
+                <option key={turno.id} value={turno.id}>{turno.vehiculoPatente} · {turno.clienteNombre} · ${turno.precio.toLocaleString('es-AR')}</option>
+              ))}
+            </select>
+          </div>
+          <div className="lg:w-52">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Medio de pago</label>
+            <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as typeof paymentMethod)} disabled={!cajaAbierta} className="mt-1 min-h-11 w-full rounded-lg border border-white/10 bg-[#111827] px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50 disabled:opacity-50">
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="DEBITO">Débito</option>
+              <option value="CREDITO">Crédito</option>
+              <option value="TRANSFERENCIA">Transferencia</option>
+            </select>
+          </div>
+          <button type="submit" disabled={!cajaAbierta || !selectedTurno || isCharging} className="min-h-11 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-black text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40">
+            {isCharging ? 'Confirmando…' : selectedTurno ? `Cobrar $${selectedTurno.precio.toLocaleString('es-AR')}` : 'Cobrar'}
+          </button>
+        </div>
+        {chargeMessage && <p role="status" className={`mt-3 text-xs font-bold ${chargeMessage.includes('confirmado') ? 'text-emerald-300' : 'text-amber-300'}`}>{chargeMessage}</p>}
+      </form>
 
       {/* Grid structure */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
@@ -565,7 +653,8 @@ export default function CajaDiariaLedger({
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       ⚠️ <b>Arqueo Ciego Activo:</b> Por favor, realiza el conteo físico del dinero en la caja y asienta el total a continuación. El sistema auditará cualquier desvío.
                     </p>
-                    <div className="flex gap-2">
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
                       <div className="relative flex-1">
                         <input
                           id="input-caja-closing"
@@ -583,8 +672,18 @@ export default function CajaDiariaLedger({
                         type="submit"
                         className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                       >
-                        Cerrar Turno
+                        Cerrar Caja
                       </button>
+                      </div>
+                      <textarea
+                        value={closingObservation}
+                        onChange={(event) => setClosingObservation(event.target.value)}
+                        rows={2}
+                        maxLength={200}
+                        placeholder="Observación obligatoria si existe diferencia"
+                        className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-brand-primary/60"
+                      />
+                      {closingError && <p role="alert" className="text-[11px] font-bold text-red-300">{closingError}</p>}
                     </div>
                   </form>
                 ) : (
@@ -595,6 +694,8 @@ export default function CajaDiariaLedger({
                       onClick={() => {
                         setIsCastingClose(true);
                         setClosingInput('');
+                        setClosingObservation('');
+                        setClosingError('');
                       }}
                       className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold py-1 px-2.5 rounded text-[10px] uppercase tracking-wider transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                     >

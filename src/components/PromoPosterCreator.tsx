@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Wand2, Percent, Share2, Download, Car, Gift, Flame, Droplet, Shield } from 'lucide-react';
+import { Sparkles, Share2, Download, Car, Gift, Flame, Droplet, Shield, Check, AlertCircle } from 'lucide-react';
 import { TemplatePublicidad, TipoServicio } from '../types';
 import { INITIAL_TEMPLATES } from '../data/initialData';
 import html2canvas from 'html2canvas';
@@ -20,6 +20,7 @@ export default function PromoPosterCreator({ onAddPromotionToConsole }: PromoPos
   const [textColor, setTextColor] = useState('text-white');
   const [badgeColor, setBadgeColor] = useState('bg-yellow-400 text-slate-900');
   const [selectedIcon, setSelectedIcon] = useState('Sparkles');
+  const [shareStatus, setShareStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const gradients = [
     { name: 'Fuego Intenso (Estética)', value: 'from-amber-600 to-red-600', badge: 'bg-yellow-400 text-slate-900', text: 'text-white' },
@@ -66,15 +67,27 @@ export default function PromoPosterCreator({ onAddPromotionToConsole }: PromoPos
       onAddPromotionToConsole(message);
     }).catch((err) => {
       console.error('Error generating image', err);
-      const message = `⚠️ Error al generar la imagen del flyer. Formato simulado guardado.`;
+      const message = '⚠️ No se pudo generar la imagen del flyer.';
       onAddPromotionToConsole(message);
     });
   };
 
-  const handlePublishCampaign = () => {
-    const promoLink = `https://mobilewash.promo/descuento-${discount}off-${serviceType.toLowerCase()}`;
-    const message = `🚀 ¡Campaña de Publicidad Activa! Publicado Flyer en Redes Sociales y Estados de WhatsApp. Enlace dinámico creado: ${promoLink}. Los clientes recibirán un cupón automático de fidelización.`;
-    onAddPromotionToConsole(message);
+  const handlePrepareCampaign = async () => {
+    setShareStatus(null);
+    if (!title.trim() || discount < 1 || discount > 90) {
+      setShareStatus({ type: 'error', message: 'Completá un título y un descuento válido antes de preparar el texto.' });
+      return;
+    }
+
+    const caption = `${title.trim()} — ${discount}% OFF. ${subTitle.trim()} Consultá disponibilidad y condiciones con Albelo Detail.`;
+    try {
+      await navigator.clipboard.writeText(caption);
+      setShareStatus({ type: 'success', message: 'Texto copiado. Publicalo manualmente junto con el flyer descargado.' });
+      onAddPromotionToConsole(`📋 [MARKETING] Texto de campaña preparado para ${serviceType}. No fue publicado automáticamente.`);
+    } catch (error) {
+      console.error('Could not copy campaign text', error);
+      setShareStatus({ type: 'error', message: 'No se pudo copiar el texto. Revisá los permisos del portapapeles.' });
+    }
   };
 
   const renderIcon = (iconName: string) => {
@@ -221,7 +234,14 @@ export default function PromoPosterCreator({ onAddPromotionToConsole }: PromoPos
           </div>
         </div>
 
-        <div className="pt-4 grid grid-cols-2 gap-3">
+        <div className="pt-4 space-y-3">
+          {shareStatus && (
+            <div className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-[10px] ${shareStatus.type === 'success' ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200' : 'border-red-500/25 bg-red-500/10 text-red-200'}`} role={shareStatus.type === 'error' ? 'alert' : 'status'}>
+              {shareStatus.type === 'success' ? <Check className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+              <span>{shareStatus.message}</span>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
           <button
             id="btn-download-flyer"
             onClick={handleDownload}
@@ -232,12 +252,14 @@ export default function PromoPosterCreator({ onAddPromotionToConsole }: PromoPos
           </button>
           <button
             id="btn-publish-campaign"
-            onClick={handlePublishCampaign}
+            onClick={handlePrepareCampaign}
             className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition duration-200 shadow-[0_0_15px_rgba(220,38,38,0.25)] cursor-pointer"
           >
-            <Wand2 className="w-4 h-4" />
-            Lanzar Campaña
+            <Share2 className="w-4 h-4" />
+            Copiar Texto
           </button>
+          </div>
+          <p className="text-[9px] text-slate-500 text-center">Esta herramienta diseña y exporta contenido; no publica en redes ni crea cupones automáticamente.</p>
         </div>
       </div>
 

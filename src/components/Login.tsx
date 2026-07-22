@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Shield, Car, ShieldAlert, KeyRound, User } from 'lucide-react';
+import type { SessionUser } from '../types';
 
 interface LoginProps {
-  onLoginSuccess: (user: { nombre: string; rol: string }) => void;
+  onLoginSuccess: (user: SessionUser) => void;
   brandConfig: {
     nombre: string;
     tagline: string;
@@ -33,7 +34,13 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: userVal, password: passVal })
     })
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.detail || data.message || 'No se pudo validar el acceso.');
+        }
+        return data;
+      })
       .then((data) => {
         setLoading(false);
         if (data.status === 'success') {
@@ -46,10 +53,10 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
       .catch((err) => {
         setLoading(false);
         console.error(err);
-        setError('Error al conectar con el servidor de autenticación.');
+        setError(err instanceof Error ? err.message : 'Error al conectar con el servidor de autenticación.');
       });
   };  return (
-    <div className="min-h-screen bg-[#0d1222] text-slate-100 flex items-center justify-center p-4 relative font-sans">
+    <div className="comfort-theme min-h-screen bg-[#273449] text-slate-100 flex items-center justify-center p-4 relative font-sans">
       {/* Decorative Blur Mesh Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
@@ -60,7 +67,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
       </div>
 
       <div 
-        className="w-full max-w-[850px] bg-black/45 backdrop-blur-3xl rounded-2xl overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2 relative z-10 border transition-all duration-300"
+        className="w-full max-w-[850px] bg-slate-800/80 backdrop-blur-3xl rounded-2xl overflow-hidden shadow-xl grid grid-cols-1 md:grid-cols-2 relative z-10 border transition-all duration-300"
         style={{ 
           borderColor: `${brandConfig.primaryColor}2e`, 
           boxShadow: `0 0 50px ${brandConfig.primaryColor}1a` 
@@ -69,7 +76,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
         
         {/* Left Side: Branding / Flyer Mockup */}
         <div 
-          className="p-8 lg:p-12 flex flex-col justify-between border-b md:border-b-0 md:border-r bg-gradient-to-b from-black/40 via-white/[0.005] to-black/60 relative overflow-hidden"
+          className="p-8 lg:p-12 flex flex-col justify-between border-b md:border-b-0 md:border-r bg-gradient-to-b from-slate-900/75 via-slate-800/70 to-slate-900/75 relative overflow-hidden"
           style={{ borderColor: `${brandConfig.primaryColor}15` }}
         >
           {/* Subtle grid pattern overlay */}
@@ -136,7 +143,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
               </span>
             </h2>
             <p className="text-[11px] text-slate-400 max-w-xs mt-3 leading-relaxed">
-              Sistema Cockpit de gestión para turnos de pulido, tapicería húmeda, tratamientos cerámicos y polarizados de alta gama.
+              Gestión simple de turnos, trabajos, clientes y caja para el uso diario del lavadero.
             </p>
           </div>
 
@@ -158,7 +165,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
         </div>
 
         {/* Right Side: Form */}
-        <div className="p-8 lg:p-12 flex flex-col justify-center gap-6 bg-black/20 relative">
+        <div className="p-8 lg:p-12 flex flex-col justify-center gap-6 bg-slate-700/45 relative">
           <div className="absolute inset-0 grid-pattern opacity-5 pointer-events-none" />
           
           <div className="relative z-10">
@@ -180,6 +187,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
                 <input
                   type="text"
                   required
+                  autoComplete="username"
                   placeholder="ejemplo@albelo.com"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -195,6 +203,7 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
                 <input
                   type="password"
                   required
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -213,30 +222,13 @@ export default function Login({ onLoginSuccess, brandConfig }: LoginProps) {
                 boxShadow: `0 4px 15px ${brandConfig.primaryColor}33`
               }}
             >
-              {loading ? 'Validando...' : 'Acceder al Cockpit'}
+              {loading ? 'Validando...' : 'Ingresar'}
             </button>
           </form>
 
-          <div className="relative z-10 flex py-1 items-center">
-            <div className="flex-grow border-t border-white/[0.06]"></div>
-            <span className="flex-shrink mx-3 text-[9px] text-slate-600 uppercase font-mono font-bold tracking-widest">Acceso Rápido</span>
-            <div className="flex-grow border-t border-white/[0.06]"></div>
-          </div>
-
-          <div className="relative z-10 grid grid-cols-2 gap-3">
-            <button
-              onClick={() => loginWith('admin@gmail.com', '1998')}
-              className="py-2 px-3 bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/20 hover:border-brand-primary/45 rounded-xl text-[10px] font-extrabold text-brand-primary hover:text-white transition duration-200 cursor-pointer text-center"
-            >
-              ⚡ Creador (1998)
-            </button>
-            <button
-              onClick={() => loginWith('enzo', '1234')}
-              className="py-2 px-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.08] hover:border-slate-500/30 rounded-xl text-[10px] font-extrabold text-slate-400 hover:text-white transition duration-200 cursor-pointer text-center"
-            >
-              👤 Enzo (1234)
-            </button>
-          </div>
+          <p className="relative z-10 text-center text-[10px] text-slate-500 leading-relaxed">
+            Acceso exclusivo para personal autorizado. Si no podés ingresar, contactá al administrador del sistema.
+          </p>
         </div>
       </div>
     </div>

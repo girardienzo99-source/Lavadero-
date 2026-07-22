@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Sparkles, Droplet, CheckCircle, HelpCircle, DollarSign, ArrowRight, Sliders, Briefcase, Award, TrendingUp, Award as PaySlipIcon, Plus } from 'lucide-react';
+import { Shield, Sparkles, Droplet, CheckCircle, HelpCircle, DollarSign, ArrowRight, Sliders, Briefcase, Award, TrendingUp, Award as PaySlipIcon, Plus, Download } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Turno, Transaccion } from '../types';
@@ -268,7 +268,7 @@ export default function PlanRoadmap({
   // ==========================================
   // FINANCIAL P&L AND EBITDA CALCULATIONS
   // ==========================================
-  const completedTurnos = turnos.filter(t => t.estado === 'COMPLETADO' || t.estado === 'LISTO' || t.estado === 'ENTREGADO');
+  const completedTurnos = turnos.filter(t => t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO');
   const revenueTurnos = completedTurnos.reduce((sum, t) => sum + t.precio, 0);
 
   const transaccionesIngresos = transacciones.filter(tx => tx.tipo === 'INGRESO');
@@ -332,7 +332,7 @@ export default function PlanRoadmap({
       head: [["Concepto Financiero", "Monto (ARS)", "Observaciones / Detalles"]],
       body: data,
       theme: 'grid',
-      headStyles: { fillStyle: 'F', fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
       styles: { fontSize: 9, cellPadding: 4 },
       columnStyles: {
         0: { cellWidth: 85 },

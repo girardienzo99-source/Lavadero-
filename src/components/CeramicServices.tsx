@@ -11,8 +11,9 @@ import autoTable from 'jspdf-autotable';
 interface CeramicServicesProps {
   clientes: Cliente[];
   turnos: Turno[];
-  onAddTurno: (newTurno: Turno) => void;
+  onAddTurno: (newTurno: Turno) => Promise<{ id: string }>;
   onAddLog: (message: string) => void;
+  servicios: Array<{ id: string | number; nombre: string; precio?: number }>;
 }
 
 interface NivelTratamiento {
@@ -35,7 +36,8 @@ export default function CeramicServices({
   clientes,
   turnos,
   onAddTurno,
-  onAddLog
+  onAddLog,
+  servicios
 }: CeramicServicesProps) {
   // Local active tab within Ceramic Module
   const [activeSubTab, setActiveSubTab] = useState<'calculator' | 'config' | 'simulator'>('calculator');
@@ -94,6 +96,9 @@ export default function CeramicServices({
   const [selectedTamano, setSelectedTamano] = useState<'AUTO' | 'SUV' | 'CAMIONETA'>('AUTO');
   const [selectedDetallador, setSelectedDetallador] = useState(LAVADORES_ACTIVOS[1] || LAVADORES_ACTIVOS[0]);
   const [customPrecioCalc, setCustomPrecioCalc] = useState<number | null>(null);
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+  const [scheduleError, setScheduleError] = useState('');
+  const [scheduledTurnoId, setScheduledTurnoId] = useState('');
 
   // Derive active selections
   const currentCliente = clientes.find((c) => c.id === selectedClienteId);
@@ -165,35 +170,59 @@ export default function CeramicServices({
   };
 
   // Create Ceramic Turno Action
-  const handleScheduleCeramic = (e: React.FormEvent) => {
+  const handleScheduleCeramic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentCliente || !currentNivel || !currentFactor) return;
+    setScheduleError('');
+    setScheduledTurnoId('');
+    if (!currentCliente || !currentNivel || !currentFactor) {
+      setScheduleError('Seleccioná un cliente y un tratamiento antes de agendar.');
+      return;
+    }
+
+    const normalize = (value: string) => value.toLocaleLowerCase('es-AR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const catalogService = servicios.find((service) => {
+      const name = normalize(service.nombre);
+      return ['ceramico', 'tratamiento', 'grafeno', 'pulido', 'estetica'].some((keyword) => name.includes(keyword));
+    });
+    if (!catalogService) {
+      setScheduleError('No hay un servicio de estética vinculado en el catálogo sincronizado.');
+      return;
+    }
 
     // Create the special Turno object
     const newT: Turno = {
-      id: `t_${Date.now()}`,
+      id: '',
       clienteId: currentCliente.id,
       clienteNombre: currentCliente.nombre,
       telefono: currentCliente.telefono,
       vehiculoPatente: currentCliente.vehiculoPatente,
       vehiculoModelo: `${currentCliente.vehiculoModelo} (${selectedTamano})`,
       tipo: 'ESTETICA',
-      servicioNombre: `Tratamiento Cerámico [${currentNivel.durabilidad}] - ${currentNivel.nombre}`,
+      servicioNombre: catalogService.nombre,
       lavadorAsignado: selectedDetallador,
       estado: 'PENDIENTE',
       precio: finalPriceToUse,
-      fechaCreacion: new Date().toISOString(),
+      fechaCreacion: (() => {
+        const now = new Date();
+        const pad = (value: number) => String(value).padStart(2, '0');
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:00`;
+      })(),
       isCeramic: true,
       ceramicNivel: currentNivel.durabilidad,
       tamanoVehiculo: selectedTamano
     };
 
-    onAddTurno(newT);
-    setCustomPrecioCalc(null);
-    onAddLog(`💎 DETAILED AGENDADO: ${newT.clienteNombre} (${newT.vehiculoPatente}) para un ${newT.servicioNombre}. Detallador asignado: ${newT.lavadorAsignado}. Tamaño: ${selectedTamano}. Valor final: $${newT.precio.toLocaleString('es-AR')}.`);
-    
-    // Quick success scroll indicator or notification
-    alert(`¡Tratamiento Cerámico agendado correctamente! Podrás hacerle seguimiento en la sección de Turnos (Tablero Kanban) con una etiqueta especial de servicio complejo.`);
+    setScheduleSubmitting(true);
+    try {
+      const created = await onAddTurno(newT);
+      setCustomPrecioCalc(null);
+      setScheduledTurnoId(created.id);
+      onAddLog(`💎 TURNO DETAILING ${created.id}: ${newT.clienteNombre} (${newT.vehiculoPatente}), ${currentNivel.nombre}, técnico ${newT.lavadorAsignado}. Cotización estimada: $${newT.precio.toLocaleString('es-AR')}.`);
+    } catch (error) {
+      setScheduleError(error instanceof Error ? error.message : 'No se pudo registrar el turno.');
+    } finally {
+      setScheduleSubmitting(false);
+    }
   };
 
   // Generate Warranty Certificate PDF for detailing treatments
@@ -533,7 +562,7 @@ export default function CeramicServices({
             {/* Calculated Price & Form submit */}
             <div className="bg-gradient-to-r from-red-950/20 to-amber-950/10 border border-red-900/30 rounded-xl p-4 flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="text-left space-y-1.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Precio de Venta Sugerido</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Cotización estimada</span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-extrabold font-mono text-amber-400">
                     ${finalPriceToUse.toLocaleString('es-AR')}
@@ -565,16 +594,19 @@ export default function CeramicServices({
               </div>
 
               <div className="text-right space-y-1 md:max-w-xs">
+                {scheduleError && <p className="text-[10px] text-red-300" role="alert">{scheduleError}</p>}
+                {scheduledTurnoId && <p className="text-[10px] text-emerald-300" role="status">Turno #{scheduledTurnoId} registrado en estado pendiente.</p>}
                 <div className="flex items-center gap-1.5 justify-end text-[10px] text-slate-300 font-semibold font-mono">
                   <Clock className="w-3.5 h-3.5 text-slate-500" />
                   <span>Duración Estimada: {currentNivel?.duracionEstimada || '12 hs'}</span>
                 </div>
                 <button
                   type="submit"
-                  className="mt-1 w-full bg-red-600 hover:bg-red-700 text-white font-extrabold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-[0_0_15px_rgba(220,38,38,0.25)] flex items-center justify-center gap-1.5"
+                  disabled={scheduleSubmitting}
+                  className="mt-1 w-full bg-red-600 hover:bg-red-700 text-white font-extrabold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-[0_0_15px_rgba(220,38,38,0.25)] flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Agendar Turno Detailing
+                  {scheduleSubmitting ? 'Confirmando…' : 'Agendar Turno Detailing'}
                 </button>
               </div>
             </div>

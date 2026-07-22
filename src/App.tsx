@@ -1,40 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { 
   Car, Shield, Sparkles, Droplet, Users, DollarSign, Package, 
   Terminal, ShieldAlert, BadgePercent, CheckCircle, HelpCircle, 
   ChevronRight, RefreshCw, AlertCircle, Plus, Info, Star, Trash2,
   FileText, Globe, MessageSquare, Crown, Flame, Palette, LogOut
 } from 'lucide-react';
-import { Rol, Cliente, Turno, Insumo, Transaccion, TipoServicio, BrandConfig } from './types';
-import { 
-  INITIAL_CLIENTES, INITIAL_TURNOS, INITIAL_INSUMOS, INITIAL_TRANSACCIONES 
-} from './data/initialData';
-import PromoPosterCreator from './components/PromoPosterCreator';
-import LoyaltyCampaigns from './components/LoyaltyCampaigns';
-import PlanRoadmap from './components/PlanRoadmap';
-import CajaDiariaLedger from './components/CajaDiariaLedger';
-import TurnosKanbanView from './components/TurnosKanbanView';
-import ArgentineFacturacion from './components/ArgentineFacturacion';
-import PublicPage from './components/PublicPage';
-import InventoryManagement from './components/InventoryManagement';
-import CeramicServices from './components/CeramicServices';
-import BrandSettings from './components/BrandSettings';
+import { Rol, Cliente, Turno, Insumo, Transaccion, TipoServicio, BrandConfig, SessionUser } from './types';
 import Login from './components/Login';
-import WhatsAppCRMHub from './components/WhatsAppCRMHub';
+import EssentialToday from './components/EssentialToday';
+import ClientsView from './components/ClientsView';
+import MoreHub, { MoreModule } from './components/MoreHub';
+import type { ExcelClientRow } from './components/ExcelIntegration';
+
+type PrimaryTab = 'overview' | 'turnos' | 'caja' | 'clientes' | 'more';
+type AppTab = PrimaryTab | 'legacy-overview' | 'excel' | 'publicidad' | 'roadmap' | 'public-page' | 'inventario' | 'ceramic' | 'branding';
+
+const PromoPosterCreator = lazy(() => import('./components/PromoPosterCreator'));
+const LoyaltyCampaigns = lazy(() => import('./components/LoyaltyCampaigns'));
+const CajaDiariaLedger = lazy(() => import('./components/CajaDiariaLedger'));
+const TurnosKanbanView = lazy(() => import('./components/TurnosKanbanView'));
+const ArgentineFacturacion = lazy(() => import('./components/ArgentineFacturacion'));
+const PublicPage = lazy(() => import('./components/PublicPage'));
+const InventoryManagement = lazy(() => import('./components/InventoryManagement'));
+const CeramicServices = lazy(() => import('./components/CeramicServices'));
+const BrandSettings = lazy(() => import('./components/BrandSettings'));
+const WhatsAppCRMHub = lazy(() => import('./components/WhatsAppCRMHub'));
+const ExcelIntegration = lazy(() => import('./components/ExcelIntegration'));
 
 export default function App() {
   // Navigation
-  const [activeTab, setActiveTab] = useState<'overview' | 'turnos' | 'caja' | 'publicidad' | 'roadmap' | 'public-page' | 'inventario' | 'ceramic' | 'branding'>('overview');
+  const [activeTab, setActiveTab] = useState<AppTab>('overview');
   const [cajaSubTab, setCajaSubTab] = useState<'pos' | 'facturacion'>('pos');
   const [statsSubTab, setStatsSubTab] = useState<'semanal' | 'mix' | 'lavadores'>('semanal');
   const [subTabPublicidad, setSubTabPublicidad] = useState<'flyers' | 'loyalty' | 'whatsapp-crm'>('flyers');
 
   // Session state
-  const [session, setSession] = useState<{ nombre: string; rol: string } | null>(() => {
+  const [session, setSession] = useState<SessionUser | null>(() => {
     const saved = localStorage.getItem('session');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved) as SessionUser;
+        return parsed?.token ? parsed : null;
       } catch (e) {
         return null;
       }
@@ -42,17 +48,25 @@ export default function App() {
     return null;
   });
 
-  // Role Base Access Control State
-  const [currentRole, setCurrentRole] = useState<Rol>('SUPERADMIN');
+  useEffect(() => {
+    const handleSessionExpired = () => setSession(null);
+    window.addEventListener('lavadero:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('lavadero:session-expired', handleSessionExpired);
+  }, []);
 
-  // Database Connection Simulator State
+  // Role Base Access Control State
+  const [currentRole, setCurrentRole] = useState<Rol>('LAVADOR');
+
+  // Database synchronization state
   const [dbOnline, setDbOnline] = useState(true);
+  const [dataStatus, setDataStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
 
   // Core App States
-  const [clientes, setClientes] = useState<Cliente[]>(INITIAL_CLIENTES);
-  const [turnos, setTurnos] = useState<Turno[]>(INITIAL_TURNOS);
-  const [insumos, setInsumos] = useState<Insumo[]>(INITIAL_INSUMOS);
-  const [transacciones, setTransacciones] = useState<Transaccion[]>(INITIAL_TRANSACCIONES);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [turnos, setTurnos] = useState<Turno[]>([]);
+  const [insumos, setInsumos] = useState<Insumo[]>([]);
+  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [rawDbData, setRawDbData] = useState<any>(null);
   
   // Brand Configuration State (Durable client persistence)
@@ -116,8 +130,8 @@ export default function App() {
   };
   
   // Cashier Drawer state
-  const [cajaAbierta, setCajaAbierta] = useState(true);
-  const [montoApertura, setMontoApertura] = useState(35000);
+  const [cajaAbierta, setCajaAbierta] = useState(false);
+  const [montoApertura, setMontoApertura] = useState(0);
 
   // Workshop work bays state (persistent via localStorage)
   const [bays, setBays] = useState<{ [key: string]: string | null }>(() => {
@@ -135,10 +149,8 @@ export default function App() {
 
   // Background Console Log simulator state
   const [consoleLogs, setConsoleLogs] = useState<string[]>([
-    '🟢 [SYS] Sistema inicializado en puerto :3000.',
-    '💾 [DB] Conexión establecida con Supabase PostgreSQL.',
-    '🔑 [RBAC] Sesión iniciada con privilegios Superadmin.',
-    '💰 [CAJA] Caja abierta automáticamente con $35,000 ARS de base.'
+    '🟢 [SYS] Panel de gestión iniciado.',
+    '🔄 [DB] Verificando sincronización con Supabase…'
   ]);
 
   // Modals
@@ -170,8 +182,10 @@ export default function App() {
   // Synchronize role based on Supabase session
   useEffect(() => {
     if (session) {
-      const isManager = session.rol === 'superadmin' || session.rol === 'administrador';
-      setCurrentRole(isManager ? 'SUPERADMIN' : 'LAVADOR');
+      const normalizedRole = session.rol.toLocaleLowerCase('es-AR');
+      const isManager = normalizedRole === 'superadmin' || normalizedRole === 'administrador' || normalizedRole === 'admin';
+      const isCashier = normalizedRole === 'cajero' || normalizedRole === 'caja';
+      setCurrentRole(isManager ? 'SUPERADMIN' : isCashier ? 'CAJERO' : 'OPERARIO');
     }
   }, [session]);
 
@@ -179,10 +193,21 @@ export default function App() {
   const loadDashboardData = () => {
     if (!dbOnline) return;
 
-    fetch('/api/dashboard-data')
-      .then((res) => res.json())
+    setDataStatus('checking');
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+
+    fetch('/api/dashboard-data', { signal: controller.signal })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `Error HTTP ${res.status}`);
+        return data;
+      })
       .then((data) => {
-        if (data.status === 'success') {
+        if (data.status !== 'success') {
+          throw new Error(data.message || 'La API devolvió una respuesta incompleta.');
+        }
+
           setRawDbData(data);
 
           // Map DB clients
@@ -207,6 +232,7 @@ export default function App() {
           const mappedTurnos: Turno[] = (data.turnos || []).map((t: any) => {
             let cat: TipoServicio = 'LAVADO';
             const nameLower = t.servicio_nombre.toLowerCase();
+            const isCeramic = nameLower.includes('cerámico') || nameLower.includes('ceramico') || nameLower.includes('grafeno');
             if (nameLower.includes('tapizado') || nameLower.includes('butaca') || nameLower.includes('habitáculo')) {
               cat = 'TAPICERIA';
             } else if (nameLower.includes('tratamiento') || nameLower.includes('pulido') || nameLower.includes('cerámico') || nameLower.includes('óptica')) {
@@ -228,6 +254,7 @@ export default function App() {
               estado: t.estado,
               precio: Number(t.precio),
               fechaCreacion: t.fecha_hora,
+              isCeramic,
               npsScore: t.nps_puntuacion || undefined,
               comentarios: t.comentario_feedback || undefined
             };
@@ -251,8 +278,12 @@ export default function App() {
             tipo: m.tipo as 'INGRESO' | 'EGRESO',
             monto: Number(m.monto),
             concepto: m.descripcion,
-            origen: m.descripcion.includes('Venta POS') ? 'VENTA_POS' : (m.descripcion.includes('Turno') ? 'TURNO' : 'MANUAL'),
-            fecha: new Date().toISOString().split('T')[0] + 'T' + m.hora + ':00.000Z'
+            origen: m.origen === 'TURNO' || m.origen === 'VENTA_POS' || m.origen === 'MANUAL'
+              ? m.origen
+              : (m.descripcion.includes('Venta POS') ? 'VENTA_POS' : (m.descripcion.includes('Turno') ? 'TURNO' : 'MANUAL')),
+            fecha: m.fecha || `${new Date().toISOString().split('T')[0]}T${m.hora || '00:00'}:00`,
+            metodoPago: m.metodo_pago || undefined,
+            turnoId: m.turno_id ? String(m.turno_id) : undefined
           }));
           setTransacciones(mappedTx);
 
@@ -263,11 +294,22 @@ export default function App() {
           } else {
             setCajaAbierta(false);
           }
-        }
+          setDbOnline(true);
+          setDataStatus('online');
+          setLastSyncAt(new Date());
       })
       .catch((err) => {
         console.error("Error loading dashboard data:", err);
-      });
+        setDataStatus('offline');
+        setDbOnline(false);
+        showToast(
+          err instanceof DOMException && err.name === 'AbortError'
+            ? 'La sincronización demoró demasiado. Se mantienen los últimos datos disponibles.'
+            : 'No se pudo sincronizar con Supabase. Se mantienen los últimos datos disponibles.',
+          'warning'
+        );
+      })
+      .finally(() => window.clearTimeout(timeoutId));
   };
 
   useEffect(() => {
@@ -277,35 +319,36 @@ export default function App() {
   }, [session, dbOnline]);
 
   // Core Handlers connected to real API
-  const handleAddTurno = (newT: Turno) => {
+  const handleAddTurno = async (newT: Turno): Promise<{ id: string }> => {
+    if (!dbOnline || !rawDbData) {
+      showToast('No se puede agendar sin conexión y datos sincronizados.', 'warning');
+      throw new Error('No hay conexión con Supabase.');
+    }
+
     if (dbOnline && rawDbData) {
       const clienteObj = rawDbData.clientes?.find((c: any) => c.nombre === newT.clienteNombre);
       const vehiculoObj = rawDbData.vehiculos?.find((v: any) => v.patente === newT.vehiculoPatente);
       const servicioObj = rawDbData.servicios?.find((s: any) => s.nombre === newT.servicioNombre || newT.servicioNombre.includes(s.nombre));
       const empleadoObj = rawDbData.empleados?.find((e: any) => e.nombre === newT.lavadorAsignado);
 
-      const insertTurno = (cId: number | string, vId: number | string, sId: number | string) => {
+      const insertTurno = async (cId: number | string, vId: number | string, sId: number | string) => {
         let url = `/api/turnos/agendar?clienteId=${cId}&vehiculoId=${vId}&servicioId=${sId}&fechaHora=${newT.fechaCreacion.replace('T', ' ').slice(0, 19)}`;
         if (empleadoObj) {
           url += `&empleadoId=${empleadoObj.id}`;
         }
 
-        fetch(url, { method: 'POST' })
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.status === 'success') {
-              addConsoleLog(`📅 [REST] Turno agendado en Supabase ID: ${data.id}`);
-              loadDashboardData();
-            } else {
-              showToast('Error al agendar turno.', 'warning');
-            }
-          })
-          .catch(() => showToast('Error de red al agendar turno.', 'warning'));
+        const response = await fetch(url, { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.status !== 'success' || !data.id) {
+          throw new Error(data.detail || 'Supabase no confirmó el turno.');
+        }
+        addConsoleLog(`📅 [REST] Turno agendado en Supabase ID: ${data.id}`);
+        loadDashboardData();
+        return { id: String(data.id) };
       };
 
       if (clienteObj && vehiculoObj && servicioObj) {
-        insertTurno(clienteObj.id, vehiculoObj.id, servicioObj.id);
-        return;
+        return await insertTurno(clienteObj.id, vehiculoObj.id, servicioObj.id);
       }
 
       if (servicioObj) {
@@ -314,7 +357,11 @@ export default function App() {
           if (clienteObj) return Promise.resolve(clienteObj.id);
           const cliUrl = `/api/clientes/nuevo?nombre=${encodeURIComponent(newT.clienteNombre)}&telefono=${encodeURIComponent(newT.telefono || '+549261000000')}`;
           return fetch(cliUrl, { method: 'POST' })
-            .then(res => res.json())
+            .then(async res => {
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data.detail || 'No se pudo crear el cliente.');
+              return data;
+            })
             .then(data => {
               if (data.status === 'success') return data.id;
               throw new Error('Failed to create client');
@@ -326,29 +373,25 @@ export default function App() {
           if (vehiculoObj) return Promise.resolve(vehiculoObj.id);
           const vehUrl = `/api/vehiculos/nuevo?clienteId=${cId}&patente=${encodeURIComponent(newT.vehiculoPatente.toUpperCase())}&marca=Auto&modelo=${encodeURIComponent(newT.vehiculoModelo || 'Vehículo Cliente Online')}`;
           return fetch(vehUrl, { method: 'POST' })
-            .then(res => res.json())
+            .then(async res => {
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data.detail || 'No se pudo crear el vehículo.');
+              return data;
+            })
             .then(data => {
               if (data.status === 'success') return data.id;
               throw new Error('Failed to create vehicle');
             });
         };
 
-        getOrCreateClient()
-          .then(cId => {
-            return getOrCreateVehicle(cId).then(vId => {
-              insertTurno(cId, vId, servicioObj.id);
-            });
-          })
-          .catch(err => {
-            console.error(err);
-            showToast('Error al registrar cliente/vehículo para el turno.', 'warning');
-          });
-        return;
+        const clientId = await getOrCreateClient();
+        const vehicleId = await getOrCreateVehicle(clientId);
+        return await insertTurno(clientId, vehicleId, servicioObj.id);
       }
     }
 
-    setTurnos((prev) => [...prev, newT]);
-    showToast(`Turno agendado para ${newT.clienteNombre}`, 'success');
+    showToast('El servicio seleccionado no existe en la base de datos.', 'warning');
+    throw new Error('El servicio seleccionado no existe en el catálogo sincronizado.');
   };
 
   const handleUpdateTurnoEstado = (
@@ -357,8 +400,16 @@ export default function App() {
     nps?: number,
     comentarios?: string
   ) => {
-    if (dbOnline && !id.startsWith('t_')) {
-      fetch(`/api/turnos/${id}/estado?estado=${nuevoEstado}`, { method: 'POST' })
+    if (!dbOnline || id.startsWith('t_')) {
+      showToast('No se puede actualizar un turno sin sincronización real.', 'warning');
+      return;
+    }
+
+    fetch(`/api/turnos/${id}/transiciones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: nuevoEstado })
+    })
         .then((res) => res.json())
         .then((data) => {
           if (data.status === 'success') {
@@ -383,124 +434,67 @@ export default function App() {
         })
         .catch(() => showToast('Error de red al cambiar estado.', 'warning'));
       return;
-    }
-
-    // Local Simulation
-    setTurnos((prev) => 
-      prev.map((t) => {
-        if (t.id === id) {
-          const updated = { ...t, estado: nuevoEstado, npsScore: nps, comentarios };
-          
-          if (nuevoEstado === 'COMPLETADO') {
-            const newTx: Transaccion = {
-              id: `tx_aut_${Date.now()}`,
-              tipo: 'INGRESO',
-              monto: t.precio,
-              concepto: `Cobro Turno #${t.id.slice(-4)} - ${t.clienteNombre} (${t.servicioNombre})`,
-              origen: 'TURNO',
-              fecha: new Date().toISOString()
-            };
-            setTransacciones((prevT) => [...prevT, newTx]);
-            
-            setInsumos((prevI) => {
-              const updatedInsumos = prevI.map((ins) => {
-                let qtyDeduction = 0;
-
-                if (t.tipo === 'LAVADO') {
-                  if (ins.id === 'i1') qtyDeduction = 1; // Shampoo pH Neutro
-                  if (ins.id === 'i2') qtyDeduction = 0.5; // Silicona Premium
-                  if (ins.id === 'i3' && (t.servicioNombre.toLowerCase().includes('encerado') || t.servicioNombre.toLowerCase().includes('carnauba') || t.servicioNombre.toLowerCase().includes('premium'))) {
-                    qtyDeduction = 0.2; // Cera líquida Carnauba
-                  }
-                } else if (t.tipo === 'TAPICERIA') {
-                  if (ins.id === 'i4') qtyDeduction = 1; // Limpiador APC
-                  if (ins.id === 'i6') qtyDeduction = 0.5; // Paños de Microfibra
-                } else if (t.tipo === 'ESTETICA') {
-                  const sName = t.servicioNombre.toLowerCase();
-                  if (ins.id === 'i7' && (sName.includes('cerámico') || sName.includes('sio2'))) {
-                    qtyDeduction = 0.2; // Sellador SiO2
-                  }
-                  if (ins.id === 'i5' && (sName.includes('pulido') || sName.includes('corrección') || sName.includes('tratamiento'))) {
-                    qtyDeduction = 0.2; // Compuesto Pulidor
-                  }
-                  if (ins.id === 'i6' && (sName.includes('pulido') || sName.includes('corrección') || sName.includes('tratamiento'))) {
-                    qtyDeduction = 1; // Paños de Microfibra
-                  }
-                }
-
-                if (qtyDeduction > 0) {
-                  const newStock = Math.max(0, Number((ins.stockActual - qtyDeduction).toFixed(2)));
-                  
-                  if (newStock === 0) {
-                    addConsoleLog(`🚨 [ALERTA STOCK] ¡El insumo "${ins.nombre}" se ha AGOTADO por completo!`);
-                  } else if (newStock <= ins.stockMinimo) {
-                    addConsoleLog(`⚠️ [BAJO STOCK] El insumo "${ins.nombre}" cayó bajo el límite mínimo (${newStock} / ${ins.stockMinimo} ${ins.unidad}).`);
-                  } else {
-                    addConsoleLog(`📉 [INVENTARIO] Deducido automático por servicio: -${qtyDeduction} ${ins.unidad} de "${ins.nombre}".`);
-                  }
-                  return { ...ins, stockActual: newStock };
-                }
-                return ins;
-              });
-              return updatedInsumos;
-            });
-          }
-          return updated;
-        }
-        return t;
-      })
-    );
   };
 
   const handleDeleteTurno = (id: string) => {
-    // Local / Simulation delete (can extend with backend cancellation endpoint if needed)
-    setTurnos((prev) => prev.filter((t) => t.id !== id));
-    addConsoleLog(`🗑️ Turno eliminado ID: ${id}`);
-    showToast('Turno eliminado correctamente', 'warning');
+    showToast(`La eliminación del turno #${id} está deshabilitada hasta contar con cancelación auditada.`, 'warning');
   };
 
-  const handleReplenishInsumo = (id: string) => {
+  const handleInventoryMovement = async (input: {
+    productId: number;
+    delta: number;
+    reason: string;
+    supplier?: string;
+    unitCost?: number;
+    registerCashExpense?: boolean;
+  }): Promise<{ movementId: string; stock: number; cashMovementId?: string }> => {
+    if (!dbOnline || !rawDbData) {
+      throw new Error('No se puede modificar inventario sin datos sincronizados.');
+    }
+
+    const response = await fetch('/api/inventario/movimientos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': crypto.randomUUID()
+      },
+      body: JSON.stringify(input)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'success' || !data.movementId) {
+      throw new Error(data.detail || 'Supabase no confirmó el movimiento de inventario.');
+    }
+    loadDashboardData();
+    return {
+      movementId: String(data.movementId),
+      stock: Number(data.stock),
+      cashMovementId: data.cashMovementId ? String(data.cashMovementId) : undefined
+    };
+  };
+
+  const handleReplenishInsumo = async (id: string) => {
     if (currentRole === 'LAVADOR' || currentRole === 'OPERARIO') {
       showToast('No tienes permisos de administrador para reabastecer inventario.', 'warning');
       return;
     }
 
-    if (dbOnline && !id.startsWith('i')) {
-      fetch(`/api/pos/productos/${id}/reabastecer?cantidad=10`, { method: 'POST' })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.status === 'success' || data.stock !== undefined) {
-            addConsoleLog(`📦 [REST] Stock de insumo reabastecido (+10) en Supabase.`);
-            loadDashboardData();
-          } else {
-            showToast('Error al reabastecer stock.', 'warning');
-          }
-        })
-        .catch(() => showToast('Error de red al reabastecer stock.', 'warning'));
+    if (!dbOnline || id.startsWith('i')) {
+      showToast('No se puede modificar stock sin conexión a Supabase.', 'warning');
       return;
     }
 
-    setInsumos((prev) => 
-      prev.map((ins) => {
-        if (ins.id === id) {
-          const added = 10;
-          const cost = ins.precioCosto * added;
-          
-          const newTx: Transaccion = {
-            id: `tx_rep_${Date.now()}`,
-            tipo: 'EGRESO',
-            monto: cost,
-            concepto: `Abastecimiento de Stock: +10 ${ins.nombre}`,
-            origen: 'MANUAL',
-            fecha: new Date().toISOString()
-          };
-          setTransacciones((prevT) => [...prevT, newTx]);
-          addConsoleLog(`📦 [STOCK] Reabastecido ${ins.nombre} con +10 unidades. Egreso registrado: -$${cost} ARS.`);
-          return { ...ins, stockActual: ins.stockActual + added };
-        }
-        return ins;
-      })
-    );
+    try {
+      const result = await handleInventoryMovement({
+        productId: Number(id),
+        delta: 10,
+        reason: 'Reabastecimiento rápido desde POS',
+        unitCost: 0,
+        registerCashExpense: false
+      });
+      addConsoleLog(`📦 [INVENTARIO] Movimiento ${result.movementId} confirmado. Stock actual: ${result.stock}.`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Error al reabastecer stock.', 'warning');
+    }
   };
 
   const handleAddTransaccion = (
@@ -509,9 +503,20 @@ export default function App() {
     tipo: 'INGRESO' | 'EGRESO', 
     origen: 'MANUAL' | 'VENTA_POS'
   ) => {
-    if (dbOnline) {
-      fetch(`/api/caja/movimiento?tipo=${tipo}&monto=${monto}&descripcion=${encodeURIComponent(concepto)}`, { method: 'POST' })
-        .then((res) => res.json())
+    if (!dbOnline) {
+      showToast('No se puede registrar un movimiento sin conexión a Supabase.', 'warning');
+      return;
+    }
+
+    fetch(`/api/caja/movimiento?tipo=${tipo}&monto=${monto}&descripcion=${encodeURIComponent(concepto)}`, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+    })
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.detail || 'No se pudo confirmar el movimiento.');
+          return data;
+        })
         .then((data) => {
           if (data.status === 'success') {
             addConsoleLog(`💰 [REST] Movimiento contable registrado en Supabase: $${monto}`);
@@ -520,76 +525,91 @@ export default function App() {
             showToast('Error al registrar movimiento.', 'warning');
           }
         })
-        .catch(() => showToast('Error de red al registrar movimiento.', 'warning'));
+        .catch((error) => showToast(error instanceof Error ? error.message : 'Error al registrar movimiento.', 'warning'));
       return;
+  };
+
+  const handleChargeTurno = async (
+    turno: Turno,
+    metodoPago: 'EFECTIVO' | 'DEBITO' | 'CREDITO' | 'TRANSFERENCIA'
+  ): Promise<void> => {
+    if (!dbOnline) throw new Error('No se puede cobrar sin conexión con el servidor.');
+    if (!cajaAbierta) throw new Error('Abrí la caja antes de registrar el cobro.');
+    if (turno.estado !== 'COMPLETADO') throw new Error('El trabajo debe estar listo antes de cobrarlo.');
+    if (transacciones.some((tx) => tx.tipo === 'INGRESO' && tx.concepto.includes(`Turno #${turno.id} ·`))) {
+      throw new Error('Este turno ya tiene un cobro registrado.');
     }
 
-    const newTx: Transaccion = {
-      id: `tx_man_${Date.now()}`,
-      tipo,
-      monto,
-      concepto,
-      origen,
-      fecha: new Date().toISOString()
-    };
-    setTransacciones((prev) => [...prev, newTx]);
-    addConsoleLog(`💰 [CAJA] Transacción registrada: ${tipo} de $${monto} por "${concepto}".`);
-    showToast(`Transacción registrada: $${monto}`, tipo === 'INGRESO' ? 'success' : 'warning');
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(`lavadero:cobro:${turno.id}`)
+    );
+    const uuidChars = Array.from(new Uint8Array(digest).slice(0, 16), (byte) => byte.toString(16).padStart(2, '0')).join('').split('');
+    uuidChars[12] = '4';
+    uuidChars[16] = ['8', '9', 'a', 'b'][Number.parseInt(uuidChars[16], 16) % 4];
+    const stableIdempotencyKey = `${uuidChars.slice(0, 8).join('')}-${uuidChars.slice(8, 12).join('')}-${uuidChars.slice(12, 16).join('')}-${uuidChars.slice(16, 20).join('')}-${uuidChars.slice(20, 32).join('')}`;
+    const response = await fetch('/api/caja/cobrar-turno', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': stableIdempotencyKey
+      },
+      body: JSON.stringify({ appointmentId: Number(turno.id), paymentMethod: metodoPago })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'success') {
+      throw new Error(data.detail || 'El servidor no confirmó el cobro.');
+    }
+    addConsoleLog(`Cobro confirmado para el turno #${turno.id} por $${turno.precio.toLocaleString('es-AR')} (${metodoPago}).`);
+    loadDashboardData();
   };
 
   const handleSellPOS = (insumoId: string, cantidad: number) => {
-    if (dbOnline && !insumoId.startsWith('i') && rawDbData) {
-      const clientObj = rawDbData.clientes?.[0]; // default client
-      if (clientObj) {
-        const payload = {
-          clienteId: clientObj.id,
-          metodoPago: 'EFECTIVO',
-          detalles: [{ productoId: Number(insumoId), cantidad: cantidad }],
-          codigoCupon: null
-        };
-
-        fetch(`/api/pos/venta`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.status === 'error') {
-            showToast(`Error: ${data.message}`, 'warning');
-          } else {
-            addConsoleLog(`🛒 [REST] Venta POS registrada en Supabase. Total cobrado: $${data.venta.total}`);
-            loadDashboardData();
-          }
-        })
-        .catch(() => showToast('Error de red al registrar venta POS.', 'warning'));
-        return;
-      }
+    if (!dbOnline || !rawDbData || insumoId.startsWith('i')) {
+      showToast('No se puede registrar una venta sin stock sincronizado.', 'warning');
+      return;
     }
 
-    setInsumos((prev) => 
-      prev.map((ins) => {
-        if (ins.id === insumoId) {
-          const newStock = Math.max(0, ins.stockActual - cantidad);
-          const priceSold = Math.round(ins.precioCosto * 1.5 * cantidad);
-          
-          handleAddTransaccion(
-            priceSold,
-            `Venta POS: ${cantidad}x ${ins.nombre}`,
-            'INGRESO',
-            'VENTA_POS'
-          );
-          
-          return { ...ins, stockActual: newStock };
-        }
-        return ins;
+    const payload = {
+      clienteId: null,
+      metodoPago: 'EFECTIVO',
+      detalles: [{ productoId: Number(insumoId), cantidad }],
+      codigoCupon: null
+    };
+
+    fetch('/api/pos/venta', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': crypto.randomUUID(),
+      },
+      body: JSON.stringify(payload)
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'La venta no pudo confirmarse.');
+        return data;
       })
-    );
+      .then((data) => {
+        addConsoleLog(`🛒 [REST] Venta POS confirmada. Total cobrado: $${data.venta.total}`);
+        loadDashboardData();
+      })
+      .catch((error) => {
+        showToast(error instanceof Error ? error.message : 'Error al registrar la venta POS.', 'warning');
+      });
   };
 
   const handleOpenCaja = (monto: number) => {
-    if (dbOnline) {
-      fetch(`/api/caja/abrir?montoApertura=${monto}`, { method: 'POST' })
+    if (!dbOnline) {
+      showToast('No se puede abrir la caja sin conexión a Supabase.', 'warning');
+      return;
+    }
+
+    fetch('/api/caja/abrir-segura', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ openingAmount: monto }),
+    })
         .then((res) => res.json())
         .then((data) => {
           if (data.status === 'success') {
@@ -601,24 +621,19 @@ export default function App() {
         })
         .catch(() => showToast('Error de red al abrir la caja.', 'warning'));
       return;
-    }
-
-    setCajaAbierta(true);
-    setMontoApertura(monto);
-    setTransacciones([{
-      id: `tx_init_${Date.now()}`,
-      tipo: 'INGRESO',
-      monto,
-      concepto: 'Monto de Apertura de Caja',
-      origen: 'MANUAL',
-      fecha: new Date().toISOString()
-    }]);
-    addConsoleLog(`💰 [CAJA] Turno Abierto. Fondo inicial establecido: $${monto} ARS.`);
   };
 
   const handleCloseCaja = (montoCierre: number) => {
-    if (dbOnline) {
-      fetch(`/api/caja/cerrar?montoCierre=${montoCierre}`, { method: 'POST' })
+    if (!dbOnline) {
+      showToast('No se puede cerrar la caja sin conexión a Supabase.', 'warning');
+      return;
+    }
+
+    fetch('/api/caja/cerrar-segura', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ declaredAmount: montoCierre, observation: '' })
+    })
         .then((res) => res.json())
         .then((data) => {
           if (data.status === 'success') {
@@ -630,19 +645,182 @@ export default function App() {
         })
         .catch(() => showToast('Error de red al cerrar la caja.', 'warning'));
       return;
+  };
+
+  const handleCloseCajaSecure = async (montoCierre: number, observacion: string): Promise<void> => {
+    if (!dbOnline) throw new Error('No se puede cerrar la caja sin conexión a Supabase.');
+    const response = await fetch('/api/caja/cerrar-segura', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ declaredAmount: montoCierre, observation: observacion })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'success') {
+      throw new Error(data.detail || 'El servidor no confirmó el cierre de caja.');
+    }
+    addConsoleLog(`Caja cerrada. Declarado: $${montoCierre.toLocaleString('es-AR')} · Diferencia: $${Number(data.difference || 0).toLocaleString('es-AR')}.`);
+    await loadDashboardData();
+  };
+
+  const createCustomerVehicle = async (input: {
+    name: string;
+    phone?: string;
+    plate: string;
+    model?: string;
+    make?: string;
+  }) => {
+    const response = await fetch('/api/clientes-con-vehiculo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'success') {
+      throw new Error(data.detail || 'No se pudo registrar cliente y vehículo.');
+    }
+    return data as { outcome: 'created' | 'duplicate'; clientId?: number; vehicleId?: number; plate: string };
+  };
+
+  const handleAddTurnoSecure = async (newT: Turno): Promise<{ id: string }> => {
+    if (!dbOnline || !rawDbData) throw new Error('No hay conexión con Supabase.');
+    const service = rawDbData.servicios?.find((item: any) => item.nombre === newT.servicioNombre || newT.servicioNombre.includes(item.nombre));
+    const employee = rawDbData.empleados?.find((item: any) => item.nombre === newT.lavadorAsignado);
+    const existingClient = rawDbData.clientes?.find((item: any) => item.nombre === newT.clienteNombre);
+    const existingVehicle = rawDbData.vehiculos?.find((item: any) => item.patente === newT.vehiculoPatente.toUpperCase());
+    if (!service) throw new Error('El servicio seleccionado no existe en el catálogo sincronizado.');
+
+    let clientId: number;
+    let vehicleId: number;
+    if (existingVehicle) {
+      vehicleId = Number(existingVehicle.id);
+      clientId = Number(existingVehicle.cliente_id ?? existingClient?.id);
+      if (!clientId) throw new Error('La patente ya existe pero no tiene un cliente válido.');
+    } else if (existingClient) {
+      clientId = Number(existingClient.id);
+      const response = await fetch('/api/vehiculos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          plate: newT.vehiculoPatente,
+          make: 'Auto',
+          model: newT.vehiculoModelo || 'Vehículo sin modelo'
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.status !== 'success' || !data.vehicleId) throw new Error(data.detail || 'No se confirmó el vehículo.');
+      vehicleId = Number(data.vehicleId);
+    } else {
+      const created = await createCustomerVehicle({
+        name: newT.clienteNombre,
+        phone: newT.telefono || '+549261000000',
+        plate: newT.vehiculoPatente,
+        make: 'Auto',
+        model: newT.vehiculoModelo || 'Vehículo sin modelo'
+      });
+      if (created.outcome !== 'created' || !created.clientId || !created.vehicleId) {
+        throw new Error('La patente ya pertenece a otro cliente.');
+      }
+      clientId = created.clientId;
+      vehicleId = created.vehicleId;
     }
 
-    setCajaAbierta(false);
-    addConsoleLog(`🏁 [CAJA] Caja Cerrada con Arqueo Real de $${montoCierre} ARS.`);
-    showToast(`Arqueo Cerrado. Saldo de Cierre: $${montoCierre}`, 'success');
+    const response = await fetch('/api/turnos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId,
+        vehicleId,
+        serviceId: Number(service.id),
+        employeeId: employee ? Number(employee.id) : null,
+        scheduledAt: newT.fechaCreacion,
+        observations: newT.comentarios || ''
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'success' || !data.id) throw new Error(data.detail || 'No se confirmó el turno.');
+    addConsoleLog(`Turno #${data.id} creado sin superposición.`);
+    if (newT.healthData) {
+      try {
+        const inspectionResponse = await fetch(`/api/turnos/${data.id}/recepcion`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dirtLevel: newT.healthData.nivelSuciedad,
+            damageChecklist: newT.healthData.checklistDanos,
+            observations: newT.healthData.observaciones,
+            inspector: newT.healthData.operarioInspector,
+          }),
+        });
+        const inspection = await inspectionResponse.json().catch(() => ({}));
+        if (!inspectionResponse.ok || !inspection.inspectionId) {
+          throw new Error(inspection.detail || 'No se confirmó la inspección.');
+        }
+        for (const photo of newT.healthData.fotos) {
+          const photoResponse = await fetch(`/api/turnos/${data.id}/recepcion/fotos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inspectionId: Number(inspection.inspectionId),
+              dataUrl: photo.url,
+              sector: photo.sector,
+              description: photo.descripcion,
+            }),
+          });
+          const photoResult = await photoResponse.json().catch(() => ({}));
+          if (!photoResponse.ok || photoResult.status !== 'success') {
+            throw new Error(photoResult.detail || 'Una foto no pudo guardarse.');
+          }
+        }
+        addConsoleLog(`Inspección de recepción del turno #${data.id} guardada con ${newT.healthData.fotos.length} foto(s) privada(s).`);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'El turno se creó, pero la inspección quedó pendiente.', 'warning');
+      }
+    }
+    await loadDashboardData();
+    return { id: String(data.id) };
+  };
+
+  const handleCreateClientAtomic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName || !newClientPatente) return;
+    if (!dbOnline) {
+      showToast('No se puede registrar un cliente sin conexión a Supabase.', 'warning');
+      return;
+    }
+    try {
+      const result = await createCustomerVehicle({
+        name: newClientName,
+        phone: newClientPhone || '+549261000000',
+        plate: newClientPatente.toUpperCase(),
+        make: 'Auto',
+        model: newClientModelo || 'Vehículo sin modelo'
+      });
+      if (result.outcome === 'duplicate') {
+        showToast(`La patente ${result.plate} ya está registrada.`, 'warning');
+        return;
+      }
+      addConsoleLog(`Cliente y vehículo ${result.plate} registrados en una sola operación.`);
+      setNewClientName('');
+      setNewClientPhone('');
+      setNewClientPatente('');
+      setNewClientModelo('');
+      await loadDashboardData();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'No se pudo crear el cliente.', 'warning');
+    }
   };
 
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName || !newClientPatente) return;
 
-    if (dbOnline) {
-      const cliUrl = `/api/clientes/nuevo?nombre=${encodeURIComponent(newClientName)}&telefono=${encodeURIComponent(newClientPhone || '+549261000000')}`;
+    if (!dbOnline) {
+      showToast('No se puede registrar un cliente sin conexión a Supabase.', 'warning');
+      return;
+    }
+
+    const cliUrl = `/api/clientes/nuevo?nombre=${encodeURIComponent(newClientName)}&telefono=${encodeURIComponent(newClientPhone || '+549261000000')}`;
       fetch(cliUrl, { method: 'POST' })
         .then((res) => res.json())
         .then((cliData) => {
@@ -671,36 +849,97 @@ export default function App() {
         })
         .catch(() => showToast('Error de red al crear el cliente.', 'warning'));
       return;
+  };
+
+  const handleImportClients = async (rows: ExcelClientRow[]): Promise<{ created: number; skipped: number; errors: string[] }> => {
+    if (!dbOnline) throw new Error('No se puede importar sin conexión con el servidor.');
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    const knownPatents = new Set(
+      clientes.flatMap((cliente) => cliente.vehiculoPatente.split(',')).map((patente) => patente.trim().toUpperCase()).filter(Boolean)
+    );
+
+    for (const row of rows) {
+      if (knownPatents.has(row.patente)) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        const clientResponse = await fetch(`/api/clientes/nuevo?nombre=${encodeURIComponent(row.nombre)}&telefono=${encodeURIComponent(row.telefono || '+5490000000000')}`, { method: 'POST' });
+        const clientData = await clientResponse.json().catch(() => ({}));
+        if (!clientResponse.ok || clientData.status !== 'success' || !clientData.id) {
+          throw new Error(clientData.detail || 'cliente no confirmado');
+        }
+        const vehicleResponse = await fetch(`/api/vehiculos/nuevo?clienteId=${clientData.id}&patente=${encodeURIComponent(row.patente)}&marca=Auto&modelo=${encodeURIComponent(row.modelo)}`, { method: 'POST' });
+        const vehicleData = await vehicleResponse.json().catch(() => ({}));
+        if (!vehicleResponse.ok || vehicleData.status !== 'success' || !vehicleData.id) {
+          throw new Error(vehicleData.detail || 'vehículo no confirmado');
+        }
+        knownPatents.add(row.patente);
+        created += 1;
+      } catch (error) {
+        errors.push(`Fila ${row.rowNumber} (${row.patente}): ${error instanceof Error ? error.message : 'error de importación'}.`);
+      }
     }
 
-    const newC: Cliente = {
-      id: `c_${Date.now()}`,
-      nombre: newClientName,
-      telefono: newClientPhone || '+549261000000',
-      vehiculoPatente: newClientPatente.toUpperCase(),
-      vehiculoModelo: newClientModelo || 'Vehículo Genérico',
-      visitas: 1,
-      ultimaVisitaDiasAgo: 0
-    };
+    if (created > 0) {
+      addConsoleLog(`Importación Excel confirmada: ${created} clientes y vehículos creados.`);
+      loadDashboardData();
+    }
+    return { created, skipped, errors };
+  };
 
-    setClientes((prev) => [newC, ...prev]);
-    setShowAddClientForm(false);
-    setNewClientName('');
-    setNewClientPhone('');
-    setNewClientPatente('');
-    setNewClientModelo('');
-
-    addConsoleLog(`👤 Nuevo cliente registrado: ${newC.nombre} con auto ${newC.vehiculoModelo} (${newC.vehiculoPatente}).`);
-    showToast('Cliente guardado con éxito', 'success');
+  const handleImportClientsAtomic = async (rows: ExcelClientRow[]): Promise<{ created: number; skipped: number; errors: string[] }> => {
+    if (!dbOnline) throw new Error('No se puede importar sin conexión con el servidor.');
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    const knownPatents = new Set(
+      clientes.flatMap((cliente) => cliente.vehiculoPatente.split(',')).map((plate) => plate.trim().toUpperCase()).filter(Boolean)
+    );
+    for (const row of rows) {
+      if (knownPatents.has(row.patente)) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        const result = await createCustomerVehicle({
+          name: row.nombre,
+          phone: row.telefono || '+5490000000000',
+          plate: row.patente,
+          make: 'Auto',
+          model: row.modelo
+        });
+        if (result.outcome === 'duplicate') skipped += 1;
+        else created += 1;
+        knownPatents.add(row.patente);
+      } catch (error) {
+        errors.push(`Fila ${row.rowNumber} (${row.patente}): ${error instanceof Error ? error.message : 'error de importación'}.`);
+      }
+    }
+    if (created > 0) {
+      addConsoleLog(`Importación Excel atómica: ${created} clientes y vehículos creados.`);
+      await loadDashboardData();
+    }
+    return { created, skipped, errors };
   };
 
   const handleRunLoyaltyCampaign = () => {
+    if (!dbOnline) {
+      showToast('No se puede ejecutar la campaña sin conexión a Supabase.', 'warning');
+      return;
+    }
+
     addConsoleLog('🚀 Iniciando script de Growth Marketing en background...');
     addConsoleLog('🔍 Buscando en base de datos clientes con inactividad mayor a 20 días...');
-    
-    if (dbOnline) {
-      fetch('/api/marketing/run-loyalty', { method: 'POST' })
-        .then((res) => res.json())
+
+    fetch('/api/marketing/run-loyalty', { method: 'POST' })
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.detail || 'No se pudo ejecutar la campaña.');
+          return data;
+        })
         .then((data) => {
           if (data.success) {
             addConsoleLog(`✅ [REST] Campaña de marketing ejecutada con éxito. Salida: ${data.exitCode}`);
@@ -710,46 +949,14 @@ export default function App() {
             });
             loadDashboardData();
           } else {
-            addConsoleLog(`🔴 [REST] Error al procesar campaña: ${data.stderr}`);
+            throw new Error('La campaña no pudo completarse.');
           }
         })
-        .catch(() => showToast('Error de red al ejecutar campaña.', 'warning'));
-      return;
-    }
-
-    setTimeout(() => {
-      const inactiveClients = clientes.filter((c) => c.ultimaVisitaDiasAgo > 20);
-      
-      if (inactiveClients.length === 0) {
-        addConsoleLog('✅ Escaneo completo: No se encontraron clientes inactivos.');
-        showToast('Escaneo completo: No se detectaron clientes inactivos', 'info');
-        return;
-      }
-
-      addConsoleLog(`📋 Encontrados ${inactiveClients.length} clientes inactivos. Generando cupones...`);
-      
-      inactiveClients.forEach((client, idx) => {
-        setTimeout(() => {
-          const promoLink = `https://albelodetail.promo/coupon-15off-${client.id}`;
-          addConsoleLog(`📧 [Enviado] Cupón enviado a ${client.nombre} (${client.telefono}). Promo: 15% OFF. Enlace: ${promoLink}`);
-        }, (idx + 1) * 800);
-      });
-
-      setClientes((prev) => 
-        prev.map((c) => {
-          if (c.ultimaVisitaDiasAgo > 20) {
-            return { ...c, visitas: c.visitas + 1, ultimaVisitaDiasAgo: 0 };
-          }
-          return c;
-        })
-      );
-
-      setTimeout(() => {
-        addConsoleLog('✅ Campaña finalizada con éxito. Cupones despachados.');
-        showToast('¡Campaña despachada correctamente!', 'success');
-      }, (inactiveClients.length + 1) * 800);
-
-    }, 1000);
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : 'Error al ejecutar la campaña.';
+          addConsoleLog(`🔴 [REST] ${message}`);
+          showToast(message, 'warning');
+        });
   };
 
   const handleLogout = () => {
@@ -764,12 +971,51 @@ export default function App() {
     .reduce((sum, t) => sum + t.monto, 0);
 
   const completedTurnos = turnos.filter((t) => t.estado === 'COMPLETADO' || t.estado === 'ENTREGADO');
-  const npsAvg = completedTurnos.length > 0
-    ? (completedTurnos.reduce((sum, t) => sum + (t.npsScore || 5), 0) / completedTurnos.length).toFixed(1)
-    : '5.0';
+  const scoredTurnos = completedTurnos.filter((t) => typeof t.npsScore === 'number');
+  const satisfactionAvg = scoredTurnos.length > 0
+    ? (scoredTurnos.reduce((sum, t) => sum + Number(t.npsScore), 0) / scoredTurnos.length).toFixed(1)
+    : null;
 
   const lowStockInsumosCount = insumos.filter((i) => i.stockActual <= i.stockMinimo).length;
   const activeTurnosCount = turnos.filter((t) => t.estado === 'EN_PROCESO' || t.estado === 'PENDIENTE').length;
+
+  const isAdmin = currentRole === 'SUPERADMIN' || currentRole === 'ADMIN';
+  const canUseCaja = isAdmin || currentRole === 'CAJERO';
+  const canUseClients = isAdmin || currentRole === 'CAJERO';
+  const adminModules: AppTab[] = ['excel', 'publicidad', 'public-page', 'inventario', 'ceramic', 'branding'];
+  const activePrimaryTab: PrimaryTab = adminModules.includes(activeTab)
+    ? 'more'
+    : activeTab === 'legacy-overview' || activeTab === 'roadmap'
+      ? 'overview'
+      : activeTab as PrimaryTab;
+  const navigationItems: Array<{ id: PrimaryTab; label: string }> = [
+    { id: 'overview', label: 'Hoy' },
+    { id: 'turnos', label: 'Turnos' },
+    ...(canUseCaja ? [{ id: 'caja' as const, label: 'Caja' }] : []),
+    ...(canUseClients ? [{ id: 'clientes' as const, label: 'Clientes' }] : []),
+    ...(isAdmin ? [{ id: 'more' as const, label: 'Más' }] : []),
+  ];
+
+  const handleSelectMoreModule = (module: MoreModule) => {
+    if (module === 'facturacion') {
+      setCajaSubTab('facturacion');
+      setActiveTab('caja');
+      return;
+    }
+    setActiveTab(module);
+  };
+
+  useEffect(() => {
+    if (!isAdmin && (adminModules.includes(activeTab) || activeTab === 'more' || activeTab === 'roadmap')) {
+      setActiveTab('overview');
+    }
+    if (!canUseCaja && activeTab === 'caja') {
+      setActiveTab('overview');
+    }
+    if (!canUseClients && activeTab === 'clientes') {
+      setActiveTab('overview');
+    }
+  }, [activeTab, canUseCaja, canUseClients, isAdmin]);
 
   // Render Login view if no active session
   if (!session) {
@@ -787,7 +1033,7 @@ export default function App() {
   }
 
   return (
-    <div id="app-root-container" className="min-h-screen bg-[#06080a] text-slate-100 flex flex-col font-sans selection:bg-brand-primary selection:text-white relative">
+    <div id="app-root-container" className="comfort-theme min-h-screen bg-[#273449] text-slate-100 flex flex-col font-sans selection:bg-brand-primary selection:text-white relative">
       
       {/* Dynamic Brand Custom Theme Styles Injection */}
       <style>{`
@@ -844,17 +1090,17 @@ export default function App() {
 
       {/* Database connection status warning banner */}
       {!dbOnline && (
-        <div id="offline-banner" className="bg-red-950/40 backdrop-blur-md border-b border-red-800/60 text-red-200 px-4 py-2 text-center text-xs font-bold flex items-center justify-center gap-2 animate-pulse relative z-50">
+        <div id="offline-banner" className="bg-amber-950/45 backdrop-blur-md border-b border-amber-700/50 text-amber-100 px-4 py-2 text-center text-xs font-bold flex items-center justify-center gap-2 relative z-50">
           <AlertCircle className="w-4 h-4 text-red-400" />
-          <span>MODO OFFLINE ACTIVADO: Supabase PostgreSQL se ha desconectado. Operando bajo simulación local.</span>
+          <span>Sin conexión con Supabase. Mostrando los últimos datos disponibles.</span>
           <button 
             onClick={() => {
               setDbOnline(true);
-              addConsoleLog('🟢 [SYS] Base de datos restablecida. Sincronizando registros locales...');
+              setDataStatus('checking');
             }} 
-            className="ml-4 bg-red-900/80 hover:bg-red-800 text-white px-2 py-0.5 rounded text-[10px] uppercase transition font-bold"
+            className="ml-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-100 px-2 py-1 rounded text-[10px] uppercase transition font-bold"
           >
-            Reconectar
+            Reintentar
           </button>
         </div>
       )}
@@ -882,25 +1128,25 @@ export default function App() {
 
         {/* System control: Role, DB, Logout */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* DB Emulator Switcher */}
+          {/* Live synchronization status */}
           <button
             id="btn-toggle-db"
             onClick={() => {
-              setDbOnline(!dbOnline);
-              if (dbOnline) {
-                addConsoleLog('🔴 [DB] Conexión caída con Supabase. Activando simulación local.');
-              } else {
-                addConsoleLog('🟢 [DB] Conexión establecida con Supabase PostgreSQL. Modo Online.');
-              }
+              if (dbOnline) loadDashboardData();
+              else setDbOnline(true);
             }}
+            disabled={dataStatus === 'checking'}
+            title={lastSyncAt ? `Última sincronización: ${lastSyncAt.toLocaleTimeString('es-AR')}` : 'Sincronizar datos'}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition ${
-              dbOnline 
+              dataStatus === 'online'
                 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' 
-                : 'border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                : dataStatus === 'checking'
+                  ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 cursor-wait'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${dbOnline ? 'bg-emerald-400 animate-ping' : 'bg-red-400'}`} />
-            DB: {dbOnline ? 'Supabase Online' : 'Offline Sim'}
+            <RefreshCw className={`w-3 h-3 ${dataStatus === 'checking' ? 'animate-spin' : ''}`} />
+            {dataStatus === 'online' ? 'Datos sincronizados' : dataStatus === 'checking' ? 'Sincronizando' : 'Sin conexión'}
           </button>
 
           {/* User badge & Logout */}
@@ -920,8 +1166,54 @@ export default function App() {
       </header>
 
       {/* Subheader Toolbar & Tab Selectors */}
-      <section className="bg-black/45 border-b border-brand-primary/10 backdrop-blur-md px-4 lg:px-8 py-2.5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 relative z-30">
-        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
+      <section className="bg-slate-900/70 border-b border-white/10 backdrop-blur-md px-4 lg:px-8 py-2.5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 relative z-30">
+        <select
+          aria-label="Seleccionar sección"
+          value={activePrimaryTab}
+          onChange={(event) => setActiveTab(event.target.value as PrimaryTab)}
+          className="sm:hidden w-full bg-[#111827] border border-white/[0.12] text-white rounded-xl px-3 py-3 text-sm font-bold focus:outline-none focus:border-brand-primary"
+        >
+          {navigationItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+        </select>
+
+        <nav className="hidden sm:flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none" aria-label="Navegación principal">
+          {navigationItems.map((item) => (
+            <button
+              key={item.id}
+              id={`btn-nav-${item.id}`}
+              type="button"
+              onClick={() => setActiveTab(item.id)}
+              aria-current={activePrimaryTab === item.id ? 'page' : undefined}
+              className={`min-h-10 px-4 py-2 rounded-xl text-xs font-extrabold transition shrink-0 cursor-pointer ${
+                activePrimaryTab === item.id
+                  ? 'bg-brand-primary/15 text-white border border-brand-primary/30 shadow-[0_0_15px_var(--brand-glow)]'
+                  : 'text-slate-400 border border-transparent hover:text-slate-200 hover:bg-white/[0.04]'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {false && <>
+        <select
+          aria-label="Seleccionar módulo"
+          value={activeTab}
+          onChange={(event) => setActiveTab(event.target.value as typeof activeTab)}
+          className="sm:hidden w-full bg-[#111827] border border-white/[0.12] text-white rounded-lg px-3 py-2.5 text-xs font-bold uppercase tracking-wider focus:outline-none focus:border-brand-primary"
+        >
+          <option value="overview">Dashboard</option>
+          <option value="turnos">Turnos & Kanban</option>
+          <option value="caja">Caja & POS</option>
+          <option value="publicidad">Publicidad & Marketing</option>
+          <option value="roadmap">Plan & Estructura</option>
+          <option value="public-page">Portal Público</option>
+          <option value="inventario">Inventario & Stock</option>
+          <option value="ceramic">Estética & Cerámicos</option>
+          <option value="branding">Branding</option>
+        </select>
+
+        <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
           <button
             id="btn-nav-overview"
             onClick={() => setActiveTab('overview')}
@@ -1026,20 +1318,29 @@ export default function App() {
             Branding
           </button>
         </div>
+        </>}
 
         {/* Quick button to register a Client */}
+        {canUseClients && (
         <button
           id="btn-trigger-add-client-modal"
           onClick={() => setShowAddClientForm(!showAddClientForm)}
           className="flex items-center justify-center gap-1.5 bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 text-brand-primary font-extrabold px-4 py-1.5 rounded-lg text-[10px] uppercase tracking-widest transition-all duration-300 shadow-[0_0_10px_var(--brand-glow)] cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus className="w-3 h-3 text-brand-primary" />
-          Registrar Cliente
+          Nuevo cliente
         </button>
+        )}
       </section>
 
       {/* Main Workspace Frame */}
       <main className="flex-1 p-4 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
+        <Suspense fallback={(
+          <div className="glass-panel rounded-xl p-8 flex items-center justify-center gap-3 text-sm text-slate-300" role="status">
+            <RefreshCw className="w-4 h-4 animate-spin text-brand-primary" />
+            Cargando módulo…
+          </div>
+        )}>
         
         {/* New Client Form Drawer */}
         {showAddClientForm && (
@@ -1051,7 +1352,7 @@ export default function App() {
               <button onClick={() => setShowAddClientForm(false)} className="text-xs text-slate-400 hover:text-white transition">Cerrar</button>
             </div>
 
-            <form onSubmit={handleCreateClient} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <form onSubmit={handleCreateClientAtomic} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               <div>
                 <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Nombre Completo</label>
                 <input
@@ -1116,8 +1417,22 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: OVERVIEW */}
         {activeTab === 'overview' && (
+          <EssentialToday
+            turnos={turnos}
+            cajaAbierta={cajaAbierta}
+            ingresos={totalIncomingsToday}
+            stockBajo={lowStockInsumosCount}
+            onGoToTurnos={() => setActiveTab('turnos')}
+            onGoToCaja={() => setActiveTab('caja')}
+            onGoToClientes={() => setActiveTab('clientes')}
+            canUseCaja={canUseCaja}
+            canUseClients={canUseClients}
+          />
+        )}
+
+        {/* Legacy analytics kept out of the daily navigation while the reports module is redesigned. */}
+        {activeTab === 'legacy-overview' && (
           <div className="space-y-6 animate-fade-in relative z-20">
             
              {/* Bento Grid Metrics Row */}
@@ -1149,11 +1464,11 @@ export default function App() {
 
               <div className="glass-panel glass-card-hover glow-amber p-4 rounded-xl flex justify-between items-start transition duration-300">
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Calidad NPS</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Satisfacción</span>
                   <span className="text-xl font-extrabold font-mono text-amber-400 mt-1 block flex items-baseline gap-1">
-                    {npsAvg} <span className="text-xs text-slate-500 font-normal">/ 5.0</span>
+                    {satisfactionAvg ?? '—'} {satisfactionAvg && <span className="text-xs text-slate-500 font-normal">/ 5.0</span>}
                   </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">Estrellas promedio de retiro</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">{satisfactionAvg ? `${scoredTurnos.length} reseñas registradas` : 'Sin reseñas todavía'}</span>
                 </div>
                 <span className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.15)]">
                   <Star className="w-5 h-5 fill-amber-500/10 text-amber-400" />
@@ -1222,10 +1537,6 @@ export default function App() {
                     } catch (e) {}
                   });
 
-                  const allZero = Object.values(rev).every(v => v === 0);
-                  if (allZero) {
-                    return { 'Lun': 85000, 'Mar': 112000, 'Mié': 98000, 'Jue': 135000, 'Vie': 195000, 'Sáb': 240000, 'Dom': 45000 };
-                  }
                   return rev;
                 };
 
@@ -1239,8 +1550,9 @@ export default function App() {
                   const completed = staffTurnos.length;
                   const active = turnos.filter(t => t.lavadorAsignado === name && t.estado !== 'COMPLETADO' && t.estado !== 'ENTREGADO').length;
                   const revenue = staffTurnos.reduce((sum, t) => sum + t.precio, 0);
-                  const npsSum = staffTurnos.reduce((sum, t) => sum + (t.npsScore || 5), 0);
-                  const rating = completed > 0 ? (npsSum / completed).toFixed(1) : '5.0';
+                  const staffScored = staffTurnos.filter((t) => typeof t.npsScore === 'number');
+                  const npsSum = staffScored.reduce((sum, t) => sum + Number(t.npsScore), 0);
+                  const rating = staffScored.length > 0 ? (npsSum / staffScored.length).toFixed(1) : '—';
                   return { name, completed, active, revenue, rating };
                 });
                 const maxStaffRevenue = Math.max(...staffStats.map(s => s.revenue), 1);
@@ -1310,8 +1622,8 @@ export default function App() {
                           })}
                         </div>
                         <div className="border-t border-white/[0.06] pt-2 flex justify-between items-center text-[9px] text-slate-500">
-                          <span>Proyección en base a tickets emitidos</span>
-                          <span>Total Semanal Estimado: <b className="text-emerald-400 font-mono">${Object.values(weeklyRevenue).reduce((a,b)=>a+b,0).toLocaleString('es-AR')} ARS</b></span>
+                          <span>Ingresos por turnos finalizados</span>
+                          <span>Total semanal: <b className="text-emerald-400 font-mono">${Object.values(weeklyRevenue).reduce((a,b)=>a+b,0).toLocaleString('es-AR')} ARS</b></span>
                         </div>
                       </div>
                     )}
@@ -1774,18 +2086,25 @@ export default function App() {
             <TurnosKanbanView
               turnos={turnos}
               clientes={clientes}
-              onAddTurno={handleAddTurno}
+              onAddTurno={handleAddTurnoSecure}
               onUpdateTurnoEstado={handleUpdateTurnoEstado}
               onDeleteTurno={handleDeleteTurno}
               onAddLog={addConsoleLog}
               onUpdateTurno={(updated) => {
-                setTurnos(prev => prev.map(t => t.id === updated.id ? updated : t));
                 if (dbOnline && !updated.id.startsWith('t_')) {
-                  const url = `/api/turnos/${updated.id}/reprogramar?lavador=${encodeURIComponent(updated.lavadorAsignado)}&fechaHora=${updated.fechaCreacion}`;
-                  fetch(url, { method: 'POST' })
+                  const employee = rawDbData.empleados?.find((item: any) => item.nombre === updated.lavadorAsignado);
+                  fetch(`/api/turnos/${updated.id}/reprogramaciones`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      employeeId: employee?.id ?? null,
+                      scheduledAt: updated.fechaCreacion,
+                    }),
+                  })
                     .then(res => res.json())
                     .then(data => {
                       if (data.status === 'success') {
+                        setTurnos(prev => prev.map(t => t.id === updated.id ? updated : t));
                         addConsoleLog(`🔄 [REST] Turno #${updated.id} reprogramado en Supabase.`);
                         loadDashboardData();
                       } else {
@@ -1793,10 +2112,35 @@ export default function App() {
                       }
                     })
                     .catch(() => showToast('Error de red al reprogramar.', 'warning'));
+                } else {
+                  setTurnos(prev => prev.map(t => t.id === updated.id ? updated : t));
                 }
               }}
             />
           </div>
+        )}
+
+        {activeTab === 'clientes' && canUseClients && (
+          <ClientsView
+            clientes={clientes}
+            turnos={turnos}
+            onNewClient={() => setShowAddClientForm(true)}
+            onNewAppointment={() => setActiveTab('turnos')}
+          />
+        )}
+
+        {activeTab === 'more' && isAdmin && (
+          <MoreHub onSelect={handleSelectMoreModule} />
+        )}
+
+        {activeTab === 'excel' && isAdmin && (
+          <ExcelIntegration
+            clientes={clientes}
+            turnos={turnos}
+            transacciones={transacciones}
+            insumos={insumos}
+            onImportClients={handleImportClientsAtomic}
+          />
         )}
 
         {/* TAB: CAJA & INVENTARIO */}
@@ -1811,7 +2155,7 @@ export default function App() {
                     : 'text-slate-400 hover:text-slate-200 bg-white/[0.01] border border-white/[0.06]'
                 }`}
               >
-                Arqueo de Caja & POS
+                Caja y tickets
               </button>
               <button
                 onClick={() => setCajaSubTab('facturacion')}
@@ -1822,7 +2166,7 @@ export default function App() {
                 }`}
               >
                 <FileText className="w-3.5 h-3.5 text-brand-primary" />
-                Facturación AFIP (A / B)
+                Factura electrónica C
               </button>
             </div>
 
@@ -1836,8 +2180,10 @@ export default function App() {
                 cajaAbierta={cajaAbierta}
                 montoApertura={montoApertura}
                 onOpenCaja={handleOpenCaja}
-                onCloseCaja={handleCloseCaja}
+                onCloseCaja={handleCloseCajaSecure}
                 onSellPOS={handleSellPOS}
+                turnos={turnos}
+                onChargeTurno={handleChargeTurno}
               />
             ) : (
               <ArgentineFacturacion
@@ -1861,9 +2207,10 @@ export default function App() {
             </div>
 
             <PublicPage
-              onAddTurno={handleAddTurno}
+              onAddTurno={handleAddTurnoSecure}
               onAddLog={addConsoleLog}
               initialTurnos={turnos}
+              servicios={rawDbData?.servicios || []}
             />
           </div>
         )}
@@ -1913,7 +2260,7 @@ export default function App() {
                 <div className="glass-panel p-5 rounded-xl space-y-2">
                   <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">Diseñador de Publicidades y Promociones</h3>
                   <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                    Utiliza esta herramienta interactiva para crear flyers digitales diseñados para promocionar servicios de <b>lavado premium, tapicería húmeda, tratamientos cerámicos o pulido de ópticas</b>. Podrás lanzar la campaña dinámicamente o descargar la imagen en formato óptimo.
+                    Utilizá esta herramienta para diseñar y descargar flyers de <b>lavado premium, tapicería húmeda, tratamientos cerámicos o pulido de ópticas</b>. También podés copiar el texto sugerido y publicarlo manualmente en el canal que elijas.
                   </p>
                 </div>
                 <PromoPosterCreator onAddPromotionToConsole={addConsoleLog} />
@@ -1941,42 +2288,20 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: ROADMAP / PLAN */}
-        {activeTab === 'roadmap' && (
-          <div className="space-y-6 animate-fade-in">
-            <div className="glass-panel p-5 rounded-xl space-y-2">
-              <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">Estructura Operativa & Plan de Negocios</h3>
-              <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                Esta sección presenta la estructura completa recomendada para un Lavadero, Centro de Estética vehicular y Detailing profesional. Utiliza los siguientes tableros para planificar el equipamiento inicial y calcular tarifas operativas inteligentes.
-              </p>
-            </div>
-
-            <PlanRoadmap 
-              turnos={turnos}
-              empleados={rawDbData?.empleados || []}
-              transacciones={transacciones}
-              onAddLog={addConsoleLog}
-              onAddTransaccion={(tx) => setTransacciones(prev => [...prev, tx])}
-              onReloadData={loadDashboardData}
-            />
-          </div>
-        )}
-
         {/* TAB: INVENTARIO & STOCK */}
         {activeTab === 'inventario' && (
           <div className="space-y-6 animate-fade-in">
             <div className="glass-panel p-5 rounded-xl space-y-2">
               <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">Control de Stock & Compras a Proveedores</h3>
               <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                Administra el inventario de insumos, químicos, paños de microfibra y cerámicos de Albelo Detail. Registrá compras a proveedores de forma directa integradas con el Libro de Caja Diaria.
+                Administrá el inventario sincronizado con movimientos auditables. Las entradas pagadas impactan stock y caja en una única operación; las órdenes PDF son borradores sin efectos contables.
               </p>
             </div>
 
             <InventoryManagement
               insumos={insumos}
-              onUpdateInsumos={setInsumos}
+              onAdjustStock={handleInventoryMovement}
               onAddLog={addConsoleLog}
-              onAddTransaccion={(tx) => setTransacciones(prev => [...prev, tx])}
             />
           </div>
         )}
@@ -1997,8 +2322,9 @@ export default function App() {
             <CeramicServices
               clientes={clientes}
               turnos={turnos}
-              onAddTurno={handleAddTurno}
+              onAddTurno={handleAddTurnoSecure}
               onAddLog={addConsoleLog}
+              servicios={rawDbData?.servicios || []}
             />
           </div>
         )}
@@ -2024,14 +2350,15 @@ export default function App() {
           </div>
         )}
 
+        </Suspense>
       </main>
 
       {/* Elegant Footer */}
       <footer className="border-t border-white/[0.08] bg-white/[0.01] backdrop-blur-md py-6 px-4 lg:px-8 text-center text-xs text-slate-500 space-y-2 mt-12 relative z-30">
         <p className="font-semibold text-slate-400 font-display uppercase tracking-widest text-[10px]">
-          MOBILE <span className="text-[#00d2ff]">WASH</span> CAR WASH • SISTEMA COCKPIT 2026
+          MOBILE <span className="text-[#00d2ff]">WASH</span> CAR WASH • GESTIÓN DIARIA 2026
         </p>
-        <p>Software de operación desacoplada. Todos los derechos reservados. Desarrollado con React y Tailwind CSS.</p>
+        <p>Sistema de turnos, clientes, trabajos y caja para el lavadero.</p>
       </footer>
 
     </div>

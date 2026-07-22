@@ -46,6 +46,7 @@ export default function LoyaltyCampaigns({
   const couponCardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const templates: CampaignTemplate[] = [
     {
@@ -124,10 +125,11 @@ export default function LoyaltyCampaigns({
         link.href = canvas.toDataURL('image/png');
         link.click();
         setDownloading(false);
-        onAddLog(`🏆 [MARKETING] Descargado cupón digital PNG para ${selectedClient.nombre} (${customDiscountCode})`);
+        onAddLog(`🏆 [MARKETING] Descargado borrador de cupón PNG para ${selectedClient.nombre} (${customDiscountCode}).`);
       }).catch(err => {
         console.error(err);
         setDownloading(false);
+        setActionMessage({ type: 'error', text: 'No se pudo generar la tarjeta PNG.' });
       });
     }, 300);
   };
@@ -215,17 +217,18 @@ export default function LoyaltyCampaigns({
     doc.setTextColor(100, 116, 139);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6);
-    doc.text('* Válido por 30 días a partir de la emisión. Presentar en recepción antes del servicio.', 90, 81, { align: 'center' });
+    doc.text('* BORRADOR PROMOCIONAL. Registrar y validar el código en recepción antes de entregarlo.', 90, 81, { align: 'center' });
 
     doc.save(`Voucher_${selectedClient.nombre.replace(/\s+/g, '_')}.pdf`);
-    onAddLog(`🏆 [MARKETING] Descargado voucher de regalo PDF para ${selectedClient.nombre} (${customDiscountCode})`);
+    onAddLog(`🏆 [MARKETING] Descargado borrador de voucher PDF para ${selectedClient.nombre} (${customDiscountCode}).`);
   };
 
-  const redeemPrize = (prizeName: string, pointsCost: number) => {
+  const preparePrizeRequest = (prizeName: string, pointsCost: number) => {
     if (!selectedClient) return;
+    setActionMessage(null);
     const clientPoints = (selectedClient.visitas || 0) * 100;
     if (clientPoints < pointsCost) {
-      alert(`Puntos insuficientes. ${selectedClient.nombre} tiene ${clientPoints} puntos (requiere ${pointsCost}).`);
+      setActionMessage({ type: 'error', text: `Estimación insuficiente: ${clientPoints} puntos disponibles, ${pointsCost} requeridos.` });
       return;
     }
 
@@ -263,7 +266,7 @@ export default function LoyaltyCampaigns({
     doc.setTextColor(220, 38, 38);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('VALE DE CANJE DE PREMIO', 60, 30, { align: 'center' });
+    doc.text('SOLICITUD DE CANJE DE PREMIO', 60, 30, { align: 'center' });
 
     // Prize Title
     doc.setTextColor(255, 255, 255);
@@ -280,14 +283,14 @@ export default function LoyaltyCampaigns({
     doc.setTextColor(220, 38, 38);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text('DATOS DE LA REDENCIÓN', 15, 58);
+    doc.text('DATOS DE LA SOLICITUD', 15, 58);
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(`Beneficiario: ${selectedClient.nombre.toUpperCase()}`, 15, 66);
     doc.text(`Patente Asociada: ${selectedClient.vehiculoPatente.toUpperCase()}`, 15, 73);
-    doc.text(`Costo del Canje: ${pointsCost} PUNTOS`, 15, 80);
+    doc.text(`Puntos estimados requeridos: ${pointsCost}`, 15, 80);
 
     // Barcode simulated lines
     const barY = 92;
@@ -317,34 +320,37 @@ export default function LoyaltyCampaigns({
     // Terms
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
-    doc.text('Presentar este vale en recepción para retirar el producto o realizar el servicio.', 60, 122, { align: 'center', maxWidth: 90 });
-    doc.text('Los puntos canjeados han sido debitados del saldo de fidelización.', 60, 128, { align: 'center', maxWidth: 90 });
+    doc.text('Presentar esta solicitud en recepción para validar disponibilidad y saldo real.', 60, 122, { align: 'center', maxWidth: 90 });
+    doc.text('Este documento no debita puntos ni autoriza el premio automáticamente.', 60, 128, { align: 'center', maxWidth: 90 });
 
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(6.5);
     doc.text(`Emitido el: ${new Date().toLocaleDateString('es-AR')}`, 60, 140, { align: 'center' });
 
-    doc.save(`Premio_${prizeName.replace(/\s+/g, '_')}_${selectedClient.vehiculoPatente.toLowerCase()}.pdf`);
-    
-    // Mutate visits locally to represent the discount
-    selectedClient.visitas = Math.max(0, selectedClient.visitas - (pointsCost / 100));
-    onAddLog(`🏆 [LOYALTY] Cliente ${selectedClient.nombre} canjeó premio "${prizeName}" por ${pointsCost} puntos.`);
-    alert(`¡Premio "${prizeName}" canjeado con éxito! Se descontaron ${pointsCost} puntos (${pointsCost / 100} visitas) y se descargó el vale PDF.`);
+    doc.save(`Solicitud_${prizeName.replace(/\s+/g, '_')}_${selectedClient.vehiculoPatente.toLowerCase()}.pdf`);
+    setActionMessage({ type: 'success', text: `Solicitud de "${prizeName}" descargada. El saldo no fue modificado.` });
+    onAddLog(`🏆 [LOYALTY] Solicitud de canje preparada para ${selectedClient.nombre}: "${prizeName}". Sin débito de puntos.`);
   };
 
   const getWhatsAppMessage = () => {
     if (!selectedClient) return '';
     if (activeTemplate.type === 'RETORNO') {
-      return `¡Hola ${selectedClient.nombre}! 🚗 En Albelo Detail te extrañamos. Hace ${selectedClient.ultimaVisitaDiasAgo} días que no nos visitás. Queremos regalarte un *${activeTemplate.benefit}* en tu próximo servicio presentando este código: *${customDiscountCode}*. Adjuntamos tu pase digital. ¡Te esperamos!`;
+      return `¡Hola ${selectedClient.nombre}! 🚗 En Albelo Detail te extrañamos. Hace ${selectedClient.ultimaVisitaDiasAgo} días que no nos visitás. Queremos ofrecerte *${activeTemplate.benefit}* en tu próximo servicio. Referencia: *${customDiscountCode}*. Consultanos disponibilidad y condiciones. ¡Te esperamos!`;
     }
-    return `¡Hola ${selectedClient.nombre}! 🏆 Queremos agradecer tu confianza continua en Albelo Detail (${selectedClient.visitas} visitas). Te regalamos un *${activeTemplate.benefit}* en tu próximo tratamiento usando el código VIP: *${customDiscountCode}*. Presentá tu tarjeta digital. ¡Saludos de Albelo Detail!`;
+    return `¡Hola ${selectedClient.nombre}! 🏆 Queremos agradecer tu confianza continua en Albelo Detail (${selectedClient.visitas} visitas). Queremos ofrecerte *${activeTemplate.benefit}* en tu próximo tratamiento. Referencia: *${customDiscountCode}*. Consultanos disponibilidad y condiciones. ¡Saludos de Albelo Detail!`;
   };
 
-  const handleCopyText = () => {
-    navigator.clipboard.writeText(getWhatsAppMessage());
-    setCopiedText(true);
-    setTimeout(() => setCopiedText(false), 2000);
-    onAddLog(`📲 [MARKETING] Copiado mensaje pre-redactado de fidelización para ${selectedClient?.nombre}.`);
+  const handleCopyText = async () => {
+    setActionMessage(null);
+    try {
+      await navigator.clipboard.writeText(getWhatsAppMessage());
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+      onAddLog(`📲 [MARKETING] Mensaje de fidelización copiado para ${selectedClient?.nombre}. No fue enviado.`);
+    } catch (error) {
+      console.error('Could not copy loyalty message', error);
+      setActionMessage({ type: 'error', text: 'No se pudo copiar el mensaje. Revisá los permisos del portapapeles.' });
+    }
   };
 
   return (
@@ -458,7 +464,7 @@ export default function LoyaltyCampaigns({
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🎟️ Cupón de Descuento
+                🎟️ Borrador de Cupón
               </button>
               <button
                 type="button"
@@ -469,15 +475,21 @@ export default function LoyaltyCampaigns({
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🎁 Canjear Puntos
+                🎁 Solicitar Premio
               </button>
             </div>
+
+            {actionMessage && (
+              <div className={`rounded-lg border px-3 py-2 text-[9px] ${actionMessage.type === 'success' ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200' : 'border-red-500/25 bg-red-500/10 text-red-200'}`} role={actionMessage.type === 'error' ? 'alert' : 'status'}>
+                {actionMessage.text}
+              </div>
+            )}
 
             {crmSubTab === 'coupon' ? (
               <div className="space-y-5">
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider pb-2 border-b border-white/[0.06] flex items-center gap-1">
                   <Gift className="w-4 h-4 text-emerald-400" />
-                  Generador de Cupones Digitales
+                  Generador de Material Promocional
                 </h3>
 
                 {/* Select template */}
@@ -503,7 +515,7 @@ export default function LoyaltyCampaigns({
 
                 {/* Custom discount code */}
                 <div className="space-y-1.5">
-                  <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Código de Descuento Custom</label>
+                  <label className="block text-[8px] text-slate-400 uppercase tracking-wider font-bold">Código de referencia (no registrado)</label>
                   <input
                     type="text"
                     value={customDiscountCode}
@@ -548,7 +560,7 @@ export default function LoyaltyCampaigns({
 
                     {/* Footer Code */}
                     <div className="bg-black/40 border border-white/10 p-1.5 rounded-lg flex justify-between items-center z-10">
-                      <span className="text-[6.5px] text-slate-400 font-mono tracking-widest">PRESENTAR EN EL TALLER:</span>
+                      <span className="text-[6.5px] text-slate-400 font-mono tracking-widest">BORRADOR / REFERENCIA:</span>
                       <span className="text-[9.5px] text-white font-mono font-bold tracking-wider">{customDiscountCode}</span>
                     </div>
                   </div>
@@ -581,6 +593,7 @@ export default function LoyaltyCampaigns({
                     <Download className="w-3.5 h-3.5" />
                     Descargar Gift Card PDF
                   </button>
+                  <p className="text-[8px] text-slate-500 text-center">Los códigos son borradores: todavía no se registran ni validan contra Supabase.</p>
                 </div>
               </div>
             ) : (
@@ -588,15 +601,15 @@ export default function LoyaltyCampaigns({
                 <div className="flex justify-between items-center pb-2 border-b border-white/[0.06]">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 font-display">
                     <Award className="w-4 h-4 text-brand-primary" />
-                    Canje de Premios por Fidelidad
+                    Solicitudes de Premios por Fidelidad
                   </h3>
                   <span className="font-mono text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                    {(selectedClient.visitas || 0) * 100} pts
+                    {(selectedClient.visitas || 0) * 100} pts estim.
                   </span>
                 </div>
 
                 <p className="text-[10px] text-slate-400 leading-normal">
-                  <b>{selectedClient.nombre}</b> acumuló <b>{(selectedClient.visitas || 0) * 100} puntos</b> (equivalente a {selectedClient.visitas} visitas). Podés canjearlos por premios físicos o servicios bonificados:
+                  <b>{selectedClient.nombre}</b> tiene una estimación de <b>{(selectedClient.visitas || 0) * 100} puntos</b> basada en {selectedClient.visitas} visitas. Prepará una solicitud para que recepción valide el saldo y el premio:
                 </p>
 
                 {/* Prizes Grid Catalog */}
@@ -631,14 +644,14 @@ export default function LoyaltyCampaigns({
                         <button
                           type="button"
                           disabled={!canClaim}
-                          onClick={() => redeemPrize(prize.name, prize.cost)}
+                          onClick={() => preparePrizeRequest(prize.name, prize.cost)}
                           className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer ${
                             canClaim
                               ? 'bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
                               : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                           }`}
                         >
-                          {canClaim ? 'Canjear' : 'Bloqueado'}
+                          {canClaim ? 'Preparar vale' : 'Bloqueado'}
                         </button>
                       </div>
                     );
@@ -646,7 +659,7 @@ export default function LoyaltyCampaigns({
                 </div>
 
                 <div className="bg-slate-900/50 rounded-xl p-2.5 text-[9px] border border-white/[0.03] leading-relaxed text-slate-500 font-light">
-                  Nota: El canje deducirá automáticamente los puntos de su historial. Esto descargará el Vale en PDF para el operario.
+                  La solicitud no descuenta puntos ni autoriza el premio. Hace falta un libro de fidelidad transaccional para habilitar canjes reales.
                 </div>
               </div>
             )}

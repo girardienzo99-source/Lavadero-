@@ -1,8 +1,9 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import QRCode from 'qrcode';
 import { BrandConfig } from '../types';
 
-interface TicketInput {
+export interface TicketInput {
   id: string;
   clienteNombre?: string;
   vehiculoModelo?: string;
@@ -12,6 +13,7 @@ interface TicketInput {
   lavadorAsignado?: string;
   fecha: string;
   origen: 'TURNO' | 'VENTA_POS' | 'MANUAL';
+  metodoPago?: 'EFECTIVO' | 'DEBITO' | 'CREDITO' | 'TRANSFERENCIA';
 }
 
 function getBrandConfig(): BrandConfig {
@@ -60,7 +62,7 @@ export function generateTicketPDF(data: TicketInput) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [80, 180],
+    format: [80, 125],
   });
 
   // 1. Header Banner
@@ -92,7 +94,7 @@ export function generateTicketPDF(data: TicketInput) {
   doc.setTextColor(156, 163, 175);
   doc.text('Av. Marcelo T. de Alvear 1850, Río Cuarto', 40, 16, { align: 'center' });
   doc.text('Tel: 358 4226415  •  Insta: @albelodetail', 40, 19, { align: 'center' });
-  doc.text('CUIT: 30-71649255-9  •  IVA RESPONSABLE INSCRIPTO', 40, 22, { align: 'center' });
+  doc.text('Comprobante interno de atención y cobro', 40, 22, { align: 'center' });
 
   let y = 30;
 
@@ -100,7 +102,8 @@ export function generateTicketPDF(data: TicketInput) {
   doc.setTextColor(30, 41, 59);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.text('COMPROBANTE DE COMPRA (POS)', 40, y, { align: 'center' });
+  doc.setTextColor(185, 28, 28);
+  doc.text('TICKET INTERNO — NO VÁLIDO COMO FACTURA', 40, y, { align: 'center' });
 
   y += 5;
   doc.setFont('helvetica', 'normal');
@@ -189,121 +192,164 @@ export function generateTicketPDF(data: TicketInput) {
 
   y = (doc as any).lastAutoTable.finalY + 4;
 
-  // 5. Totals calculations
-  const subtotal = Math.round(data.precio * 0.81);
-  const iva = data.precio - subtotal;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(100, 116, 139);
-  doc.text('Subtotal Neto (81%):', 48, y, { align: 'right' });
-  doc.text(`$${subtotal.toLocaleString('es-AR')}`, 74, y, { align: 'right' });
-
-  y += 4;
-  doc.text('IVA Consumidor (21%):', 48, y, { align: 'right' });
-  doc.text(`$${iva.toLocaleString('es-AR')}`, 74, y, { align: 'right' });
-
-  y += 5;
-  // Dynamic background rectangle colored using our branding accent
-  const lightBgR = Math.round(primaryRgb[0] + (255 - primaryRgb[0]) * 0.92);
-  const lightBgG = Math.round(primaryRgb[1] + (255 - primaryRgb[1]) * 0.92);
-  const lightBgB = Math.round(primaryRgb[2] + (255 - primaryRgb[2]) * 0.92);
-  doc.setFillColor(lightBgR, lightBgG, lightBgB);
-  doc.rect(5, y - 3.5, 70, 7, 'F');
+  const ticketBgR = Math.round(primaryRgb[0] + (255 - primaryRgb[0]) * 0.92);
+  const ticketBgG = Math.round(primaryRgb[1] + (255 - primaryRgb[1]) * 0.92);
+  const ticketBgB = Math.round(primaryRgb[2] + (255 - primaryRgb[2]) * 0.92);
+  doc.setFillColor(ticketBgR, ticketBgG, ticketBgB);
+  doc.rect(5, y - 2, 70, 9, 'F');
   doc.setDrawColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
-  doc.rect(5, y - 3.5, 70, 7, 'S');
-
+  doc.rect(5, y - 2, 70, 9, 'S');
   doc.setTextColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('TOTAL TRANSACCIÓN:', 8, y + 1);
-  doc.text(`$${data.precio.toLocaleString('es-AR')} ARS`, 72, y + 1, { align: 'right' });
+  doc.setFontSize(9);
+  doc.text('TOTAL:', 8, y + 3.5);
+  doc.text(`$${data.precio.toLocaleString('es-AR')} ARS`, 72, y + 3.5, { align: 'right' });
 
-  // 6. AFIP QR Code and CAE section
-  y += 8;
+  y += 12;
+  if (data.metodoPago) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Medio de pago: ${data.metodoPago}`, 40, y, { align: 'center' });
+    y += 4;
+  }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text('COMPROBANTE AUTORIZADO AFIP', 40, y, { align: 'center' });
-
-  y += 3;
-  // Draw a beautiful mock QR code at x=30, y=y
-  const qrX = 30;
-  const qrY = y;
-  
-  // Outer border & background for QR Code
-  doc.setFillColor(255, 255, 255);
-  doc.rect(qrX, qrY, 20, 20, 'F');
-  doc.setDrawColor(30, 41, 59);
-  doc.setLineWidth(0.2);
-  doc.rect(qrX, qrY, 20, 20, 'S');
-
-  // Finder patterns (top-left, top-right, bottom-left)
-  doc.setFillColor(30, 41, 59);
-  // Top-left
-  doc.rect(qrX + 1, qrY + 1, 5, 5, 'F');
-  doc.setFillColor(255, 255, 255);
-  doc.rect(qrX + 2, qrY + 2, 3, 3, 'F');
-  doc.setFillColor(30, 41, 59);
-  doc.rect(qrX + 2.5, qrY + 2.5, 2, 2, 'F');
-
-  // Top-right
-  doc.rect(qrX + 14, qrY + 1, 5, 5, 'F');
-  doc.setFillColor(255, 255, 255);
-  doc.rect(qrX + 15, qrY + 2, 3, 3, 'F');
-  doc.setFillColor(30, 41, 59);
-  doc.rect(qrX + 15.5, qrY + 2.5, 2, 2, 'F');
-
-  // Bottom-left
-  doc.rect(qrX + 1, qrY + 14, 5, 5, 'F');
-  doc.setFillColor(255, 255, 255);
-  doc.rect(qrX + 2, qrY + 15, 3, 3, 'F');
-  doc.setFillColor(30, 41, 59);
-  doc.rect(qrX + 2.5, qrY + 15.5, 2, 2, 'F');
-
-  // Alignment pattern bottom-right
-  doc.rect(qrX + 13, qrY + 13, 3, 3, 'F');
-  doc.setFillColor(255, 255, 255);
-  doc.rect(qrX + 14, qrY + 14, 1, 1, 'F');
-
-  // Random QR noise pixels
-  doc.setFillColor(30, 41, 59);
-  const qrPixels = [
-    [7, 1], [9, 1], [11, 2], [12, 1],
-    [7, 3], [8, 4], [10, 4], [12, 3], [12, 5],
-    [1, 7], [3, 7], [4, 8], [6, 7], [7, 7], [9, 6], [11, 7], [13, 7], [15, 7], [17, 7], [18, 8],
-    [2, 9], [5, 9], [8, 9], [10, 8], [11, 10], [14, 9], [16, 9],
-    [1, 11], [3, 11], [6, 11], [7, 12], [9, 11], [13, 11], [15, 12], [18, 11],
-    [7, 13], [10, 13], [11, 14], [12, 13], [17, 13],
-    [8, 15], [9, 16], [13, 16], [15, 15], [16, 17],
-    [7, 18], [9, 17], [11, 18], [14, 18], [18, 18]
-  ];
-  qrPixels.forEach(([px, py]) => {
-    doc.rect(qrX + px, qrY + py, 1, 1, 'F');
-  });
-
-  y += 24;
+  doc.setTextColor(185, 28, 28);
+  doc.text('DOCUMENTO NO FISCAL · NO GENERA CRÉDITO FISCAL', 40, y, { align: 'center' });
+  y += 4;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
   doc.setTextColor(100, 116, 139);
-  doc.text('Comprobante Homologado AFIP', 40, y, { align: 'center' });
-  y += 2.5;
-  doc.text('CAE N°: 73254915648521', 40, y, { align: 'center' });
-  y += 2.5;
-  const vtoCAE = new Date();
-  vtoCAE.setDate(vtoCAE.getDate() + 10);
-  doc.text(`Vto. CAE: ${vtoCAE.toLocaleDateString('es-AR')}`, 40, y, { align: 'center' });
-
+  doc.text('Solicitá tu factura C electrónica cuando corresponda.', 40, y, { align: 'center' });
   y += 5;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   doc.setTextColor(15, 23, 42);
   doc.text(`¡Gracias por elegir ${brand.nombre}!`, 40, y, { align: 'center' });
 
-  // Save PDF
-  const cleanBrandName = brand.nombre.replace(/\s+/g, '_');
-  const filename = `Ticket_${cleanBrandName}_${data.id}.pdf`;
-  doc.save(filename);
+  const ticketBrandName = brand.nombre.replace(/\s+/g, '_');
+  doc.save(`Ticket_Interno_${ticketBrandName}_${data.id}.pdf`);
+}
+
+export interface InvoiceCInput {
+  invoiceNumber: number;
+  pointOfSale: number;
+  issueDate: string;
+  cae: string;
+  caeExpiration: string;
+  qrUrl: string;
+  issuer: {
+    businessName: string;
+    businessAddress: string;
+    cuit: string;
+    grossIncome: string;
+    activityStartDate: string;
+    taxCondition: string;
+  };
+  recipient: {
+    name: string;
+    documentLabel: string;
+    documentNumber: string;
+    taxCondition: string;
+  };
+  items: Array<{ description: string; quantity: number; unitPrice: number; total: number }>;
+  total: number;
+}
+
+export async function generateInvoiceCPDF(data: InvoiceCInput) {
+  if (!/^\d{14}$/.test(data.cae) || !data.qrUrl.startsWith('https://www.arca.gob.ar/fe/qr/')) {
+    throw new Error('La factura no tiene una autorización fiscal válida.');
+  }
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const voucherNumber = `${String(data.pointOfSale).padStart(5, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
+  const formattedIssueDate = new Date(`${data.issueDate}T12:00:00`).toLocaleDateString('es-AR');
+  const formattedExpiration = new Date(`${data.caeExpiration}T12:00:00`).toLocaleDateString('es-AR');
+
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.5);
+  doc.rect(12, 12, 186, 58);
+  doc.line(105, 12, 105, 70);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text(data.issuer.businessName.toUpperCase(), 18, 23);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Domicilio comercial: ${data.issuer.businessAddress}`, 18, 34, { maxWidth: 80 });
+  doc.text(`Condición frente al IVA: ${data.issuer.taxCondition}`, 18, 47, { maxWidth: 80 });
+
+  doc.setFillColor(255, 255, 255);
+  doc.rect(96, 10, 18, 21, 'F');
+  doc.rect(96, 10, 18, 21);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text('C', 105, 20, { align: 'center' });
+  doc.setFontSize(6.5);
+  doc.text('CÓD. 011', 105, 27, { align: 'center' });
+
+  doc.setFontSize(14);
+  doc.text('FACTURA', 113, 23);
+  doc.setFontSize(10);
+  doc.text(`Nº ${voucherNumber}`, 113, 32);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text(`Fecha de emisión: ${formattedIssueDate}`, 113, 40);
+  doc.text(`CUIT: ${data.issuer.cuit}`, 113, 48);
+  doc.text(`Ingresos Brutos: ${data.issuer.grossIncome}`, 113, 55);
+  doc.text(`Inicio de actividades: ${data.issuer.activityStartDate}`, 113, 62);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('ORIGINAL', 105, 77, { align: 'center' });
+  doc.setFillColor(241, 245, 249);
+  doc.rect(12, 82, 186, 31, 'F');
+  doc.rect(12, 82, 186, 31);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text(`Cliente: ${data.recipient.name}`, 17, 91);
+  doc.text(`${data.recipient.documentLabel}: ${data.recipient.documentNumber}`, 17, 100);
+  doc.text(`Condición frente al IVA: ${data.recipient.taxCondition}`, 17, 109);
+
+  autoTable(doc, {
+    startY: 120,
+    margin: { left: 12, right: 12 },
+    head: [['Descripción', 'Cantidad', 'Precio unitario', 'Importe']],
+    body: data.items.map(item => [
+      item.description,
+      item.quantity.toLocaleString('es-AR'),
+      `$ ${item.unitPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+      `$ ${item.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+    ]),
+    theme: 'grid',
+    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 2, textColor: [30, 41, 59] },
+    columnStyles: {
+      0: { cellWidth: 88 },
+      1: { cellWidth: 24, halign: 'right' },
+      2: { cellWidth: 34, halign: 'right' },
+      3: { cellWidth: 40, halign: 'right' },
+    },
+  });
+
+  let y = Math.max((doc as any).lastAutoTable.finalY + 8, 175);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text(`TOTAL: $ ${data.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 193, y, { align: 'right' });
+  y += 10;
+  const qrDataUrl = await QRCode.toDataURL(data.qrUrl, { errorCorrectionLevel: 'M', margin: 1, width: 420 });
+  doc.addImage(qrDataUrl, 'PNG', 15, y, 40, 40);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Comprobante autorizado', 62, y + 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text(`CAE Nº: ${data.cae}`, 62, y + 18);
+  doc.text(`Fecha de vencimiento del CAE: ${formattedExpiration}`, 62, y + 25);
+  doc.text('El código QR permite verificar los datos fiscales del comprobante.', 62, y + 35);
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('IVA no discriminado — Comprobante C', 105, 286, { align: 'center' });
+  doc.save(`Factura_C_${voucherNumber}.pdf`);
 }
 
 export interface InspectionInput {

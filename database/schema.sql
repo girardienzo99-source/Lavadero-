@@ -202,18 +202,8 @@ INSERT INTO caja_movimientos (caja_id, tipo, monto, descripcion) VALUES
 (1, 'EGRESO', 1200.00, 'Compra de esponjas y trapos de microfibra extra'),
 (1, 'INGRESO', 1500.00, 'Aporte cambio monedas inicial');
 
--- Insertar usuarios predeterminados (incluyendo admin/1998)
-INSERT INTO usuarios (nombre, apellido, rol, pin, activo, mail, contrasena, username, password) VALUES
-('Super Admin', '', 'superadmin', '1234', TRUE, 'super@admi.com', 'superadmi2026/', 'super@admi.com', 'superadmi2026/'),
-('Administrador', '', 'administrador', '1234', TRUE, 'admi@patron.com', 'Elpatron2026/', 'admi@patron.com', 'Elpatron2026/'),
-('Mozo', '', 'mozo', NULL, TRUE, NULL, NULL, 'mozo@patron.com', 'Elpatronmozo2026/'),
-('Enzo', 'Fernández', 'mozo', NULL, TRUE, NULL, NULL, 'enzo', '1234'),
-('Micaela', 'Gómez', 'mozo', NULL, TRUE, NULL, NULL, 'micaela', '1234'),
-('Damián', 'Martínez', 'cocina', NULL, TRUE, NULL, NULL, 'damian', '1234'),
-('Sofía', 'Alegre', 'administrador', NULL, TRUE, NULL, NULL, 'sofia', '1234'),
-('Nuevo', 'Usuario', 'mozo', NULL, TRUE, NULL, NULL, 'nuevo', 'clave'),
-('Admin', '', 'superadmin', NULL, TRUE, NULL, NULL, 'admin', '1998'),
-('Admin Gmail', '', 'superadmin', NULL, TRUE, 'admin@gmail.com', '1998', 'admin@gmail.com', '1998');
+-- Los usuarios se crean fuera del script de datos semilla. Nunca versionar
+-- credenciales predeterminadas ni contraseñas reales en este archivo.
 
 
 -- Sincronizar secuencias
@@ -224,4 +214,3 @@ SELECT setval('vehiculos_id_seq', (SELECT MAX(id) FROM vehiculos));
 SELECT setval('feedback_clientes_id_seq', (SELECT MAX(id) FROM feedback_clientes));
 SELECT setval('cajas_diarias_id_seq', (SELECT MAX(id) FROM cajas_diarias));
 SELECT setval('caja_movimientos_id_seq', (SELECT MAX(id) FROM caja_movimientos));
-SELECT setval('usuarios_id_usuario_seq', (SELECT MAX(id_usuario) FROM usuarios));

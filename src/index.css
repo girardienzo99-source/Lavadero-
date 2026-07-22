@@ -16,7 +16,7 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(30, 41, 59, 0.55);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -37,26 +37,26 @@
   height: 100%;
   z-index: 0;
   pointer-events: none;
-  background-color: #0d1222; /* Softer dark slate background to prevent eye strain */
+  background-color: #273449;
   background-image: 
     radial-gradient(circle at 10% 10%, var(--brand-mesh-1, rgba(220, 38, 38, 0.10)) 0%, transparent 45%),
     radial-gradient(circle at 90% 90%, var(--brand-mesh-2, rgba(220, 38, 38, 0.05)) 0%, transparent 45%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.008) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.008) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
 }
 
 .glass-panel {
-  background: rgba(18, 25, 41, 0.93); /* Softer slate dark glass container */
-  border: 1px solid var(--brand-glass-border, rgba(220, 38, 38, 0.15));
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+  background: rgba(43, 58, 80, 0.94);
+  border: 1px solid var(--brand-glass-border, rgba(148, 163, 184, 0.16));
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.22);
   transform: translate3d(0, 0, 0);
   will-change: transform;
 }
 
 .glass-panel-light {
-  background: rgba(18, 25, 41, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(51, 65, 85, 0.82);
+  border: 1px solid rgba(226, 232, 240, 0.09);
   transform: translate3d(0, 0, 0);
 }
 
@@ -151,8 +151,34 @@
 
 /* Antialiasing and subpixel rendering */
 body {
+  background: #273449;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.comfort-theme {
+  color-scheme: dark;
+  background: #273449;
+}
+
+.comfort-theme input,
+.comfort-theme select,
+.comfort-theme textarea {
+  background-color: rgba(30, 41, 59, 0.74);
+  border-color: rgba(203, 213, 225, 0.16);
+}
+
+.comfort-theme .animate-pulse {
+  animation-duration: 3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Animations */

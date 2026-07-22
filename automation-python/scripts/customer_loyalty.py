@@ -4,7 +4,7 @@ import string
 import json
 from datetime import datetime, timedelta
 
-DB_URL = os.getenv("DATABASE_URL", f"postgresql://postgres.txpryiflqkxukeldgisc:{os.getenv('SUPABASE_DB_PASSWORD', 'Enzo37108100.')}@aws-1-us-west-1.pooler.supabase.com:5432/postgres")
+DB_URL = os.getenv("DATABASE_URL", "").strip()
 
 def generate_coupon_code(length=6):
     """Genera un código alfanumérico aleatorio para el cupón."""
@@ -13,6 +13,8 @@ def generate_coupon_code(length=6):
 
 def run_loyalty_campaign():
     print("[LOYALTY] Buscando clientes inactivos hace más de 20 días...")
+    if not DB_URL:
+        raise RuntimeError("DATABASE_URL no está configurada.")
     
     # 20 días de inactividad
     limite_inactividad = datetime.now() - timedelta(days=20)
@@ -90,35 +92,11 @@ def run_loyalty_campaign():
         }, indent=2))
         
     except Exception as e:
-        # MODO DEMO / FALLBACK: Si no hay base de datos configurada, simula el proceso
-        print(f"[LOYALTY-WARNING] Error de conexión a la DB ({e}). Ejecutando en Modo Demostración.")
-        
-        # Datos simulados de clientes que no vuelven hace más de 20 días
-        clientes_simulados = [
-            {"id": 1, "nombre": "Juan Pérez", "telefono": "+5491122334455", "ultima_visita": "2026-05-28"},
-            {"id": 3, "nombre": "Carlos Gómez", "telefono": "+5491144556677", "ultima_visita": "2026-06-02"}
-        ]
-        
-        campana_resultados = []
-        for c in clientes_simulados:
-            codigo = generate_coupon_code()
-            campana_resultados.append({
-                "cliente_id": c['id'],
-                "nombre": c['nombre'],
-                "telefono": c['telefono'],
-                "ultimo_lavado": c['ultima_visita'],
-                "codigo_cupon": codigo,
-                "descuento": "15%",
-                "valido_hasta": (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
-            })
-            print(f"  [DEMO] -> Cupón {codigo} (15%) simulado para {c['nombre']}.")
-            
         print(json.dumps({
-            "status": "COMPLETED",
-            "modo": "DEMO_FALLBACK",
-            "clientes_contactados": len(campana_resultados),
-            "campana": campana_resultados
+            "status": "ERROR",
+            "message": "No se pudo ejecutar la campaña con datos reales."
         }, indent=2))
+        raise RuntimeError("Falló la campaña de fidelización.") from e
 
 if __name__ == "__main__":
     run_loyalty_campaign()

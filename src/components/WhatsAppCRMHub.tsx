@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { MessageSquare, Calendar, Check, Send, Sparkles, Settings, Bell, Clock, Search, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { MessageSquare, Calendar, Check, Send, Settings, Search } from 'lucide-react';
 import { Turno } from '../types';
 
 interface WhatsAppCRMHubProps {
@@ -27,6 +27,13 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'reminders' | 'templates'>('reminders');
   const [searchTerm, setSearchTerm] = useState('');
+  const [openedReminderIds, setOpenedReminderIds] = useState<Set<string>>(() => new Set());
+  const [reminderError, setReminderError] = useState('');
+
+  const formatLocalDate = (date: Date) => {
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  };
 
   // Handle Save
   const handleSaveTemplates = (e: React.FormEvent) => {
@@ -35,7 +42,7 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
     localStorage.setItem('albelo_whatsapp_template_ready', templateReady);
     localStorage.setItem('albelo_whatsapp_template_reminder', templateReminder);
     setSavedSuccess(true);
-    if (onAddLog) onAddLog('⚙️ [CRM] Configuración de plantillas de WhatsApp guardada con éxito.');
+    if (onAddLog) onAddLog('⚙️ [CRM] Plantillas de WhatsApp guardadas localmente en este navegador.');
     setTimeout(() => setSavedSuccess(false), 2000);
   };
 
@@ -45,14 +52,13 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
-    const formatYMD = (d: Date) => d.toISOString().split('T')[0];
-    const todayStr = formatYMD(today);
-    const tomorrowStr = formatYMD(tomorrow);
+    const todayStr = formatLocalDate(today);
+    const tomorrowStr = formatLocalDate(tomorrow);
 
     return turnos.filter((t) => {
       try {
         const tDate = new Date(t.fechaCreacion);
-        const tDateStr = formatYMD(tDate);
+        const tDateStr = formatLocalDate(tDate);
         return (tDateStr === todayStr || tDateStr === tomorrowStr) && t.estado === 'PENDIENTE';
       } catch (e) {
         return false;
@@ -68,13 +74,13 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
     t.vehiculoPatente.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Send WhatsApp Reminder
+  // Open a pre-filled WhatsApp conversation. This does not prove delivery.
   const triggerReminder = (t: Turno) => {
-    let hourStr = '10:00';
-    try {
-      const d = new Date(t.fechaCreacion);
-      hourStr = String(d.getHours()).padStart(2, '0') + ':00';
-    } catch {}
+    setReminderError('');
+    const d = new Date(t.fechaCreacion);
+    const hourStr = Number.isNaN(d.getTime())
+      ? '10:00'
+      : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
     const text = templateReminder
       .replace('{{1}}', t.clienteNombre)
@@ -82,23 +88,24 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
       .replace('{{3}}', t.vehiculoPatente.toUpperCase())
       .replace('{{4}}', t.servicioNombre);
 
-    const encoded = encodeURIComponent(text);
-    const link = `https://api.whatsapp.com/send?phone=${t.telefono.replace('+', '').replace(/\s/g, '')}&text=${encoded}`;
-    
-    if (onAddLog) {
-      onAddLog(`📱 [CRM] Enviado recordatorio de 24h por WhatsApp a ${t.clienteNombre}: "${text}"`);
+    const phone = (t.telefono || '').replace(/\D/g, '');
+    if (phone.length < 8 || phone.length > 15) {
+      setReminderError(`El teléfono de ${t.clienteNombre} no es válido para abrir WhatsApp.`);
+      return;
     }
-    
-    // Save to sent logs
-    const sentKey = `reminder_sent_${t.id}`;
-    localStorage.setItem(sentKey, 'true');
 
-    window.open(link, '_blank');
+    const link = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    const opened = window.open(link, '_blank');
+    if (!opened) {
+      setReminderError('El navegador bloqueó la ventana de WhatsApp. Habilitá ventanas emergentes e intentá nuevamente.');
+      return;
+    }
+    opened.opener = null;
+    setOpenedReminderIds((previous) => new Set(previous).add(t.id));
+    if (onAddLog) onAddLog(`📱 [CRM] WhatsApp abierto para preparar el recordatorio del turno ${t.id}. Envío no confirmado.`);
   };
 
-  const isReminderSent = (turnoId: string) => {
-    return localStorage.getItem(`reminder_sent_${turnoId}`) === 'true';
-  };
+  const wasReminderOpened = (turnoId: string) => openedReminderIds.has(turnoId);
 
   return (
     <div className="space-y-6">
@@ -135,7 +142,7 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
         </div>
 
         <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-          Optimiza la tasa de asistencia del lavadero enviando recordatorios automatizados 24 horas antes y agiliza las notificaciones de entrega cuando finaliza el servicio de detallado.
+          Prepará recordatorios para los próximos turnos y abrilos en WhatsApp Web. El mensaje se envía manualmente desde WhatsApp; este panel no confirma entrega ni lectura.
         </p>
       </div>
 
@@ -166,14 +173,19 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
               </div>
             ) : (
               <div className="divide-y divide-white/[0.04]">
+                {reminderError && (
+                  <div className="mb-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-200" role="alert">
+                    {reminderError}
+                  </div>
+                )}
                 {filteredTurnos.map((t) => {
-                  const sent = isReminderSent(t.id);
+                  const opened = wasReminderOpened(t.id);
                   let hourVal = '10:00';
                   let dateVal = 'Hoy';
                   try {
                     const d = new Date(t.fechaCreacion);
-                    hourVal = String(d.getHours()).padStart(2, '0') + ':00';
-                    const isTom = new Date().getDate() !== d.getDate();
+                    hourVal = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                    const isTom = formatLocalDate(new Date()) !== formatLocalDate(d);
                     dateVal = isTom ? 'Mañana' : 'Hoy';
                   } catch {}
 
@@ -193,13 +205,13 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {sent ? (
-                          <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/20 border border-emerald-500/30 px-2 py-1 rounded-lg font-bold uppercase tracking-wider font-mono">
-                            <Check className="w-3.5 h-3.5 text-emerald-400" /> Enviado
+                        {opened ? (
+                          <span className="flex items-center gap-1 text-[10px] text-cyan-300 bg-cyan-950/20 border border-cyan-500/30 px-2 py-1 rounded-lg font-bold uppercase tracking-wider font-mono">
+                            <Check className="w-3.5 h-3.5 text-cyan-300" /> WhatsApp abierto
                           </span>
                         ) : (
                           <span className="text-[10px] text-amber-400 bg-amber-950/10 border border-amber-500/20 px-2 py-1 rounded-lg font-mono uppercase tracking-wider font-bold">
-                            Pendiente
+                            Sin abrir
                           </span>
                         )}
                         
@@ -208,7 +220,7 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
                           onClick={() => triggerReminder(t)}
                           className="flex items-center gap-1 bg-brand-primary hover:bg-brand-hover text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg transition cursor-pointer"
                         >
-                          <Send className="w-3 h-3" /> Recordatorio
+                          <Send className="w-3 h-3" /> {opened ? 'Reabrir' : 'Abrir WhatsApp'}
                         </button>
                       </div>
                     </div>
@@ -236,15 +248,15 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
 
                 <div className="bg-white/[0.01] p-3 rounded-lg border border-white/[0.04] flex justify-between items-center">
                   <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Tasa de Absentismo</span>
-                    <span className="text-lg font-extrabold text-emerald-400 block font-mono">~ 4%</span>
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider font-mono">Modo de envío</span>
+                    <span className="text-sm font-extrabold text-cyan-300 block font-mono">Manual</span>
                   </div>
-                  <Sparkles className="w-8 h-8 text-emerald-500 opacity-60 animate-pulse" />
+                  <MessageSquare className="w-8 h-8 text-cyan-500 opacity-60" />
                 </div>
               </div>
 
               <div className="text-[9.5px] text-slate-500 leading-relaxed pt-2 border-t border-white/[0.04]">
-                ⚠️ Los mensajes simulan la redirección por la API pública de WhatsApp Web. En producción, pueden vincularse a un gateway de API automatizado.
+                Abrir una conversación no significa que el mensaje haya sido enviado. La entrega y lectura sólo pueden confirmarse con una integración oficial y webhooks.
               </div>
             </div>
           </div>
@@ -259,7 +271,7 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
             
             {savedSuccess && (
               <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider font-mono flex items-center gap-1 animate-bounce">
-                <Check className="w-3.5 h-3.5" /> Guardado con éxito
+                <Check className="w-3.5 h-3.5" /> Guardado en este navegador
               </span>
             )}
           </div>
@@ -311,6 +323,7 @@ export default function WhatsAppCRMHub({ turnos = [], onAddLog }: WhatsAppCRMHub
           >
             <Settings className="w-4 h-4" /> Guardar Cambios en Plantillas
           </button>
+          <p className="text-[9px] text-slate-500 text-center">Configuración local: todavía no se sincroniza entre usuarios o dispositivos.</p>
         </form>
       )}
     </div>

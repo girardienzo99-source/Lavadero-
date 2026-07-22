@@ -2,10 +2,15 @@ import React, { useState } from 'react';
 import { 
   Sparkles, Car, Percent, Calendar, ShieldCheck, Heart, 
   MapPin, Phone, MessageSquare, Plus, Trash2, Edit3, CheckCircle, Gift,
-  Zap, ArrowRight, Eye, Star, Info, ShoppingCart, Check
+  Zap, ArrowRight, Eye, Star, Info, ShoppingCart, Check, Download
 } from 'lucide-react';
 import { TipoServicio, Turno } from '../types';
 import { jsPDF } from 'jspdf';
+
+const toLocalDateValue = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
 
 function DetailingSimulationWidget() {
   const [activeCategory, setActiveCategory] = useState<'opticas' | 'laca' | 'tapizados'>('laca');
@@ -578,15 +583,17 @@ export interface PromocionTienda {
 }
 
 interface PublicPageProps {
-  onAddTurno: (newT: Turno) => void;
+  onAddTurno: (newT: Turno) => Promise<{ id: string }>;
   onAddLog: (msg: string) => void;
   initialTurnos: Turno[];
+  servicios: Array<{ id: string | number; nombre: string; precio?: number }>;
 }
 
 export default function PublicPage({
   onAddTurno,
   onAddLog,
-  initialTurnos
+  initialTurnos,
+  servicios
 }: PublicPageProps) {
   // View mode switcher: 'LANDING' (Client facing store) or 'PROMO_ADMIN' (Admin Promo Management)
   const [viewMode, setViewMode] = useState<'landing' | 'admin'>('landing');
@@ -680,10 +687,13 @@ export default function PublicPage({
   const [bookingPatente, setBookingPatente] = useState('');
   const [bookingModelo, setBookingModelo] = useState('');
   const [selectedPromoId, setSelectedPromoId] = useState(promociones[0]?.id || '');
-  const [bookingFecha, setBookingFecha] = useState(() => new Date().toISOString().split('T')[0]);
+  const [bookingFecha, setBookingFecha] = useState(() => toLocalDateValue(new Date()));
   const [bookingHora, setBookingHora] = useState('09:30');
   const [bookingCompleted, setBookingCompleted] = useState(false);
   const [lastBookedTurnoId, setLastBookedTurnoId] = useState('');
+  const [lastBookingEstimatedPrice, setLastBookingEstimatedPrice] = useState(0);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState('');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
 
   const handleApplyCombo = (details: { title: string; price: number; description: string }) => {
@@ -697,7 +707,8 @@ export default function PublicPage({
       precioOferta: details.price,
       activa: true,
       caracteristicas: [details.description],
-      etiqueta: 'Combo Custom'
+      etiqueta: 'Combo Custom',
+      tiempoEstimado: 'A coordinar'
     };
 
     setPromociones(prev => {
@@ -718,13 +729,35 @@ export default function PublicPage({
   const [newPromoEtiqueta, setNewPromoEtiqueta] = useState('');
   const [newPromoTiempo, setNewPromoTiempo] = useState('1.5 hs');
 
-  // Handle client online reservation simulation
-  const handleClientBookingSubmit = (e: React.FormEvent) => {
+  // Persist the public booking before showing a success state.
+  const handleClientBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bookingName || !bookingPatente || !bookingPhone) return;
+    setBookingError('');
+    if (!bookingName.trim() || !bookingPatente.trim() || !bookingPhone.trim()) {
+      setBookingError('Completá nombre, teléfono y patente para solicitar el turno.');
+      return;
+    }
 
     const chosenPromo = promociones.find((p) => p.id === selectedPromoId);
-    if (!chosenPromo) return;
+    if (!chosenPromo) {
+      setBookingError('La promoción seleccionada ya no está disponible.');
+      return;
+    }
+
+    const normalized = (value: string) => value.toLocaleLowerCase('es-AR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const keywordsByType: Record<TipoServicio, string[]> = {
+      LAVADO: ['lavado'],
+      TAPICERIA: ['tapizado', 'tapiceria', 'interior', 'habitaculo', 'butaca'],
+      ESTETICA: ['ceramico', 'tratamiento', 'pulido', 'optica', 'grafeno', 'estetica']
+    };
+    const catalogService = servicios.find((service) => {
+      const serviceName = normalized(service.nombre);
+      return keywordsByType[chosenPromo.servicio].some((keyword) => serviceName.includes(keyword));
+    });
+    if (!catalogService) {
+      setBookingError('Esta promoción todavía no está vinculada a un servicio activo. Pedí al equipo que revise el catálogo.');
+      return;
+    }
 
     const addonsPrice = selectedAddons.reduce((sum, id) => {
       const addon = ADDONS_DISPONIBLES.find(a => a.id === id);
@@ -737,28 +770,34 @@ export default function PublicPage({
     const addonsNames = selectedAddons.map(id => ADDONS_DISPONIBLES.find(a => a.id === id)?.nombre).filter(Boolean);
     const addonsLabel = addonsNames.length > 0 ? ` + Aditivos: [${addonsNames.join(', ')}]` : '';
 
-    const newTurnoId = `t_pub_${Date.now()}`;
     const newTurno: Turno = {
-      id: newTurnoId,
+      id: '',
       clienteId: `c_pub_${Date.now()}`,
-      clienteNombre: bookingName,
-      telefono: bookingPhone,
-      vehiculoPatente: bookingPatente.toUpperCase(),
-      vehiculoModelo: bookingModelo || 'Vehículo Cliente Online',
+      clienteNombre: bookingName.trim(),
+      telefono: bookingPhone.trim(),
+      vehiculoPatente: bookingPatente.trim().toUpperCase(),
+      vehiculoModelo: bookingModelo.trim() || 'Vehículo Cliente Online',
       tipo: chosenPromo.servicio,
-      servicioNombre: `PROMO: ${chosenPromo.titulo}${addonsLabel}`,
+      servicioNombre: catalogService.nombre,
       lavadorAsignado: 'Sin Asignar (Online)',
       estado: 'PENDIENTE',
       precio: finalPrice,
-      fechaCreacion: new Date().toISOString(),
-      comentarios: `Reserva Online de Tienda Digital para el día ${bookingFecha} a las ${bookingHora}. Adicionales: ${addonsNames.join(', ') || 'Ninguno'}. Descuento Combo aplicado: $${comboDiscount}. Pago pendiente.`
+      fechaCreacion: `${bookingFecha}T${bookingHora}:00`,
+      comentarios: `Solicitud online: ${chosenPromo.titulo}${addonsLabel}. Adicionales: ${addonsNames.join(', ') || 'Ninguno'}. Descuento estimado: $${comboDiscount}. Importe estimado: $${finalPrice}. Pago pendiente.`
     };
 
-    onAddTurno(newTurno);
-    setLastBookedTurnoId(newTurnoId);
-    setBookingCompleted(true);
-    
-    onAddLog(`📲 [TIENDA DIGITAL] Nueva reserva recibida online: ${bookingName} (${bookingPatente.toUpperCase()}) solicitó "${chosenPromo.titulo}" con adicionales [${addonsNames.join(', ') || 'ninguno'}] para el ${bookingFecha} a las ${bookingHora}.`);
+    setBookingSubmitting(true);
+    try {
+      const created = await onAddTurno(newTurno);
+      setLastBookedTurnoId(created.id);
+      setLastBookingEstimatedPrice(finalPrice);
+      setBookingCompleted(true);
+      onAddLog(`📲 [TIENDA DIGITAL] Solicitud ${created.id} registrada: ${bookingName.trim()} (${bookingPatente.trim().toUpperCase()}) pidió "${chosenPromo.titulo}" para el ${bookingFecha} a las ${bookingHora}.`);
+    } catch (error) {
+      setBookingError(error instanceof Error ? error.message : 'No se pudo registrar la solicitud. Intentá nuevamente.');
+    } finally {
+      setBookingSubmitting(false);
+    }
   };
 
   // Add custom promotion (Admin panel)
@@ -1187,10 +1226,10 @@ export default function PublicPage({
                     <CheckCircle className="w-12 h-12" />
                   </div>
                   <h3 className="text-xl font-extrabold text-white uppercase tracking-tight font-display">
-                    ¡RESERVA CONFIRMADA EXCELENTEMENTE!
+                    ¡SOLICITUD REGISTRADA!
                   </h3>
                   <p className="text-xs text-slate-300 max-w-sm leading-relaxed">
-                    Hola <b>{bookingName}</b>, tu turno para el coche con patente <b>{bookingPatente.toUpperCase()}</b> fue cargado con éxito en el sistema de Albelo Detailing.
+                    Hola <b>{bookingName}</b>, registramos tu solicitud para el vehículo con patente <b>{bookingPatente.toUpperCase()}</b>. El turno permanece pendiente hasta que el equipo confirme la disponibilidad.
                   </p>
                   
                   <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06] text-left text-[11px] font-mono space-y-1.5 max-w-md w-full">
@@ -1199,15 +1238,16 @@ export default function PublicPage({
                     <div><span className="text-slate-400">Patente:</span> {bookingPatente.toUpperCase()}</div>
                     <div><span className="text-slate-400">Vehículo:</span> {bookingModelo || 'S/D'}</div>
                     <div><span className="text-slate-400">Fecha/Hora:</span> {bookingFecha} • {bookingHora} hs</div>
+                    <div><span className="text-slate-400">Solicitud:</span> #{lastBookedTurnoId}</div>
                     <div><span className="text-slate-400">Estado Turno:</span> <span className="text-amber-400 font-bold">PENDIENTE</span></div>
                     <div className="pt-1.5 mt-1.5 border-t border-white/[0.05] text-emerald-400 font-bold flex justify-between">
-                      <span>Precio Congelado Promo:</span>
-                      <span>${promociones.find(p => p.id === selectedPromoId)?.precioOferta.toLocaleString('es-AR')} ARS</span>
+                      <span>Importe estimado:</span>
+                      <span>${lastBookingEstimatedPrice.toLocaleString('es-AR')} ARS</span>
                     </div>
                   </div>
 
                   <p className="text-[10px] text-slate-500 max-w-sm">
-                    ⚠️ Recibirás un mensaje de WhatsApp automatizado para validar el turno. Podés pagar en efectivo con un 10% de descuento o mediante transferencia/tarjeta en el local.
+                    El equipo se comunicará con vos para confirmar disponibilidad, precio final y forma de pago.
                   </p>
 
                   <button
@@ -1221,7 +1261,7 @@ export default function PublicPage({
                 <form onSubmit={handleClientBookingSubmit} className="glass-panel p-6 rounded-2xl border border-white/[0.08] space-y-4">
                   <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
                     <h4 className="text-sm font-black uppercase tracking-wider text-white font-display">Agenda tu Turno Online</h4>
-                    <span className="text-[9px] bg-red-600/10 text-red-500 border border-red-600/20 px-2 py-0.5 rounded font-bold uppercase">Congelá Precio de Oferta</span>
+                    <span className="text-[9px] bg-red-600/10 text-red-500 border border-red-600/20 px-2 py-0.5 rounded font-bold uppercase">Solicitá disponibilidad</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1317,7 +1357,7 @@ export default function PublicPage({
                       {Array.from({ length: 7 }).map((_, i) => {
                         const d = new Date();
                         d.setDate(d.getDate() + i);
-                        const isoStr = d.toISOString().split('T')[0];
+                        const isoStr = toLocalDateValue(d);
                         const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
                         const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
                         const isSunday = d.getDay() === 0;
@@ -1410,7 +1450,7 @@ export default function PublicPage({
                         </div>
                       )}
                       <div className="flex justify-between border-t border-white/[0.08] pt-2 text-xs font-black text-white">
-                        <span className="uppercase tracking-wider">Total Final Congelado:</span>
+                        <span className="uppercase tracking-wider">Total estimado:</span>
                         <span className="text-red-500 font-mono">
                           ${Math.round(
                             ((promociones.find(p => p.id === selectedPromoId)?.precioOferta || 0) + 
@@ -1422,15 +1462,22 @@ export default function PublicPage({
                     </div>
                   )}
 
+                  {bookingError && (
+                    <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-200" role="alert">
+                      {bookingError}
+                    </div>
+                  )}
+
                   <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
                     <div className="text-[10px] text-slate-500 max-w-[200px]">
-                      *Al enviar, recibirás una confirmación manual por WhatsApp.
+                      *La solicitud queda pendiente hasta la confirmación del equipo.
                     </div>
                     <button
                       type="submit"
-                      className="bg-red-600 hover:bg-red-700 text-white font-extrabold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-[0_0_15px_rgba(220,38,38,0.25)] cursor-pointer"
+                      disabled={bookingSubmitting}
+                      className="bg-red-600 hover:bg-red-700 text-white font-extrabold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-[0_0_15px_rgba(220,38,38,0.25)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Reservar Promo
+                      {bookingSubmitting ? 'Enviando…' : 'Solicitar turno'}
                     </button>
                   </div>
                 </form>

@@ -1,4 +1,13 @@
-export type Rol = 'SUPERADMIN' | 'ADMIN' | 'OPERARIO' | 'LAVADOR';
+export type Rol = 'SUPERADMIN' | 'ADMIN' | 'CAJERO' | 'OPERARIO' | 'LAVADOR';
+
+export interface SessionUser {
+  id?: number | string;
+  nombre: string;
+  username?: string;
+  rol: string;
+  token: string;
+  expiresAt?: number;
+}
 
 export interface Cliente {
   id: string;
@@ -29,7 +38,9 @@ export interface VehicleHealthData {
   nivelSuciedad: 'BAJO' | 'MEDIO' | 'ALTO' | 'EXTREMO';
   checklistDanos: DamageChecklist;
   observaciones: string;
-  fotosSimuladas: { sector: string; url: string; descripcion: string }[];
+  fotos: { sector: string; url: string; descripcion: string }[];
+  /** Compatibilidad temporal con inspecciones de versiones anteriores. */
+  fotosSimuladas?: { sector: string; url: string; descripcion: string }[];
   operarioInspector: string;
   fechaInspeccion: string;
 }
@@ -71,6 +82,8 @@ export interface Transaccion {
   concepto: string;
   origen: 'TURNO' | 'VENTA_POS' | 'MANUAL';
   fecha: string;
+  metodoPago?: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEBITO' | 'CREDITO';
+  turnoId?: string;
 }
 
 export interface TemplatePublicidad {
@@ -94,4 +107,3 @@ export interface BrandConfig {
   customLogoUrl?: string;
   fontFamily: string;
 }
-

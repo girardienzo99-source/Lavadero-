@@ -17,6 +17,13 @@ interface WeeklyCalendarProps {
   onSendWhatsApp?: (turno: Turno) => void;
 }
 
+const ALLOWED_TURNO_TRANSITIONS: Record<Turno['estado'], Turno['estado'][]> = {
+  PENDIENTE: ['EN_PROCESO'],
+  EN_PROCESO: ['PENDIENTE', 'COMPLETADO'],
+  COMPLETADO: ['EN_PROCESO', 'ENTREGADO'],
+  ENTREGADO: ['COMPLETADO'],
+};
+
 export default function WeeklyCalendar({
   turnos,
   clientes,
@@ -154,6 +161,7 @@ export default function WeeklyCalendar({
 
   const handleStateTransition = (newState: any) => {
     if (!selectedTurno) return;
+    if (!ALLOWED_TURNO_TRANSITIONS[selectedTurno.estado].includes(newState)) return;
     onUpdateTurnoEstado(selectedTurno.id, newState);
     setSelectedTurno(prev => prev ? { ...prev, estado: newState } : null);
   };
@@ -542,6 +550,7 @@ export default function WeeklyCalendar({
                   <button
                     key={st}
                     type="button"
+                    disabled={selectedTurno.estado === st || !ALLOWED_TURNO_TRANSITIONS[selectedTurno.estado].includes(st)}
                     onClick={() => handleStateTransition(st)}
                     className={`py-1.5 text-[9px] font-black uppercase rounded-lg border transition cursor-pointer ${
                       selectedTurno.estado === st

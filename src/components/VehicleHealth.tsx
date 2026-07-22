@@ -1,41 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  ShieldAlert, ShieldCheck, Trash2, Camera, Eye, Plus, Info, 
-  Sparkles, CheckCircle2, AlertTriangle, AlertCircle, EyeOff, FileText
-} from 'lucide-react';
-import { Turno, DamageChecklist, VehicleHealthData } from '../types';
+import { ShieldAlert, Trash2, Camera, Sparkles, CheckCircle2, FileText } from 'lucide-react';
+import { DamageChecklist, VehicleHealthData } from '../types';
 import { generateInspectionPDF } from '../utils/ticketGenerator';
-
-// Preset mock photo simulations of "before" details to give high quality realism
-const SIMULATED_DAMAGE_PHOTOS: Record<keyof DamageChecklist, { sector: string; url: string; descripcion: string }[]> = {
-  paragolpesDelantero: [
-    { sector: 'Paragolpes Delantero', url: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&w=300&q=80', descripcion: 'Raspones profundos en spoiler derecho' }
-  ],
-  paragolpesTrasero: [
-    { sector: 'Paragolpes Trasero', url: 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=300&q=80', descripcion: 'Marca de estacionamiento en difusor' }
-  ],
-  puertaDerecha: [
-    { sector: 'Puerta Derecha', url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=300&q=80', descripcion: 'Micro-rayones circulares "swirls" severos' }
-  ],
-  puertaIzquierda: [
-    { sector: 'Puerta Izquierda', url: 'https://images.unsplash.com/photo-1486496146582-9ffcd0b2b2b7?auto=format&fit=crop&w=300&q=80', descripcion: 'Pequeño abollón cerca de manija' }
-  ],
-  capot: [
-    { sector: 'Capot', url: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=300&q=80', descripcion: 'Impactos de piedras en autopista' }
-  ],
-  techo: [
-    { sector: 'Techo', url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=300&q=80', descripcion: 'Manchas ácidas de savia de árbol' }
-  ],
-  vidrios: [
-    { sector: 'Vidrios y Cristales', url: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=300&q=80', descripcion: 'Micro-fisura por piedra en parabrisas' }
-  ],
-  llantas: [
-    { sector: 'Llantas de Aleación', url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=300&q=80', descripcion: 'Cordoneada marcada en llanta delantera derecha' }
-  ],
-  interior: [
-    { sector: 'Interior y Tapizado', url: 'https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=300&q=80', descripcion: 'Suciedad grasa y derrame de café en consola' }
-  ]
-};
 
 const DEFAULT_DAMAGE_CHECKLIST: DamageChecklist = {
   paragolpesDelantero: false,
@@ -48,6 +14,33 @@ const DEFAULT_DAMAGE_CHECKLIST: DamageChecklist = {
   llantas: false,
   interior: false
 };
+
+async function compressReceptionPhoto(file: File): Promise<string> {
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error('No se pudo abrir la imagen.'));
+      element.src = sourceUrl;
+    });
+    const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('No se pudo preparar la imagen.');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const result = canvas.toDataURL('image/jpeg', 0.72);
+    const estimatedBytes = Math.ceil((result.length - result.indexOf(',') - 1) * 0.75);
+    if (estimatedBytes > 700000) throw new Error('La imagen sigue siendo demasiado pesada luego de optimizarla.');
+    return result;
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
 
 interface VehicleHealthProps {
   patente: string;
@@ -76,12 +69,11 @@ export default function VehicleHealth({
   const [observaciones, setObservaciones] = useState(initialData?.observaciones || '');
   const [inspector, setInspector] = useState(initialData?.operarioInspector || 'Supervisor Albelo');
 
-  // Multi-step simulated photo capturing state
-  const [fotos, setFotos] = useState<VehicleHealthData['fotosSimuladas']>(
-    initialData?.fotosSimuladas || []
+  const [fotos, setFotos] = useState<VehicleHealthData['fotos']>(
+    initialData?.fotos || initialData?.fotosSimuladas || []
   );
+  const [photoError, setPhotoError] = useState('');
 
-  // Toggle sector damage and automatically update/simulate photos
   const toggleSector = (sector: keyof DamageChecklist) => {
     if (!isEditMode) return;
     const nextVal = !checklist[sector];
@@ -89,20 +81,6 @@ export default function VehicleHealth({
       ...prev,
       [sector]: nextVal
     }));
-
-    if (nextVal) {
-      // Add simulated inspection photo for that sector
-      const presets = SIMULATED_DAMAGE_PHOTOS[sector];
-      if (presets && presets.length > 0) {
-        // Prevent duplicates
-        if (!fotos.some(f => f.sector === presets[0].sector)) {
-          setFotos(prev => [...prev, presets[0]]);
-        }
-      }
-    } else {
-      // Remove photo if unchecked
-      setFotos(prev => prev.filter(f => f.sector !== getSectorLabel(sector)));
-    }
   };
 
   const getSectorLabel = (key: keyof DamageChecklist): string => {
@@ -119,8 +97,32 @@ export default function VehicleHealth({
     }
   };
 
-  const getSectorIconColor = (sector: keyof DamageChecklist) => {
-    return checklist[sector] ? 'text-red-500 fill-red-500/20' : 'text-slate-500 hover:text-slate-300';
+  const handlePhotoSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPhotoError('');
+    const selected: File[] = event.currentTarget.files
+      ? Array.from(event.currentTarget.files as FileList)
+      : [];
+    event.target.value = '';
+    if (fotos.length + selected.length > 6) {
+      setPhotoError('Podés adjuntar hasta 6 fotos por inspección.');
+      return;
+    }
+    if (selected.some(file => !file.type.startsWith('image/') || file.size > 5 * 1024 * 1024)) {
+      setPhotoError('Cada archivo debe ser una imagen de hasta 5 MB.');
+      return;
+    }
+    const damagedSector = (Object.keys(checklist) as Array<keyof DamageChecklist>).find(key => checklist[key]);
+    const sector = damagedSector ? getSectorLabel(damagedSector) : 'Vista general';
+    try {
+      const additions = await Promise.all(selected.map(async (file): Promise<VehicleHealthData['fotos'][number]> => ({
+        sector,
+        url: await compressReceptionPhoto(file),
+        descripcion: file.name,
+      })));
+      setFotos(current => [...current, ...additions]);
+    } catch {
+      setPhotoError('No se pudo procesar una de las imágenes.');
+    }
   };
 
   const handleSave = () => {
@@ -130,7 +132,7 @@ export default function VehicleHealth({
         nivelSuciedad,
         checklistDanos: checklist,
         observaciones,
-        fotosSimuladas: fotos,
+        fotos,
         operarioInspector: inspector,
         fechaInspeccion: new Date().toISOString()
       });
@@ -394,22 +396,37 @@ export default function VehicleHealth({
 
         </div>
 
-        {/* Right column: Camera simulation, Observations and action controls */}
+        {/* Right column: Photos, observations and action controls */}
         <div className="md:col-span-5 space-y-4 flex flex-col justify-between">
           
           <div className="space-y-4">
-            {/* Camera Simulated Photo Snapshot roll */}
+            {/* Real reception photo roll */}
             <div>
               <h5 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 flex items-center gap-1.5">
                 <Camera className="w-3.5 h-3.5 text-slate-500" />
                 3. Fotos de Respaldo de Recepción
               </h5>
+              {isEditMode && (
+                <label className="mb-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-brand-primary/35 bg-brand-primary/5 px-3 py-2 text-[10px] font-bold text-brand-primary transition hover:bg-brand-primary/10">
+                  <Camera className="h-4 w-4" />
+                  Tomar o adjuntar fotos reales
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    onChange={handlePhotoSelection}
+                    className="sr-only"
+                  />
+                </label>
+              )}
+              {photoError && <p role="alert" className="mb-2 text-[10px] text-red-400">{photoError}</p>}
               
               <div className="space-y-2">
                 {fotos.length === 0 ? (
                   <div className="bg-[#030406]/40 border border-dashed border-white/[0.08] p-6 rounded-xl text-center flex flex-col items-center justify-center gap-2">
                     <Camera className="w-6 h-6 text-slate-600" />
-                    <span className="text-[10px] text-slate-500">Ningún sector dañado seleccionado para simular toma fotográfica.</span>
+                    <span className="text-[10px] text-slate-500">Todavía no se adjuntaron fotos de recepción.</span>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
@@ -425,6 +442,16 @@ export default function VehicleHealth({
                           <span className="text-[7.5px] font-bold text-red-400 uppercase tracking-wide block">{f.sector}</span>
                           <span className="text-[6.5px] text-slate-300 truncate">{f.descripcion}</span>
                         </div>
+                        {isEditMode && (
+                          <button
+                            type="button"
+                            onClick={() => setFotos(current => current.filter((_, photoIndex) => photoIndex !== idx))}
+                            aria-label={`Eliminar foto ${idx + 1}`}
+                            className="absolute right-1 top-1 rounded bg-black/70 p-1 text-white transition hover:bg-red-600"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

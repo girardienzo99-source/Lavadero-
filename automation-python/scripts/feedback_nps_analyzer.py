@@ -2,10 +2,12 @@ import os
 import json
 import pandas as pd
 
-DB_URL = os.getenv("DATABASE_URL", f"postgresql://postgres.txpryiflqkxukeldgisc:{os.getenv('SUPABASE_DB_PASSWORD', 'Enzo37108100.')}@aws-1-us-west-1.pooler.supabase.com:5432/postgres")
+DB_URL = os.getenv("DATABASE_URL", "").strip()
 
 def calculate_nps():
     print("[NPS] Buscando valoraciones de clientes en la base de datos...")
+    if not DB_URL:
+        raise RuntimeError("DATABASE_URL no está configurada.")
     
     try:
         import psycopg2
@@ -37,16 +39,12 @@ def calculate_nps():
             
         # Convertir a DataFrame de Pandas para análisis
         df = pd.DataFrame(rows)
-        return process_nps_df(df, is_mock=False)
+        return process_nps_df(df)
         
     except Exception as e:
-        print(f"[NPS-WARNING] Error al conectar a la DB ({e}). Generando reporte simulado.")
-        # Fallback a datos simulados
-        mock_scores = {"puntuacion": [5, 5, 4, 2, 5, 4, 5, 3]} # 5 promotores (5), 2 pasivos (4), 2 detractores (2,3)
-        df = pd.DataFrame(mock_scores)
-        return process_nps_df(df, is_mock=True)
+        raise RuntimeError("No se pudo calcular NPS con datos reales.") from e
 
-def process_nps_df(df, is_mock):
+def process_nps_df(df):
     total = len(df)
     
     # Clasificación en base a estrellas de 1 a 5:
@@ -80,7 +78,7 @@ def process_nps_df(df, is_mock):
         "detractores": detractores,
         "porcentaje_promotores": round(pct_promotores, 1),
         "porcentaje_detractores": round(pct_detractores, 1),
-        "modo_simulacion": is_mock
+        "source": "database"
     }
 
 if __name__ == "__main__":
